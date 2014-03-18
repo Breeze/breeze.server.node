@@ -1,0 +1,168 @@
+/**
+ * Created by Jay on 12/17/13.
+ */
+
+
+=== ANY with 1 predicate ========================================
+// Order.OrderDetails.any(UnitPrice > 100);
+var q {
+  OrderDetails: {
+     $elemMatch: {
+	   UnitPrice: { $gte: 100 }
+     }
+  }
+}
+
+// same as above
+// Order.OrderDetails.any(UnitPrice > 100);
+var q = {
+  "OrderDetails.UnitPrice": { $gte: 100 }
+}
+
+=== ALL with 1 predicate ======================================
+
+// Order.OrderDetails.all(UnitPrice < 5);
+var q = {
+  "OrderDetails.0": { $exists: true },
+  OrderDetails: {
+    $not: {
+      $elemMatch: {
+        UnitPrice: { $not: { $lt: 5 } }
+      },
+    },
+  }
+}
+
+===  ANY with AND predicates =============================================
+
+// ANY with AND
+// Order.OrderDetails.any(UnitPrice >= 50 and Quantity >= 50)
+var q = {
+  OrderDetails: {
+    $elemMatch: {
+      $and: [
+        { UnitPrice: { $gte: 50 } },
+        { Quantity: { $gte: 50} }
+      ]
+    } ,
+  }
+}
+
+===  ANY with OR predicates =============================================
+
+// Order.OrderDetails.any(Quantity < 2 or UnitPrice < 3)
+var q = {
+  OrderDetails: {
+    $elemMatch: {
+      $or: [
+        { Quantity: { $lt: 2} } ,
+        { UnitPrice: { $lt: 3} },
+      ]
+    }
+  }
+}
+
+=== ALL with OR predicates ===========================
+
+// Order.OrderDetails.all(UnitPrice < 5 or Quantity < 5)
+// a or b == not(not(a) and not(b));
+var q = {
+  "OrderDetails.0": { $exists: true },
+  OrderDetails: {
+    $not: {
+      $elemMatch: {
+        $and: [
+	      { Quantity: { $not: { $lt: 3} } },
+		  { UnitPrice: { $not: { $lt: 3}} },
+		]
+      }
+    },
+
+  }
+}
+
+// OR
+var q = {
+  "OrderDetails.0": { $exists: true },
+  OrderDetails: {
+    $not: {
+      $elemMatch: {
+        $nor: [
+	      { Quantity: { $lt: 3} } ,
+		  { UnitPrice: {  $lt: 3}} ,
+		]
+      }
+    },
+
+  }
+}
+
+=== ALL with AND predicates ===========================
+
+// Order.OrderDetails.all(UnitPrice < 10 and Quantity < 10)
+var q = {
+   "OrderDetails.0": { $exists: true },
+   OrderDetails: {
+     $not: {
+       $elemMatch: {
+ 	    $or: [
+ 	      { Quantity: { $not: { $lt: 10}}},
+ 		  { UnitPrice: { $not: { $lt: 10}}},
+         ]
+       }
+     },
+
+   }
+ }
+
+ var q = {
+   "OrderDetails.0": { $exists: true },
+   OrderDetails: {
+     $not: {
+       $elemMatch: {
+ 	    $or: [
+ 	      { $nor: [{ Quantity:  { $lt: 10}}] },
+ 		  { $nor: [{ UnitPrice: { $lt: 10}}] },
+         ]
+       }
+     },
+
+   }
+ }
+
+
+// Order.OrderDetails.all(UnitPrice < 10 and Quantity == 5)
+// a and b == not(not(a) or not(b))
+var q = {
+  "OrderDetails.0": { $exists: true },
+  OrderDetails: {
+    $not: {
+      $elemMatch: {
+	    $or: [
+	      { Quantity: { $ne: 5}},
+		  { UnitPrice: { $not: { $lt: 10}}},
+        ]
+      }
+    },
+
+  }
+}
+
+
+=== Other stuff ================================================
+
+// other
+// Orders.Freight >= 100 and Orders.OrderDetails.all(freight < 20);
+var q = {
+  Freight: { $gte: 100 },
+  OrderDetails: {
+    $not: {
+      $elemMatch: {
+        Quantity: { $gte: 20}
+      }
+    }
+  }
+}
+
+
+db.Orders.find(q);
