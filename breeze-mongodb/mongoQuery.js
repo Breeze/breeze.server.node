@@ -1,9 +1,17 @@
+/*
+ * Copyright 2014 IdeaBlade, Inc.  All Rights Reserved.
+ * Use, reproduction, distribution, and modification of this code is subject to the terms and
+ * conditions of the IdeaBlade Breeze license, available at http://www.breezejs.com/license
+ *
+ * Author: Jay Traband
+ */
 var mongodb = require('mongodb');
 var ObjectId = require('mongodb').ObjectID;
 
 var odataParser = require("./odataParser");
 
 exports.MongoQuery = MongoQuery;
+exports.version = "1.4.13";
 
 var boolOpMap = {
     eq: { jsOp: "==="},
