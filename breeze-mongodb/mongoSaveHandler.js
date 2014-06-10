@@ -150,13 +150,41 @@ fn._buildSaveMap = function (){
 
 fn._coerceData = function(entity, entityType) {
     var _this = this;
+
     var errPrefix = function(e){
-        try{
-            var id = ' (_id='+ e._id + ')';
-        } catch (e){ id=''}
-        return "Save failed while checking data for '"+entityType.entityTypeName+"'"+id;
+        return "Save failed checking data for "+entityType.entityTypeName+".id_: "+e._id;
     };
-    return _this._forEach(entityType.dataProperties, coerceProp, errPrefix);
+
+    var keepNulls=false, // consider option to keep them if really wanted
+        props = entityType.dataProperties;
+    switch (entity.entityAspect.entityState){
+        case "Added":
+            // nothing more to do
+            break;
+        case "Modified":
+            if (entity.entityAspect.forceUpdate){
+                keepNulls = true; // necessary to clear a prior property
+            } else {
+                // Coerce only the _id and original values properties
+                // because those are only properties involved in update
+                var ovm = entity.entityAspect.originalValuesMap;
+                props = props.filter(function(dp){
+                    return ovm.hasOwnProperty(dp.name);
+                });
+                props.push(entityType.key);
+            }
+            break;
+        case "Deleted":
+            props = [entityType.key];
+            break;
+        default:
+            msg = errPrefix(entity) + ". Unknown save operation request, entityState = " +
+                entity.entityAspect.entityState;
+            _this._raiseError({statusCode: 400, message: msg});
+            return;
+    }
+
+    return _this._forEach(props, coerceProp, errPrefix);
 
     function coerceProp(dp) {
         var msg;
@@ -175,14 +203,12 @@ fn._coerceData = function(entity, entityType) {
             fus.push( { _id: entity._id, fkProp: dpn  });
         }
         if (val == null) {
-            // this allows us to avoid inserting a null.
-            // TODO: think about an option to allow this if someone really wants to.
-            // [WB: WHAT IF THEY WANT A NULL?!? BAD IDEA JUST TO SAVE A LITTLE SPACE
-            //      IF THEY DON'T WANT IT, THEY SHOULD STRIP THEMSELVES BEFORE SENDING
-            //      OR IN THE BeforeSaveEntity]
+            if (keepNulls) {return;}
             delete entity[dpn];
+            console.log(dpn + " is null; deleting that property whose val is now "+entity[dpn]);
             return;
         }
+        // assertion: val is not null at this point
         try {
             if (dt === "MongoObjectId") {
                 entity[dpn] = ObjectID.createFromHexString(val);
@@ -275,15 +301,12 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
 
     var _this = this;
     var errPrefix = function(e){
-      try{
-          var id = ' (_id='+ e._id + ')';
-      } catch (e){ id=''}
-      return "Save failed preparing save instructions for '"+entityTypeName+"'"+id;
+        return "Save failed preparing save docs for "+entityType.entityTypeName+".id_: "+e._id;
     };
     _this._forEach(entities, prepEntity, errPrefix);
 
     return {
-        entityType: entityType,
+        entityType: entityType,  // for debugging
         collectionName:  entityType.collectionName,
         inserts: insertDocs,
         updates: updateDocs,
@@ -292,8 +315,6 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
 
     function prepEntity(e) {
         var msg;
-        // TODO: we really only need to coerce every field on an insert
-        // only selected fields are needed for update and delete.
         // Coerce before using _id because that's one of the properties it parses
         _this._coerceData(e, entityType);
 
@@ -393,6 +414,7 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
 // N.B. Will set metadata object values even when this.hasServerMetadata == true
 //      Make sure the changes don't 'corrupt' your source of metadata, including:
 //      * entityType.collectionName
+//      * entityType.key
 //      * entityType.keyDataType
 //      * entityType.concurrencyProp
 fn._reviewMetadata = function (){
@@ -403,7 +425,7 @@ fn._reviewMetadata = function (){
         var msg;
         var entityType = _this.metadata[typeName];
         if (!entityType) {
-            msg = "Unable to locate server side metadata for an EntityType named: " + typeName;
+            msg = "Unable to locate metadata for an EntityType named: " + typeName;
             _this._raiseError({statusCode: 400, message: msg});
             return null;
         }
@@ -416,6 +438,7 @@ fn._reviewMetadata = function (){
             var dt = dp.dataType;
 
             if (dp.name === "_id") {
+                entityType.key         = dp;
                 entityType.keyDataType = dt;
 
                 if (dp.isFk) {
@@ -637,7 +660,5 @@ function extend(target, source) {
 }
 
 function formatEntityKey(ek) {
-    return ek.entityTypeName + ": " + ek._id;
+    return ek.entityTypeName + "._id: " + ek._id;
 }
-
-
