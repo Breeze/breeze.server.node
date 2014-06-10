@@ -11,7 +11,7 @@ var ObjectId = require('mongodb').ObjectID;
 var odataParser = require("./odataParser");
 
 exports.MongoQuery = MongoQuery;
-exports.version = "1.4.13";
+exports.version = "0.4.0";
 
 var boolOpMap = {
     eq: { jsOp: "==="},
