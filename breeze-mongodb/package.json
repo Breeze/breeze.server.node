@@ -2,15 +2,26 @@
     "name": "breeze-mongodb",
     "description": "Classes and helper methods for Breeze <-> Mongo interop.",
     "version": "0.4.0",
-	"author": {
+    "author": {
         "name": "Jay Traband",
         "email": "jayt@ideablade.com"
     },
+    "contributors" : [
+        {"name": "Jay Traband"},
+        {"name": "Ward Bell"}
+    ],
+    "keywords": [
+        "breeze",
+        "breezejs",
+        "mongo",
+        "mongodb",
+        "node"
+    ],
     "repository": {
-	    "type": "git",
-	    "url": "https://github.com/Breeze/breeze.server.node"
+        "type": "git",
+        "url": "https://github.com/Breeze/breeze.server.node"
     },
-	"bugs": {
+    "bugs": {
         "url": "https://github.com/Breeze/breeze.server.node/issues"
     },
     "dependencies": {
@@ -19,6 +30,7 @@
     "devDependencies": {
         "pegjs" : ">= 0.7.0"
     },
+    "main": "./index",
     "homepage": "www.breezejs.com",
     "engines": {
         "node": ">= 0.6.6"

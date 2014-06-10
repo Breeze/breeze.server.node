@@ -83,7 +83,7 @@ MongoQuery.prototype._parseUrl = function(reqQuery) {
 }
 
 MongoQuery.prototype.execute = function(db, collectionName, fn) {
-    var that = this;
+    var _this = this;
     db.collection(collectionName, {strict: true} , function (err, collection) {
         if (err) {
             err = { statusCode: 404, message: "Unable to locate: " + collectionName, error: err };
@@ -94,30 +94,30 @@ MongoQuery.prototype.execute = function(db, collectionName, fn) {
 
         // Note special handling for 'options.limit' = 0 as a real limit.
 
-        if (that.inlineCount) {
-            collection.count(that.filter, function(err, count) {
+        if (_this.inlineCount) {
+            collection.count(_this.filter, function(err, count) {
                 // Mongo doesn't handle limit = 0 as a real limit.
-                if (that.options && that.options.limit === 0) {
+                if (_this.options && _this.options.limit === 0) {
                     var resultsWith =  { Results: [], InlineCount: count };
                     fn(null, resultsWith);
                     return;
                 }
-                src = collection.find(that.filter, that.select, that.options);
+                src = collection.find(_this.filter, _this.select, _this.options);
                 src.toArray(function (err, results) {
-                    results = processResults(results, that.resultEntityType);
+                    results = processResults(results, _this.resultEntityType);
                     var resultsWith =  { Results: results, InlineCount: count };
                     fn(null, resultsWith);
                 });
             });
         } else {
             // Mongo doesn't handle limit = 0 as a real limit.
-            if (that.options && that.options.limit === 0) {
+            if (_this.options && _this.options.limit === 0) {
                 fn(err, []);
                 return;
             }
-            src = collection.find(that.filter, that.select, that.options);
+            src = collection.find(_this.filter, _this.select, _this.options);
             src.toArray(function (err, results) {
-                results = processResults(results, that.resultEntityType);
+                results = processResults(results, _this.resultEntityType);
                 fn(null, results);
             });
         }
