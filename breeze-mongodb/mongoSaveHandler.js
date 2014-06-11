@@ -5,11 +5,15 @@
  *
  * Author: Jay Traband, Ward Bell
  */
+// assumes mongodb JS driver v.1.4.5
+// see http://mongodb.github.io/node-mongodb-native/api-generated/collection.html
 var mongodb = require('mongodb');
 var ObjectID = require('mongodb').ObjectID;
 
 exports.MongoSaveHandler = MongoSaveHandler;
 exports.version = "0.4.0";
+
+var MONGO_ERROR_CODE_DUP_KEY = 11000;
 
 function MongoSaveHandler(db, reqBody, callback) {
     this.db = db;
@@ -21,7 +25,7 @@ function MongoSaveHandler(db, reqBody, callback) {
     this.saveOptions = reqBody.saveOptions;
 
     this.saveMap    = {};
-    this.saveResult = undefined;
+    this.saveResult = {};
 
     this._insertedKeys = [];
     this._updatedKeys  = [];
@@ -64,10 +68,13 @@ fn.addToSaveMap = function(entity, entityTypeName, entityState) {
 // looks for and executes. Add one more of them to this handler instance as needed.
 // No default implementations
 // -------------------------------------------------------------------
-// `this.afterSaveEntity(success)` interceptor method - returns nothing
-// Called after all mongo save operations have returned successfully
-// Call 'success' after doing your thing ...
-// else call 'this._raiseError(err) to report error to the client
+// `this.afterSaveEntity(done)` interceptor method - returns nothing
+// Called after all mongo save operations have completed
+// Be sure to check this.saveResult.errors because some or all of the saves may have failed
+// Call 'done' after doing your thing.
+// Call 'this._raiseError(err) to report your own error to the client
+// remembering to set `err.saveResult=this.saveResult;`
+// so client knows which entities were saved and which were not.
 // 'this' is bound to the current saveHandler instance
 fn.afterSaveEntities = undefined;
 
@@ -155,7 +162,7 @@ fn._coerceData = function(entity, entityType) {
         return "Save failed checking data for "+entityType.entityTypeName+".id_: "+e._id;
     };
 
-    var keepNulls=false, // consider option to keep them if really wanted
+    var deleteNulls=true, // consider option to keep them if really wanted
         props = entityType.dataProperties;
     switch (entity.entityAspect.entityState){
         case "Added":
@@ -163,7 +170,7 @@ fn._coerceData = function(entity, entityType) {
             break;
         case "Modified":
             if (entity.entityAspect.forceUpdate){
-                keepNulls = true; // necessary to clear a prior property
+                deleteNulls = false; // need them to clear an existing property value
             } else {
                 // Coerce only the _id and original values properties
                 // because those are only properties involved in update
@@ -178,7 +185,7 @@ fn._coerceData = function(entity, entityType) {
             props = [entityType.key];
             break;
         default:
-            msg = errPrefix(entity) + ". Unknown save operation request, entityState = " +
+            var msg = errPrefix(entity) + ". Unknown save operation request, entityState = " +
                 entity.entityAspect.entityState;
             _this._raiseError({statusCode: 400, message: msg});
             return;
@@ -203,9 +210,7 @@ fn._coerceData = function(entity, entityType) {
             fus.push( { _id: entity._id, fkProp: dpn  });
         }
         if (val == null) {
-            if (keepNulls) {return;}
-            delete entity[dpn];
-            console.log(dpn + " is null; deleting that property whose val is now "+entity[dpn]);
+            if (deleteNulls) { delete entity[dpn]; }
             return;
         }
         // assertion: val is not null at this point
@@ -223,8 +228,8 @@ fn._coerceData = function(entity, entityType) {
     }
 };
 
-// 'cDocs' are 'collectionSaveDocs' - the insert/update/delete documents for each collection
-fn._fixupFks = function(cDocs) {
+// 'collectionSaveDocs' - the insert/update/delete documents for each collection
+fn._fixupFks = function(collectionSaveDocs) {
     var _this = this;
     try {
         if (this._isDone) { return true; }// stop processing
@@ -240,7 +245,7 @@ fn._fixupFks = function(cDocs) {
         // pendingMap is a map of _id-to-pendingDoc
         // for all inserts and updates
         var pendingMap = {};
-        cDocs.forEach(function(cd) {
+        collectionSaveDocs.forEach(function(cd) {
             cd.inserts.concat(cd.updates)
                 .forEach(function(doc) {
                     pendingMap[doc.entityAspect.entityKey._id] = doc;
@@ -456,16 +461,26 @@ fn._reviewMetadata = function (){
 
 fn._saveCollections = function(collectionSaveDocs){
     if (this._isDone) {return true; }
+    this.saveResult = {
+        insertedKeys: this._insertedKeys,
+        updatedKeys:  this._updatedKeys,
+        deletedKeys:  this._deletedKeys,
+        keyMappings:  this._keyMappings,
+        entitiesCreatedOnServer: this._entitiesCreatedOnServer,
+        errors: []
+    };
     if (collectionSaveDocs.length === 0) {
         this._invokeCompletedCallback();
     } else {
-        this._forEach(collectionSaveDocs, this._saveCollection.bind(this));
+        // once we start saving to mongo, we have to do them all.
+        collectionSaveDocs.forEach(this._saveCollection.bind(this));
         this._allSaveCallsSent = true; // all mongo calls have been sent
     }
     return this._isDone;
 };
 
 // 'cd' is a 'collectionSaveDoc' - the insert/update/delete documents for a collection
+// See driver Collection documentation: http://mongodb.github.io/node-mongodb-native/api-generated/collection.html
 fn._saveCollection = function(cd) {
     this._saveCountPending += cd.inserts.length + cd.updates.length + cd.deletes.length;
     var saveOptions = { safe: true };
@@ -476,58 +491,87 @@ fn._saveCollection = function(cd) {
             var msg = "Save failed to find the db collection for '" + cd.entityType.entityTypeName +
                       "' because " + err.message;
             err = { statusCode: 400, message: msg, error: err };
-            _this._raiseError(err);
+            _this._catchSaveError(err);
             return;
         }
 
         cd.inserts.forEach(function (iDoc) {
-            collection.insert(iDoc.entity, saveOptions, function(err, object) {
-                _this._handleInsert(iDoc, err, object);
+            collection.insert(iDoc.entity, saveOptions, function(err, insertedObjects) {
+                _this._handleInsert(iDoc, err, insertedObjects);
             });
         });
         cd.updates.forEach(function (uDoc) {
-            collection.update( uDoc.criteria, uDoc.setOps, saveOptions, function(err, object) {
-                _this._handleUpdate(uDoc, err, object);
+            collection.update( uDoc.criteria, uDoc.setOps, saveOptions, function(err, wasUpdated) {
+                _this._handleUpdate(uDoc, err, wasUpdated);
             })
         });
         cd.deletes.forEach(function (dDoc) {
-            collection.remove( dDoc.criteria, true, function(err, object) {
-                _this._handleDelete(dDoc, err, object);
+            collection.remove( dDoc.criteria, true, function(err, numberRemoved) {
+                _this._handleDelete(dDoc, err, numberRemoved);
             })
         });
     });
 };
 
 fn._handleInsert = function(insertDoc, err, insertedObjects) {
-    if (this._checkIfError(err)) return;
-    var entityKey = this._handleSave(insertDoc, this._insertedKeys);
-    if ((!insertedObjects) || insertedObjects.length !== 1) {
-        this._raiseError(new Error("Not inserted: " + formatEntityKey(entityKey)));
+    try {
+        if (err) {
+            if (err.code == MONGO_ERROR_CODE_DUP_KEY) {
+                err.statusCode = 409;
+                err.message = "Duplicate key.";
+            }
+            this._catchSaveError(err, insertDoc);
+            return;
+        }
+        var count = Array.isArray(insertedObjects) ? insertedObjects.length : 0;
+        if (count !== 1) {
+            err = {message: "Expected exactly 1 inserted doc; db inserted "+count};
+            this._catchSaveError(err, insertDoc);
+            return;
+        }
+        this._handleSave(insertDoc, this._insertedKeys);
+    } catch (e){
+        this._catchSaveError(e, insertDoc);
     }
-    this._checkIfCompleted();
 };
 
 fn._handleUpdate = function (updateDoc, err, wasUpdated) {
-    if (this._checkIfError(err)) return;
-    var entityKey = this._handleSave(updateDoc, this._updatedKeys);
-    if (!wasUpdated) {
-        var msg = updateDoc.hasConcurrencyCheck
-            ? ". This may be because of the concurrency check performed during the save."
-            : ".";
-        this._raiseError(new Error("Not updated: " + formatEntityKey(entityKey) + msg));
+    try {
+        if (this._checkIfSaveError(err, updateDoc)) return;
+        if (!wasUpdated) {
+            var msg = "Not updated. ";
+            if (updateDoc.hasConcurrencyCheck){
+                msg +="Perhaps not found due to the concurrency check.";
+            }
+            err = {statusCode: 404, message: msg};
+            this._catchSaveError(err, updateDoc);
+            return;
+        }
+        this._handleSave(updateDoc, this._updatedKeys);
+    } catch (e){
+        this._catchSaveError(e, updateDoc);
     }
-    this._checkIfCompleted();
 };
 
-fn._handleDelete = function (deleteDoc, err, wasDeleted) {
-    if (this._checkIfError(err)) return;
-    var entityKey = this._handleSave(deleteDoc, this._deletedKeys);
-    if (!wasDeleted) {
-        this._raiseError(new Error("Not deleted: " + formatEntityKey(entityKey)));
+fn._handleDelete = function (deleteDoc, err, numberRemoved) {
+    try {
+        if (this._checkIfSaveError(err, deleteDoc)) return;
+        if (numberRemoved !== 1) {
+            var msg = "Not deleted; may have been deleted previously.";
+            if (deleteDoc.hasConcurrencyCheck){
+                msg +=" Perhaps not found due to the concurrency check.";
+            }
+            err = {statusCode: 404, message: msg};
+            this._catchSaveError(err, deleteDoc);
+            return;
+        }
+        this._handleSave(deleteDoc, this._deletedKeys);
+    } catch (e){
+        this._catchSaveError(e, deleteDoc);
     }
-    this._checkIfCompleted();
 };
 
+// Called last in a save handler when we know the doc was saved
 fn._handleSave = function(doc, keyCollection) {
     var entityAspect = doc.entityAspect;
     var entityKey = entityAspect.entityKey;
@@ -537,24 +581,39 @@ fn._handleSave = function(doc, keyCollection) {
         this._entitiesCreatedOnServer.push(entity);
     }
     keyCollection.push(entityKey);
-    return entityKey;
+    this._checkIfCompleted();
 };
 
 /////// UTILITIES ///////
 
-fn._checkIfError = function(err) {
+fn._checkIfSaveError = function(err, doc) {
     if (err) {
-        this._raiseError(err);
+        this._catchSaveError(err, doc);
+        return true;
     }
-    return err != null;
+    return false;
+};
+
+fn._catchSaveError = function(err, doc){
+    var entry = {
+        status:  err.statusCode || err.status || 500,
+        message: err.message
+    };
+    if (doc){
+        var aspect = doc.entityAspect;
+        entry.entityKey   = aspect.entityKey;
+        entry.entityState = aspect.entityState;
+    }
+    this.saveResult.errors.push(entry);
+    this._checkIfCompleted();
 };
 
 // Called within a saveCollection callback
 fn._checkIfCompleted = function() {
-    if (this._isDone) return;            // already terminated the entire saveChanges operation
+    if (this._isDone) return;               // already terminated the entire saveChanges operation
     this._saveCountPending -= 1;            // this save call is done; decrement the count
     if (this._saveCountPending > 0) return; // awaiting more mongoDb save results
-    if (!this._allSaveCallsSent) return;        // might not have sent all mongoDb calls yet
+    if (!this._allSaveCallsSent) return;    // might not have sent all mongoDb calls yet
     this._invokeCompletedCallback();        // we really ARE done; wrap up the save
 };
 
@@ -610,28 +669,30 @@ fn._groupBy = function(arr, keyFn, groups, errPrefix) {
 // called when all mongo save operations have completed
 fn._invokeCompletedCallback=function() {
 
-    this.saveResult = {
-        insertedKeys: this._insertedKeys,
-        updatedKeys:  this._updatedKeys,
-        deletedKeys:  this._deletedKeys,
-        keyMappings:  this._keyMappings,
-        entitiesCreatedOnServer: this._entitiesCreatedOnServer
-    };
-
-    var success = function (){
-        this._isDone = true;
-        this.callback(null, this.saveResult);
+    var done = function (){
+        var sr = this.saveResult;
+        if (sr.errors.length === 0) {
+            this._isDone = true;
+            this.callback(null, sr);
+        } else {
+            this._raiseError( {
+                statusCode: 400,
+                message: "Some entities were not saved; see the errors array.",
+                saveResult: sr
+            });
+        }
     }.bind(this);
 
     if (this.afterSaveEntities) {
         try {
-            this.afterSaveEntities.bind(this)(success);
+            this.afterSaveEntities.bind(this)(done);
         } catch (err){
-            err.message = "save failed in 'afterSaveEntities' with error '"+err.message+"'";
+            err.message = "Save failed in 'afterSaveEntities' with error '"+err.message+"'";
+            err.saveResult = this.saveResult;
             this._raiseError(err);
         }
     } else {
-        success();
+        done();
     }
 };
 
@@ -657,8 +718,4 @@ function extend(target, source) {
         }
     }
     return target;
-}
-
-function formatEntityKey(ek) {
-    return ek.entityTypeName + "._id: " + ek._id;
 }
