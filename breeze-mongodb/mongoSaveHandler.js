@@ -1,13 +1,18 @@
 /*
+ * Breeze-MongoDb MongoSaveHandler processes Breeze saveChanges requests
+ *
+ * mongodb itself is not directly called by MongoSaveHandler
+ * which relies instead upon the `db` instance passed into its ctor.
+ * The handler assumes this is a mongodb node driver (v.1.4.5) `Db` instance
+ * see http://mongodb.github.io/node-mongodb-native/api-generated/collection.html
+ *
  * Copyright 2014 IdeaBlade, Inc.  All Rights Reserved.
  * Use, reproduction, distribution, and modification of this code is subject to the terms and
  * conditions of the IdeaBlade Breeze license, available at http://www.breezejs.com/license
  *
  * Author: Jay Traband, Ward Bell
+ *
  */
-// assumes mongodb JS driver v.1.4.5
-// see http://mongodb.github.io/node-mongodb-native/api-generated/collection.html
-var mongodb = require('mongodb');
 var ObjectID = require('mongodb').ObjectID;
 
 exports.MongoSaveHandler = MongoSaveHandler;
@@ -371,7 +376,7 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
             case "Modified":
                 criteria = { "_id": e._id };
                 if (entityType.concurrencyProp) {
-                    // Note that the Breeze client will insure that the current value has been updated.
+                    // Note that the Breeze client will ensure that the current value has been updated.
                     // so no need to do that here
                     var propName = entityType.concurrencyProp.name;
                     criteria[propName] = entityAspect.originalValuesMap[propName];

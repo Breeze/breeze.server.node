@@ -1,11 +1,17 @@
 /*
+ * Breeze-MongoDb MongoQuery processes Breeze OData-style query requests
+ *
+ * mongodb itself is not directly called by MongoQuery
+ * which relies instead upon the `db` instance passed into its `execute` method.
+ * The `execute` method assumes this is a mongodb node driver (v.1.4.5) `Db` instance
+ * see http://mongodb.github.io/node-mongodb-native/api-generated/collection.html
+ *
  * Copyright 2014 IdeaBlade, Inc.  All Rights Reserved.
  * Use, reproduction, distribution, and modification of this code is subject to the terms and
  * conditions of the IdeaBlade Breeze license, available at http://www.breezejs.com/license
  *
  * Author: Jay Traband
  */
-var mongodb = require('mongodb');
 var ObjectId = require('mongodb').ObjectID;
 
 var odataParser = require("./odataParser");
@@ -20,7 +26,7 @@ var boolOpMap = {
     lt: { mongoOp: "$lt",  jsOp: "<" },
     le: { mongoOp: "$lte", jsOp: "<=" },
     ne: { mongoOp: "$ne",  jsOp: "!=" }
-}
+};
 
 var wherePrefix = "function() { return ";
 var whereSuffix = "; }";
@@ -61,7 +67,7 @@ MongoQuery.prototype._parseUrl = function(reqQuery) {
     section = reqQuery.$orderby;
     if (section) {
         var orderbyItems = parse(section, "orderbyExpr");
-        sortClause = toOrderbyExpr(orderbyItems);
+        var sortClause = toOrderbyExpr(orderbyItems);
         extend(this.options, sortClause)
     }
 
@@ -80,7 +86,7 @@ MongoQuery.prototype._parseUrl = function(reqQuery) {
     section = reqQuery.$inlinecount;
     this.inlineCount = !!(section && section !== "none");
 
-}
+};
 
 MongoQuery.prototype.execute = function(db, collectionName, fn) {
     var _this = this;
@@ -126,7 +132,7 @@ MongoQuery.prototype.execute = function(db, collectionName, fn) {
 
 
 function processResults(results, resultEntityType) {
-    results == results || [];
+    results = results || [];
     if (resultEntityType) {
         results.forEach(function(r) { r.$type = resultEntityType} )
     }
@@ -205,7 +211,7 @@ function makeBoolFilter(node, context) {
             return addWhereClause(q, fn);
         }
     } else if (p2.type === "lit_boolean") {
-        var q = toQueryExpr(p1, context);
+        q = toQueryExpr(p1, context);
         if (p2Value === true) {
             return q;
         } else {
@@ -287,7 +293,7 @@ function makeAnyAllFilter(node, context) {
         translateMember: function(memberPath) {
             return context.translateMember(memberPath.replace(lambda + "/", ""));
         }
-    }
+    };
     return (node.op === "any") ? makeAnyFilter(node, newContext) : makeAllFilter(node, newContext);
 }
 
@@ -337,7 +343,7 @@ function applyNot(q1) {
         } else if (k === "$and") {
            result = {  $or: [ applyNot(v[0]), applyNot(v[1]) ] }
         } else {
-            result = {};
+            var result = {};
             if ( v!=null && typeof(v) === "object") {
                 result[k] = { $not: v };
             } else {
@@ -358,8 +364,7 @@ function applyNot(q1) {
 
 function addWhereClause(q, whereClause) {
     whereClause = "(" + whereClause + ")";
-    var whereFn = wherePrefix + whereClause + whereSuffix;
-    q.$where = whereFn;
+    q.$where = wherePrefix + whereClause + whereSuffix;
     return q;
 }
 
