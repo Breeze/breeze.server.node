@@ -1,0 +1,21 @@
+{
+    "name": "breeze-mongodb-tests",
+    "description": "Test the breeze-mongodb modules.",
+    "version": "0.0.1",
+    "author": {
+        "name": "Ward Bell",
+        "email": "wardb@ideablade.com"
+    },
+    "devDependencies": {
+    	"mocha": "*",
+        "should": ">= 4.0.0",
+        "sinon": ">= 1.10.1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Breeze/breeze.server.node"
+    },
+	"scripts": {
+		"test": "node_modules/.bin/mocha -w"
+	}
+}
