@@ -7,7 +7,16 @@
  */
 var queryModule = require("./mongoQuery");
 var saveModule = require("./mongoSaveHandler");
+var version;
 
 exports.MongoQuery = queryModule.MongoQuery;
 exports.MongoSaveHandler = saveModule.MongoSaveHandler;
-exports.version = "1.4.13";
+
+try {
+    //  version = require("./package.json").version works but everyone seems to use the following technique
+    var fs = require('fs');
+    version = JSON.parse(fs.readFileSync(__dirname + '/package.json', 'utf8')).version;
+} catch (e) {
+    version = "0.4.0-x"
+}
+exports.version = version;

@@ -16,7 +16,6 @@
 var ObjectID = require('mongodb').ObjectID;
 
 exports.MongoSaveHandler = MongoSaveHandler;
-exports.version = "0.4.0";
 
 var MONGO_ERROR_CODE_DUP_KEY = 11000;
 
