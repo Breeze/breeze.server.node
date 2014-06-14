@@ -25,7 +25,6 @@ function MongoSaveHandler(db, reqBody, callback) {
 
     this.entities = reqBody.entities || [];
     this.metadata = reqBody.metadata || {};  // client can provide metadata; recommend overriding on the server
-    this.hasServerMetadata = false;          // set true if you override client metadata
     this.saveOptions = reqBody.saveOptions;
 
     this.saveMap    = {};
@@ -132,7 +131,7 @@ fn.save = function() {
         try {
             this.beforeSaveEntities.bind(this)(saveCoreFn);
         } catch (err){
-            err.message = "save failed in 'beforeSaveEntities' with error '"+err.message+"'";
+            err.message = "Save failed in 'beforeSaveEntities' with error '"+err.message+"'";
             this._raiseError(err);
         }
     } else {
@@ -155,15 +154,15 @@ fn._buildSaveMap = function (){
     var kf1 = function(e) { return e.entityAspect.entityTypeName;};
     var kf2 = function(e) { return beforeSaveEntity(e) ? kf1(e) : undefined; };
     var keyFn =  beforeSaveEntity ? kf2 : kf1;
-    var errPrefix = "save failed in 'beforeSaveEntity'";
+    var errPrefix = "Save failed in 'beforeSaveEntity'";
     return this._groupBy(this.entities, keyFn, this.saveMap = {}, errPrefix);
 };
 
 fn._coerceData = function(entity, entityType) {
     var _this = this;
 
-    var errPrefix = function(e){
-        return "Save failed checking data for "+entityType.entityTypeName+".id_: "+e._id;
+    var errPrefix = function(dp){
+        return "Save failed checking "+dp.name+" data for "+entityType.entityTypeName+"._id: "+entity._id;
     };
 
     var deleteNulls=true, // consider option to keep them if really wanted
@@ -219,14 +218,20 @@ fn._coerceData = function(entity, entityType) {
         }
         // assertion: val is not null at this point
         try {
+            // String conversions (where necessary)
             if (dt === "MongoObjectId") {
+                if (typeof val==='string') {
                 entity[dpn] = ObjectID.createFromHexString(val);
-            } else if (dt === "DateTime" || dt === "DateTimeOffset") {
+                } else {
+                 // may be an MongoObjectId already; make sure it's valid
+                 if (!val.id || !val._bsontype) {throw new Error('Invalid: MongoObjectId: '+JSON.stringify(val));}  
+                }
+            } else if ((dt === "DateTime" || dt === "DateTimeOffset") && !(val instanceof Date)) {
                 entity[dpn] = new Date(Date.parse(val));
             }
-        } catch (err) {
+        } catch (e) {
             msg = errPrefix(e) +
-            ". Unable to convert the "+dpn+" value: '" + val + "' to a "+dt;
+            ". Unable to convert the "+dpn+" value: '" + val + "' of type '"+typeof val+"' to a "+dt;
             _this._raiseError({statusCode: 400, message: msg});
         }
     }
@@ -286,7 +291,7 @@ fn._fixupFks = function(collectionSaveDocs) {
 };
 
 fn._prepareCollectionSaveDocs = function(collectionSaveDocs){
-    if (this._isDone) { return true; }
+    if (this._isDone) { return; }
     var _this = this;
 
     var entityTypeNames = Object.keys(this.saveMap || {});
@@ -296,7 +301,7 @@ fn._prepareCollectionSaveDocs = function(collectionSaveDocs){
         collectionSaveDocs.push(docs);
     };
 
-    return this._forEach(entityTypeNames, makeSaveDocs)
+    this._forEach(entityTypeNames, makeSaveDocs)
 };
 
 // For entities of a given EntityType
@@ -309,8 +314,9 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
     var deleteDocs = [];
 
     var _this = this;
-    var errPrefix = function(e){
-        return "Save failed preparing save docs for "+entityType.entityTypeName+".id_: "+e._id;
+    var errPrefix = function(entity){
+        return "Save failed preparing "+entity.entityAspect.entityState+"save docs for "+
+            entityType.entityTypeName+"._id: "+entity._id;
     };
     _this._forEach(entities, prepEntity, errPrefix);
 
@@ -420,12 +426,12 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
 };
 
 // Validate and massage the save metadata
-// N.B. Will set metadata object values even when this.hasServerMetadata == true
-//      Make sure the changes don't 'corrupt' your source of metadata, including:
-//      * entityType.collectionName
-//      * entityType.key
-//      * entityType.keyDataType
-//      * entityType.concurrencyProp
+// Adds to this.metadata
+// Make sure the changes don't 'corrupt' your source of metadata, including:
+//    * entityType.collectionName
+//    * entityType.key
+//    * entityType.keyDataType
+//    * entityType.concurrencyProp
 fn._reviewMetadata = function (){
     var _this = this;
     return _this._forEach(Object.keys(this.saveMap), reviewType);
@@ -436,7 +442,7 @@ fn._reviewMetadata = function (){
         if (!entityType) {
             msg = "Unable to locate metadata for an EntityType named: " + typeName;
             _this._raiseError({statusCode: 400, message: msg});
-            return null;
+            return true;
         }
 
         entityType.collectionName = entityType.collectionName || entityType.defaultResourceName;
@@ -473,14 +479,14 @@ fn._saveCollections = function(collectionSaveDocs){
         entitiesCreatedOnServer: this._entitiesCreatedOnServer,
         errors: []
     };
-    if (collectionSaveDocs.length === 0) {
-        this._invokeCompletedCallback();
-    } else {
-        // once we start saving to mongo, we have to do them all.
-        collectionSaveDocs.forEach(this._saveCollection.bind(this));
-        this._allSaveCallsSent = true; // all mongo calls have been sent
-    }
-    return this._isDone;
+    // once we start saving to mongo, we have to do them all.
+    collectionSaveDocs.forEach(this._saveCollection.bind(this));
+    this._allSaveCallsSent = true; // all mongo calls have been sent
+
+    if (!this._isDone && this._saveCountPending === 0) {
+        // either error, nothing to save, or saves all returned synchronously (e.g., tests)
+        this._invokeCompletedCallback();  
+    }; 
 };
 
 // 'cd' is a 'collectionSaveDoc' - the insert/update/delete documents for a collection
@@ -521,6 +527,7 @@ fn._handleInsert = function(insertDoc, err, insertedObjects) {
     try {
         if (err) {
             if (err.code == MONGO_ERROR_CODE_DUP_KEY) {
+                // see http://stackoverflow.com/questions/3825990/http-response-code-for-post-when-resource-already-exists
                 err.statusCode = 409;
                 err.message = "Duplicate key.";
             }
@@ -637,7 +644,7 @@ fn._forEach = function(src, f, errPrefix){
     } catch (err){
         var callErrPrefix = function(){
             try { return errPrefix(src[i]);}
-            catch (e){ return '';}
+            catch (err){ return '';}
         };
         var pre = typeof errPrefix === 'function' ? callErrPrefix() : errPrefix ;
         err.message = (pre || 'Save failed') +  ' with error: ' + err.message;
