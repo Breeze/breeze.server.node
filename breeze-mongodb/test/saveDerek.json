@@ -12,19 +12,21 @@
         "state": "OH",
         "zip": "55154"
       },
+      "rowVer":2,
       "entityAspect": {
         "entityTypeName": "Customer:#Zza.Model",
         "entityState": "Modified",
         "originalValuesMap": {
           "address": {
             "city": "Quam"
-          }
+          },
+          "rowVer":1
         }
       }
     }
   ],
   "saveOptions": {
-    
+
   },
   "metadata": {
     "Customer:#Zza.Model": {
@@ -55,6 +57,11 @@
         {
           "name": "address",
           "dataType": "Address:#Zza.Model"
+        },
+        {
+          "name": "rowVer",
+          "dataType": "Int32",
+          "isConcurrencyProp": true
         }
       ]
     },

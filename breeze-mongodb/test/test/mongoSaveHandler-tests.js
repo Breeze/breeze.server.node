@@ -359,23 +359,15 @@ describe('MongoSaveHandler', function(){
         });
     });
 
-    describe("#save when request is valid",function(){
+    describe("#save when request is valid, ",function(){
         var derek, entities;
         beforeEach(function() {
             createHandler();
             entities = handler.entities;
             derek = entities[0];
         });
-        it("modified 'Derek' is ok and appears in 'updatedKeys'", function(done){
-            handler.callback = asyncTestCallback(done, asserts);
-            handler.save();
 
-            function asserts(err, sr){
-                (err == null).should.be.true;
-                sr.updatedKeys.length.should.equal(1);
-            }
-        });
-        it("inserted 'Derek' is ok and appears in 'insertedKeys'", function(done){
+        it("added 'Derek' is ok and appears in 'insertedKeys'", function(done){
             derek.entityAspect.entityState="Added";
             handler.callback = asyncTestCallback(done, asserts);
             handler.save();
@@ -385,7 +377,8 @@ describe('MongoSaveHandler', function(){
                 sr.insertedKeys.length.should.equal(1);
             }
         });
-        it("added 'Derek' is ok and appears in 'deletedKeys'", function(done){
+
+        it("deleted 'Derek' is ok and appears in 'deletedKeys'", function(done){
             derek.entityAspect.entityState="Deleted";
             handler.callback = asyncTestCallback(done, asserts);
             handler.save();
@@ -393,6 +386,16 @@ describe('MongoSaveHandler', function(){
             function asserts(err, sr){
                 (err == null).should.be.true;
                 sr.deletedKeys.length.should.equal(1);
+            }
+        });
+
+        it("modified 'Derek' is ok and appears in 'updatedKeys'", function(done){
+            handler.callback = asyncTestCallback(done, asserts);
+            handler.save();
+
+            function asserts(err, sr){
+                (err == null).should.be.true;
+                sr.updatedKeys.length.should.equal(1);
             }
         });
         it("combo of add/mod/deleted 'Derek' is ok", function(done){
@@ -412,7 +415,138 @@ describe('MongoSaveHandler', function(){
                 sr.deletedKeys.length.should.equal(1);
             }
         });
-        describe("and mongodb dies", function(){
+        describe("modified 'Derek'", function(){
+            it("has only 'address' and 'rowVer' $set keys", function(done){
+                handler.callback = asyncTestCallback(done, asserts);
+                handler.save();
+
+                function asserts(/*err, sr*/){
+                    var update = dbCollectionMethods.update;
+                    update.calledOnce.should.be.true;
+                    var setOpts = update.args[0][1];
+                    //console.log("setOpts: "+JSON.stringify(setOpts, null,2));
+                    setOpts.should.not.be.empty;
+                    var $set = setOpts.$set || {};
+                    Object.keys($set).length.should.equal(2);
+                    (!!$set.address).should.be.true;
+                    (!!$set.rowVer).should.be.true;
+                }
+            });
+            it("has $criteria that include '_id' which is Derek's id", function(done){
+                handler.callback = asyncTestCallback(done, asserts);
+                handler.save();
+
+                function asserts(/*err, sr*/){
+                    var update = dbCollectionMethods.update;
+                    var criteria = update.args[0][0];
+                    //console.log("criteria: "+JSON.stringify(criteria, null, 2));
+                    (!!criteria).should.be.true;
+                    (criteria._id).should.equal(derek._id);
+                }
+            });
+            it("has $criteria that include 'rowVer' concurrency prop", function(done){
+                handler.callback = asyncTestCallback(done, asserts);
+                handler.save();
+
+                function asserts(/*err, sr*/){
+                    var update = dbCollectionMethods.update;
+                    var criteria = update.args[0][0];
+                    (!!criteria).should.be.true;
+                    (!!criteria.rowVer).should.be.true;
+                }
+            });
+            it("saves entire 'address' although 'city' is only specified address value (BAD?)", function(done){
+                handler.callback = asyncTestCallback(done, asserts);
+                handler.save();
+
+                function asserts(/*err, sr*/){
+                    var update = dbCollectionMethods.update;
+                    var $set  = update.args[0][1].$set;
+                    var addrSetKeys = Object.keys($set.address);
+                    var origAddrKeys = Object.keys(derek.entityAspect.originalValuesMap.address);
+                    origAddrKeys.length.should.equal(1);
+                    addrSetKeys.length.should.be.greaterThan(1);
+                }
+            });
+            it("when has no originalValuesMap, has no $set keys", function(done){
+                derek.entityAspect.originalValuesMap = {};
+                handler.callback = asyncTestCallback(done, asserts);
+                handler.save();
+
+                function asserts(/*err, sr*/){
+                    var update = dbCollectionMethods.update;
+                    var $setKeys  = Object.keys(update.args[0][1].$set);
+                    $setKeys.length.should.equal(0);
+                }
+            });
+            it("when add firstName to originalValuesMap, firstName is in $set keys",
+                function(done){
+                    derek.entityAspect.originalValuesMap.firstName=undefined; // the orig value doesn't matter!
+                    handler.callback = asyncTestCallback(done, asserts);
+                    handler.save();
+
+                    function asserts(/*err, sr*/){
+                        var update = dbCollectionMethods.update;
+                        var $set = update.args[0][1].$set;
+                        var $setKeys  = Object.keys($set);
+                        $setKeys.length.should.equal(3);
+                        ($set.firstName === 'Derek').should.be.true;
+
+                    }
+                });
+            it("when add firstName to originalValuesMap and firstName === null, it is NOT in $set keys",
+                function(done){
+                    derek.entityAspect.originalValuesMap.firstName=undefined; // the value doesn't matter!
+                    derek.firstName = null; // you might think this would clear the FN ... but it won't
+                    handler.callback = asyncTestCallback(done, asserts);
+                    handler.save();
+
+                    function asserts(/*err, sr*/){
+                        var update = dbCollectionMethods.update;
+                        var $set = update.args[0][1].$set;
+                        ($set.firstName === undefined).should.be.true;
+                        // which means the firstName will still be 'Derek' after save !!!
+                    }
+                });
+            it("when entityAspect.forceUpdate === true, all properties are set",
+                function(done){
+                    derek.entityAspect.forceUpdate = true;
+                    derek.firstName = null; // this WILL clear the FN ... because of forceUpdate
+
+                    handler.callback = asyncTestCallback(done, asserts);
+                    handler.save();
+
+                    function asserts(/*err, sr*/){
+                        var update = dbCollectionMethods.update;
+                        var $set = update.args[0][1].$set;
+                        var props = Object.keys(derek).filter(function(n){
+                                // _id and entityAspect would not be in the $set
+                                return n!=='_id' &&
+                                    n!=='entityAspect';}
+                        );
+                        var allPropsInSet = true;
+                        props.forEach(function(p){
+                            allPropsInSet = allPropsInSet && ($set[p] !== undefined);
+                        });
+                        allPropsInSet.should.be.true;
+                        ($set.firstName === null).should.be.true; // will null the firstName this time.
+                    }
+                });
+            it("when add FOO to originalValuesMap, FOO is in $set keys although it doesn't exist (BAD?)",
+                function(done){
+                    derek.entityAspect.originalValuesMap.FOO='foo';
+                    handler.callback = asyncTestCallback(done, asserts);
+                    handler.save();
+
+                    function asserts(/*err, sr*/){
+                        var update = dbCollectionMethods.update;
+                        var $set = update.args[0][1].$set;
+                        ($set.FOO === undefined).should.be.true;
+                    }
+                });
+        });
+
+        describe("and when mongodb dies", function(){
             beforeEach(function(){
                 fakeDb.collection = getSadDbCollection();
             });
@@ -437,11 +571,11 @@ describe('MongoSaveHandler', function(){
                 }
             });
             it("during insert with duplicate key error, error is a 409 (conflict)",function(done){
-                dbCollectionMethods.insert  = sinon.spy(function(entity, saveOptions, cb){
+                dbCollectionMethods.insert  = function(entity, saveOptions, cb){
                     var err = new Error("Insert died with duplicate key error for "+entity._id);
                     err.code = MONGO_ERROR_CODE_DUP_KEY;
                     setTimeout(cb, 0, err);
-                });
+                };
                 derek.entityAspect.entityState="Added";
                 handler.callback = asyncTestCallback(done, asserts);
                 handler.save();
@@ -456,9 +590,9 @@ describe('MongoSaveHandler', function(){
                 }
             });
             it("during update with 'wasUpdated'===false, error is a 404",function(done){
-                dbCollectionMethods.update = sinon.spy(function(entity, setOpts, saveOptions, cb){
+                dbCollectionMethods.update = function(entity, setOpts, saveOptions, cb){
                     setTimeout(cb, 0, null, /*wasUpdated=*/false);
-                });
+                };
                 derek.entityAspect.entityState="Modified";
                 handler.callback = asyncTestCallback(done, asserts);
                 handler.save();
@@ -473,9 +607,9 @@ describe('MongoSaveHandler', function(){
                 }
             });
             it("during remove with 'numberRemoved'===0, error is a 404",function(done){
-                dbCollectionMethods.remove = sinon.spy(function(criteria, strict, cb){
+                dbCollectionMethods.remove = function(criteria, strict, cb){
                     setTimeout(cb, 0, null, /*numberRemoved=*/0);
-                });
+                };
                 derek.entityAspect.entityState = "Deleted";
                 handler.callback = asyncTestCallback(done, asserts);
                 handler.save();
