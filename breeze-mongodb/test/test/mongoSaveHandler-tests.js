@@ -56,14 +56,14 @@ describe('MongoSaveHandler', function(){
 			handler.save();
 
 			function asserts(err, sr){
-                (err == null).should.be.true;
+                (err || {}).should.not.exist;
 				sr.updatedKeys.length.should.equal(1);
 				sr.updatedKeys[0]._id.should.equal(derek._id);
 
 	            // just to prove that the collection.update method was called properly
 	            // first get the collection spy from fakeDb
 				var dbCollection = fakeDb.collection;
-				should.exist(dbCollection);
+				should.exist(dbCollection || {});
 				var collection = dbCollection.returnValues[0];
 
 	            // then check its update spy
@@ -239,7 +239,7 @@ describe('MongoSaveHandler', function(){
 			handler.save();
 
 			function asserts(err, saveResult){
-                (err == null).should.equal(true);
+                should.not.exist(err);
 				ase.calledOnce.should.be.true;
 				should.exist(aseSaveResult);
 				saveResult.should.equal(aseSaveResult);
@@ -285,7 +285,7 @@ describe('MongoSaveHandler', function(){
 			});
 
 			function asserts(err, result){
-				(result==null).should.be.true;
+				should.not.exist(result);
 				should.exist(err);
 				if (attachSr){
 					should.exist(err.saveResult);
@@ -327,7 +327,7 @@ describe('MongoSaveHandler', function(){
 				handler.save();
 
 				function asserts(err, result){
-					(result==null).should.be.true;
+					should.not.exist(result);
 					should.exist(err);
 					should.exist(err.saveResult);
 					(err.saveResult === aseSaveResult).should.be.true;
@@ -337,24 +337,24 @@ describe('MongoSaveHandler', function(){
 		});
     });
 
-    describe('#Review metadata',function(){
+    describe('When reviewing metadata',function(){
         var metadata;
         beforeEach(function(){
             createHandler();
             metadata = handler.metadata;
         });
         it("the 'derek' feed has metadata for Customer", function(){
-            (metadata != null).should.be.true;
-            (metadata[custTypeName] != null).should.be.true;
+            should.exist(metadata);
+            should.exist(metadata[custTypeName]);
         });
 
-        it("should error when save and no Customer metadata", function(){
+        it("should error when save with no Customer metadata", function(){
             handler.metadata = {};
             handler.save();
             var args = callback.args[0];
-            (args != null).should.be.true;
+            should.exist(args);
             var err = args[0];
-            (err != null).should.be.true;
+            should.exist(err);
             err.message.should.match(/Unable to locate metadata for an EntityType/);
         });
     });
@@ -373,7 +373,7 @@ describe('MongoSaveHandler', function(){
             handler.save();
 
             function asserts(err, sr){
-                (err == null).should.be.true;
+                (err || {}).should.not.exist;
                 sr.insertedKeys.length.should.equal(1);
             }
         });
@@ -384,7 +384,7 @@ describe('MongoSaveHandler', function(){
             handler.save();
 
             function asserts(err, sr){
-                (err == null).should.be.true;
+                (err || {}).should.not.exist;
                 sr.deletedKeys.length.should.equal(1);
             }
         });
@@ -394,10 +394,11 @@ describe('MongoSaveHandler', function(){
             handler.save();
 
             function asserts(err, sr){
-                (err == null).should.be.true;
+                (err || {}).should.not.exist;
                 sr.updatedKeys.length.should.equal(1);
             }
         });
+
         it("combo of add/mod/deleted 'Derek' is ok", function(done){
             entities.push(clone(derek));
             entities[1].entityAspect.entityState="Added";
@@ -409,12 +410,13 @@ describe('MongoSaveHandler', function(){
             handler.save();
 
             function asserts(err, sr){
-                (err == null).should.be.true;
+                (err || {}).should.not.exist;
                 sr.updatedKeys.length.should.equal(2);
                 sr.insertedKeys.length.should.equal(1);
                 sr.deletedKeys.length.should.equal(1);
             }
         });
+
         describe("modified 'Derek'", function(){
             it("has only 'address' and 'rowVer' $set keys", function(done){
                 handler.callback = asyncTestCallback(done, asserts);
@@ -522,7 +524,7 @@ describe('MongoSaveHandler', function(){
                         var props = Object.keys(derek).filter(function(n){
                                 // _id and entityAspect would not be in the $set
                                 return n!=='_id' &&
-                                    n!=='entityAspect';}
+                                       n!=='entityAspect';}
                         );
                         var allPropsInSet = true;
                         props.forEach(function(p){
@@ -546,7 +548,7 @@ describe('MongoSaveHandler', function(){
                 });
         });
 
-        describe("and when mongodb dies", function(){
+        describe("when mongodb dies", function(){
             beforeEach(function(){
                 fakeDb.collection = getSadDbCollection();
             });
@@ -561,8 +563,8 @@ describe('MongoSaveHandler', function(){
                 handler.save();
 
                 function asserts(err, sr){
-                    (sr == null).should.be.true;
-                    (err != null).should.be.true;
+                    should.not.exist(sr);
+                    should.exist(err);
                     sr = err.saveResult;
                     sr.updatedKeys.length.should.equal(0);
                     sr.insertedKeys.length.should.equal(0);
@@ -581,8 +583,8 @@ describe('MongoSaveHandler', function(){
                 handler.save();
 
                 function asserts(err, sr){
-                    (sr == null).should.be.true;
-                    (err != null).should.be.true;
+                    should.not.exist(sr);
+                    should.exist(err);
                     var addErr = err.saveResult.errors[0];
                     //console.log(addErr);
                     addErr.status.should.equal(409); // conflict
@@ -598,8 +600,8 @@ describe('MongoSaveHandler', function(){
                 handler.save();
 
                 function asserts(err, sr){
-                    (sr == null).should.be.true;
-                    (err != null).should.be.true;
+                    should.not.exist(sr);
+                    should.exist(err);
                     var modErr = err.saveResult.errors[0];
                     //console.log(modErr);
                     modErr.status.should.equal(404); // not found
@@ -616,8 +618,8 @@ describe('MongoSaveHandler', function(){
 
                 function asserts(err, sr){
 
-                    (sr == null).should.be.true;
-                    (err != null).should.be.true;
+                    should.not.exist(sr);
+                    should.exist(err);
                     var delErr = err.saveResult.errors[0];
                     //console.log(delErr);
                     delErr.status.should.equal(404); // not found
@@ -629,6 +631,56 @@ describe('MongoSaveHandler', function(){
 
     });
 
+    describe("#save with bad request data",function(){
+        var derek, entities;
+        beforeEach(function() {
+            createHandler();
+            entities = handler.entities;
+            derek = entities[0];
+        });
+
+        it("fails early when omit _id", function(){
+            delete derek._id;
+            handler.save();
+
+            callback.calledOnce.should.be.true;
+            var err = callback.args[0][0];
+            should.exist(err);
+            err.should.have.property('statusCode', 400);
+            err.should.have.property('message').and.match(/missing _id/i);
+        });
+        it("fails early when _id is malformed", function(){
+            derek._id = "Not.a.valid.id";
+            handler.save();
+
+            callback.calledOnce.should.be.true;
+            var err = callback.args[0][0];
+            should.exist(err);
+            err.should.have.property('statusCode', 400);
+            err.should.have.property('message').and.match(/unable to convert the _id/i);
+        });
+        it("fails early when birthdate is malformed", function(){
+            derek.birthdate = "Not.a.valid.date";
+            derek.entityAspect.originalValuesMap.birthdate = null; // the prop name is all we need
+            handler.save();
+
+            callback.calledOnce.should.be.true;
+            var err = callback.args[0][0];
+            should.exist(err);
+            err.should.have.property('statusCode', 400);
+            err.should.have.property('message').and.match(/invalid date/i);
+        });
+        it("fails early when entityState is bad", function(){
+            derek.entityAspect.entityState="BAD-STATE";
+            handler.save();
+
+            callback.calledOnce.should.be.true;
+            var err = callback.args[0][0];
+            should.exist(err);
+            err.should.have.property('statusCode', 400);
+            err.should.have.property('message').and.match(/unknown save op/i);
+        });
+    });
 });
 
 //////// helpers ////////////
@@ -753,6 +805,7 @@ function okCallback() {
 	this.assert(args[0] == null, setReason('called with an error'));
 	this.assert(args[1].errors.length === 0, setReason('saveResult contains errors'));
 }
+
 function okEmptyCallback() {
 	okCallback.bind(this)();
     var params = this.params;

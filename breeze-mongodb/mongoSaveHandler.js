@@ -24,6 +24,7 @@ function MongoSaveHandler(db, reqBody, callback) {
     this.callback = callback;
 
     this.entities = reqBody.entities || [];
+    this.deleteNulls=true; // whether to delete null-valued properties on insert
     this.metadata = reqBody.metadata || {};  // client can provide metadata; recommend overriding on the server
     this.saveOptions = reqBody.saveOptions;
 
@@ -142,7 +143,6 @@ fn.save = function() {
 // 'this' is bound to MongoSaveHandler instance at runtime (see fn.save())
 function saveCore() {
     this._reviewMetadata();
-    if (this._isDone) { return; }
     var collectionSaveDocs = [];
     this._prepareCollectionSaveDocs(collectionSaveDocs);
     this._fixupFks(collectionSaveDocs);
@@ -158,133 +158,45 @@ fn._buildSaveMap = function (){
     return this._groupBy(this.entities, keyFn, this.saveMap = {}, errPrefix);
 };
 
-fn._coerceData = function(entity, entityType) {
+// Validate and massage the save metadata
+// Adds to this.metadata
+// Make sure the changes don't 'corrupt' your source of metadata, including:
+//    * entityType.collectionName
+//    * entityType.key
+//    * entityType.keyDataType
+//    * entityType.concurrencyProp
+fn._reviewMetadata = function (){
     var _this = this;
+    return _this._forEach(Object.keys(this.saveMap), reviewType);
 
-    var errPrefix = function(dp){
-        return "Save failed checking "+dp.name+" data for "+entityType.entityTypeName+"._id: "+entity._id;
-    };
-
-    var deleteNulls=true, // consider option to keep them if really wanted
-        props = entityType.dataProperties;
-    switch (entity.entityAspect.entityState){
-        case "Added":
-            // nothing more to do
-            break;
-        case "Modified":
-            if (entity.entityAspect.forceUpdate){
-                deleteNulls = false; // need them to clear an existing property value
-            } else {
-                // Coerce only the _id and original values properties
-                // because those are only properties involved in update
-                var ovm = entity.entityAspect.originalValuesMap;
-                props = props.filter(function(dp){
-                    return ovm.hasOwnProperty(dp.name);
-                });
-                props.push(entityType.key);
-            }
-            break;
-        case "Deleted":
-            props = [entityType.key];
-            break;
-        default:
-            var msg = errPrefix(entity) + ". Unknown save operation request, entityState = " +
-                entity.entityAspect.entityState;
-            _this._raiseError({statusCode: 400, message: msg});
-            return;
-    }
-
-    return _this._forEach(props, coerceProp, errPrefix);
-
-    function coerceProp(dp) {
+    function reviewType(typeName) {
         var msg;
-        var dt = dp.dataType;
-        var dpn = dp.name;
-        var val = entity[dpn];
-        // if this is an fk column and it has a value
-        // create a map of entities that may need to be fixed up - keyed by the tempFkValue ( which may be a realFkValue already).
-        // Note this works because in mongo all fkValues must refer to an _id field as the paired key.
-        if (dp.isFk && val) {
-            var fk = entity[dpn];
-            var fus = _this._possibleFixupMap[fk];
-            if (!fus) {
-                _this._possibleFixupMap[fk] = fus = [];
-            }
-            fus.push( { _id: entity._id, fkProp: dpn  });
-        }
-        if (val == null) {
-            if (deleteNulls) { delete entity[dpn]; }
-            return;
-        }
-        // assertion: val is not null at this point
-        try {
-            // String conversions (where necessary)
-            if (dt === "MongoObjectId") {
-                if (typeof val==='string') {
-                entity[dpn] = ObjectID.createFromHexString(val);
-                } else {
-                 // may be an MongoObjectId already; make sure it's valid
-                 if (!val.id || !val._bsontype) {throw new Error('Invalid: MongoObjectId: '+JSON.stringify(val));}  
-                }
-            } else if ((dt === "DateTime" || dt === "DateTimeOffset") && !(val instanceof Date)) {
-                entity[dpn] = new Date(Date.parse(val));
-            }
-        } catch (e) {
-            msg = errPrefix(e) +
-            ". Unable to convert the "+dpn+" value: '" + val + "' of type '"+typeof val+"' to a "+dt;
+        var entityType = _this.metadata[typeName];
+        if (!entityType) {
+            msg = "Unable to locate metadata for an EntityType named: " + typeName;
             _this._raiseError({statusCode: 400, message: msg});
+            return true;
         }
-    }
-};
 
-// 'collectionSaveDocs' - the insert/update/delete documents for each collection
-fn._fixupFks = function(collectionSaveDocs) {
-    var _this = this;
-    try {
-        if (this._isDone) { return true; }// stop processing
-        if (this._keyMappings.length === 0) { return false; }// continue processing
-        fixup();
-        return false;
-    } catch (err){
-        this._raiseError(err);
-        return true;
-    }
+        entityType.collectionName = entityType.collectionName || entityType.defaultResourceName;
 
-    function fixup(){
-        // pendingMap is a map of _id-to-pendingDoc
-        // for all inserts and updates
-        var pendingMap = {};
-        collectionSaveDocs.forEach(function(cd) {
-            cd.inserts.concat(cd.updates)
-                .forEach(function(doc) {
-                    pendingMap[doc.entityAspect.entityKey._id] = doc;
-                })
-        });
+        return _this._forEach(entityType.dataProperties, reviewProperties);
 
-        // kmMap is a map of tempFkValue -> keyMapping
-        var kmMap = {};
-        _this._keyMappings.forEach(function(km) {
-            kmMap[km.tempValue] = km;
-        });
+        function reviewProperties(dp) {
+            var dt = dp.dataType;
 
-        // _possibleFixupMap is a map of fkValue -> [] of possibleFixups { _id:, fkProp: }
-        for (var fkValue in _this._possibleFixupMap) {
-            var km = kmMap[fkValue];
-            if (km) {
-                // if we get to here we know that we have an fk or fks that need updating
-                var realValue = km.realValue;
-                var pendingFixups = _this._possibleFixupMap[fkValue];
-                pendingFixups.forEach(function(pendingFixup) {
-                    // update the pendingDoc with the new real fkValue
-                    // next line is for debug purposes
-                    pendingFixup.fkValue = realValue;
-                    var pendingDoc = pendingMap[pendingFixup._id];
-                    if (pendingDoc.criteria) {
-                        pendingDoc.setOps.$set[pendingFixup.fkProp] = realValue;
-                    } else {
-                        pendingDoc.entity[pendingFixup.fkProp] = realValue;
-                    }
-                });
+            if (dp.name === "_id") {
+                entityType.key         = dp;
+                entityType.keyDataType = dt;
+
+                if (dp.isFk) {
+                    msg = "The '" + typeName + "._id' property cannot itself be a foreignKey in a mongoDb - Please check your metadata.";
+                    _this._raiseError(new Error(msg));
+                    return
+                }
+            }
+            if (dp.isConcurrencyProp) {
+                entityType.concurrencyProp = dp;
             }
         }
     }
@@ -315,8 +227,8 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
 
     var _this = this;
     var errPrefix = function(entity){
-        return "Save failed preparing "+entity.entityAspect.entityState+"save docs for "+
-            entityType.entityTypeName+"._id: "+entity._id;
+        return "Save failed preparing save docs for "+entity.entityAspect.entityState+" "+
+            entityTypeName+"._id: "+entity._id;
     };
     _this._forEach(entities, prepEntity, errPrefix);
 
@@ -329,9 +241,9 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
     };
 
     function prepEntity(e) {
-        var msg;
         // Coerce before using _id because that's one of the properties it parses
-        _this._coerceData(e, entityType);
+        _this._coerceEntity(e, entityType);
+        if (this._isDone) { return; } // failed in coercion
 
         // hold entityAspect because we must strip it from an inserted entity.
         var entityAspect = e.entityAspect;
@@ -340,7 +252,7 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
         var entityKey = { entityTypeName: entityTypeName, _id: e._id };
         entityAspect.entityKey = entityKey;
 
-        var criteria;
+        var criteria, msg;
 
         switch(entityAspect.entityState) {
             case "Added":
@@ -425,45 +337,149 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
     }
 };
 
-// Validate and massage the save metadata
-// Adds to this.metadata
-// Make sure the changes don't 'corrupt' your source of metadata, including:
-//    * entityType.collectionName
-//    * entityType.key
-//    * entityType.keyDataType
-//    * entityType.concurrencyProp
-fn._reviewMetadata = function (){
+fn._coerceEntity = function(entity, entityType) {
     var _this = this;
-    return _this._forEach(Object.keys(this.saveMap), reviewType);
+    var typeName = entityType.entityTypeName;
+    var entityState = entity.entityAspect.entityState;
 
-    function reviewType(typeName) {
-        var msg;
-        var entityType = _this.metadata[typeName];
-        if (!entityType) {
-            msg = "Unable to locate metadata for an EntityType named: " + typeName;
+    if (entity._id == null){
+        _this._raiseError({statusCode: 400, message: "Save failed because missing _id for "+typeName});
+        return;
+    }
+
+    // errPrefix used by all _coerceEntity error handling below this point
+    var errPrefix = function(dp){
+        var dname = dp && dp.name ? '"'+dp.name + '" ' : '';
+        return "Save failed checking "+dname+"data for "+entityState+" "+typeName+"._id: "+entity._id+". ";
+    };
+
+    var props = entityType.dataProperties;
+
+    switch (entityState){
+        case "Added":
+            // nothing more to do
+            break;
+        case "Modified":
+            if (entity.entityAspect.forceUpdate){
+                deleteNulls = false; // need them to clear an existing property value
+            } else {
+                // Coerce only the _id and original values properties
+                // because those are only properties involved in update
+                var ovm = entity.entityAspect.originalValuesMap;
+                props = props.filter(function(dp){
+                    return ovm.hasOwnProperty(dp.name);
+                });
+                props.push(entityType.key);
+            }
+            break;
+        case "Deleted":
+            props = [entityType.key];
+            break;
+        default:
+            var msg = errPrefix() + "Unknown save operation request, entityState = " +
+                entity.entityAspect.entityState;
             _this._raiseError({statusCode: 400, message: msg});
-            return true;
+            return;
+    }
+
+    return _this._forEach(props, coerceProp, errPrefix);
+
+    function coerceProp(dp) {
+        var msg;
+        var dt = dp.dataType;
+        var dpn = dp.name;
+        var val = entity[dpn];
+
+        // if this is an fk column and it has a value
+        // create a map of entities that may need to be fixed up - keyed by the tempFkValue ( which may be a realFkValue already).
+        // Note this works because in mongo all fkValues must refer to an _id field as the paired key.
+        if (dp.isFk && val) {
+            var fk = entity[dpn];
+            var fus = _this._possibleFixupMap[fk];
+            if (!fus) {
+                _this._possibleFixupMap[fk] = fus = [];
+            }
+            fus.push( { _id: entity._id, fkProp: dpn  });
         }
 
-        entityType.collectionName = entityType.collectionName || entityType.defaultResourceName;
-
-        return _this._forEach(entityType.dataProperties, reviewProperties);
-
-        function reviewProperties(dp) {
-            var dt = dp.dataType;
-
-            if (dp.name === "_id") {
-                entityType.key         = dp;
-                entityType.keyDataType = dt;
-
-                if (dp.isFk) {
-                    msg = "The '" + typeName + "._id' property cannot itself be a foreignKey in a mongoDb - Please check your metadata.";
-                    _this._raiseError(new Error(msg));
-                    return
-                }
+        if (val == null) {
+            if (_this.deleteNulls && !entity.entityAspect.forceUpdate) {
+                delete entity[dpn];
             }
-            if (dp.isConcurrencyProp) {
-                entityType.concurrencyProp = dp;
+            return;
+        }
+        // assertion: val is not null at this point
+        try {
+            // String conversions (where necessary)
+            if (dt === "MongoObjectId") {
+                if (typeof val==='string') {
+                    entity[dpn] = ObjectID.createFromHexString(val);
+                } else if (val.id && val._bsontype) {
+                    // Looks like a valid MongoObjectId object
+                } else {
+                    throw new Error("Invalid MongoObjectId");
+                }
+            } else if ((dt === "DateTime" || dt === "DateTimeOffset") && !(val instanceof Date)) {
+                var dtVal = Date.parse(val);
+                if (isNaN(dtVal)) { throw new Error("Invalid Date"); }
+                entity[dpn] = new Date(dtVal);
+            }
+        } catch (e) {
+            msg = errPrefix(dp) + 'Unable to convert the '+dpn+' value: "' + val + '" of type '+typeof val+' to a "'+dt+
+                '" with error: "'+ e.message;
+            _this._raiseError({statusCode: 400, message: msg});
+        }
+    }
+};
+
+// 'collectionSaveDocs' - the insert/update/delete documents for each collection
+fn._fixupFks = function(collectionSaveDocs) {
+    var _this = this;
+    try {
+        if (this._isDone) { return true; }// stop processing
+        if (this._keyMappings.length === 0) { return false; }// continue processing
+        fixup();
+        return false;
+    } catch (err){
+        this._raiseError(err);
+        return true;
+    }
+
+    function fixup(){
+        // pendingMap is a map of _id-to-pendingDoc
+        // for all inserts and updates
+        var pendingMap = {};
+        collectionSaveDocs.forEach(function(cd) {
+            cd.inserts.concat(cd.updates)
+                .forEach(function(doc) {
+                    pendingMap[doc.entityAspect.entityKey._id] = doc;
+                })
+        });
+
+        // kmMap is a map of tempFkValue -> keyMapping
+        var kmMap = {};
+        _this._keyMappings.forEach(function(km) {
+            kmMap[km.tempValue] = km;
+        });
+
+        // _possibleFixupMap is a map of fkValue -> [] of possibleFixups { _id:, fkProp: }
+        for (var fkValue in _this._possibleFixupMap) {
+            var km = kmMap[fkValue];
+            if (km) {
+                // if we get to here we know that we have an fk or fks that need updating
+                var realValue = km.realValue;
+                var pendingFixups = _this._possibleFixupMap[fkValue];
+                pendingFixups.forEach(function(pendingFixup) {
+                    // update the pendingDoc with the new real fkValue
+                    // next line is for debug purposes
+                    pendingFixup.fkValue = realValue;
+                    var pendingDoc = pendingMap[pendingFixup._id];
+                    if (pendingDoc.criteria) {
+                        pendingDoc.setOps.$set[pendingFixup.fkProp] = realValue;
+                    } else {
+                        pendingDoc.entity[pendingFixup.fkProp] = realValue;
+                    }
+                });
             }
         }
     }
@@ -485,8 +501,8 @@ fn._saveCollections = function(collectionSaveDocs){
 
     if (!this._isDone && this._saveCountPending === 0) {
         // either error, nothing to save, or saves all returned synchronously (e.g., tests)
-        this._invokeCompletedCallback();  
-    }; 
+        this._invokeCompletedCallback();
+    }
 };
 
 // 'cd' is a 'collectionSaveDoc' - the insert/update/delete documents for a collection

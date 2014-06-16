@@ -6,6 +6,7 @@
       "lastName": "Puckett",
       "phone": "(954) 594-9355",
       "email": "derek.puckett@vulputate.net",
+      "birthdate": "04 Oct 1960 00:00:00 GMT",
       "address": {
         "street": "P.O. Box 914, 9990 Dapibus St.",
         "city": "Quark",
@@ -53,6 +54,10 @@
         {
           "name": "email",
           "dataType": "String"
+        },
+        {
+          "name": "birthdate",
+          "dataType": "DateTime"
         },
         {
           "name": "address",
