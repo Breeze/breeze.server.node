@@ -56,8 +56,8 @@ describe('MongoSaveHandler', function(){
 			handler.save();
 
 			function asserts(err, sr){
-                (err || {}).should.not.exist;
-				sr.updatedKeys.length.should.equal(1);
+                should.not.exist(err);
+				sr.updatedKeys.should.have.length(1);
 				sr.updatedKeys[0]._id.should.equal(derek._id);
 
 	            // just to prove that the collection.update method was called properly
@@ -373,8 +373,8 @@ describe('MongoSaveHandler', function(){
             handler.save();
 
             function asserts(err, sr){
-                (err || {}).should.not.exist;
-                sr.insertedKeys.length.should.equal(1);
+                should.not.exist(err);
+                sr.insertedKeys.should.have.length(1);
             }
         });
 
@@ -384,8 +384,8 @@ describe('MongoSaveHandler', function(){
             handler.save();
 
             function asserts(err, sr){
-                (err || {}).should.not.exist;
-                sr.deletedKeys.length.should.equal(1);
+                should.not.exist(err);
+                sr.deletedKeys.should.have.length(1);
             }
         });
 
@@ -394,8 +394,8 @@ describe('MongoSaveHandler', function(){
             handler.save();
 
             function asserts(err, sr){
-                (err || {}).should.not.exist;
-                sr.updatedKeys.length.should.equal(1);
+                should.not.exist(err);
+                sr.updatedKeys.should.have.length(1);
             }
         });
 
@@ -410,10 +410,10 @@ describe('MongoSaveHandler', function(){
             handler.save();
 
             function asserts(err, sr){
-                (err || {}).should.not.exist;
-                sr.updatedKeys.length.should.equal(2);
-                sr.insertedKeys.length.should.equal(1);
-                sr.deletedKeys.length.should.equal(1);
+                should.not.exist(err);
+                sr.updatedKeys.should.have.length(2);
+                sr.insertedKeys.should.have.length(1);
+                sr.deletedKeys.should.have.length(1);
             }
         });
 
@@ -429,7 +429,7 @@ describe('MongoSaveHandler', function(){
                     //console.log("setOpts: "+JSON.stringify(setOpts, null,2));
                     setOpts.should.not.be.empty;
                     var $set = setOpts.$set || {};
-                    Object.keys($set).length.should.equal(2);
+                    Object.keys($set).should.have.length(2);
                     (!!$set.address).should.be.true;
                     (!!$set.rowVer).should.be.true;
                 }
@@ -466,7 +466,7 @@ describe('MongoSaveHandler', function(){
                     var $set  = update.args[0][1].$set;
                     var addrSetKeys = Object.keys($set.address);
                     var origAddrKeys = Object.keys(derek.entityAspect.originalValuesMap.address);
-                    origAddrKeys.length.should.equal(1);
+                    origAddrKeys.should.have.length(1);
                     addrSetKeys.length.should.be.greaterThan(1);
                 }
             });
@@ -478,7 +478,7 @@ describe('MongoSaveHandler', function(){
                 function asserts(/*err, sr*/){
                     var update = dbCollectionMethods.update;
                     var $setKeys  = Object.keys(update.args[0][1].$set);
-                    $setKeys.length.should.equal(0);
+                    $setKeys.should.have.length(0);
                 }
             });
             it("when add firstName to originalValuesMap, firstName is in $set keys",
@@ -491,7 +491,7 @@ describe('MongoSaveHandler', function(){
                         var update = dbCollectionMethods.update;
                         var $set = update.args[0][1].$set;
                         var $setKeys  = Object.keys($set);
-                        $setKeys.length.should.equal(3);
+                        $setKeys.should.have.length(3);
                         ($set.firstName === 'Derek').should.be.true;
 
                     }
@@ -566,10 +566,10 @@ describe('MongoSaveHandler', function(){
                     should.not.exist(sr);
                     should.exist(err);
                     sr = err.saveResult;
-                    sr.updatedKeys.length.should.equal(0);
-                    sr.insertedKeys.length.should.equal(0);
-                    sr.deletedKeys.length.should.equal(0);
-                    sr.errors.length.should.equal(4);
+                    sr.updatedKeys.should.have.length(0);
+                    sr.insertedKeys.should.have.length(0);
+                    sr.deletedKeys.should.have.length(0);
+                    sr.errors.should.have.length(4);
                 }
             });
             it("during insert with duplicate key error, error is a 409 (conflict)",function(done){
@@ -803,7 +803,7 @@ function okCallback() {
 	this.assert(Array.isArray(args), setReason('not called with 2 args'));
 	this.assert(args.length === 2);
 	this.assert(args[0] == null, setReason('called with an error'));
-	this.assert(args[1].errors.length === 0, setReason('saveResult contains errors'));
+	this.assert(args[1].errors == null, setReason('saveResult contains errors'));
 }
 
 function okEmptyCallback() {

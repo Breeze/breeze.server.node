@@ -36,6 +36,7 @@ function MongoSaveHandler(db, reqBody, callback) {
     this._deletedKeys  = [];
     this._keyMappings  = [];
     this._entitiesCreatedOnServer = [];
+    this._errors = [];
 
     // semi-private members
     this._isDone = false;           // true when the save is done (good or bad) and have called this.callback
@@ -75,9 +76,11 @@ fn.addToSaveMap = function(entity, entityTypeName, entityState) {
 // `this.afterSaveEntity(done)` interceptor method - returns nothing
 // Called after all mongo save operations have completed
 // Be sure to check this.saveResult.errors because some or all of the saves may have failed
+// in which case the errors array holds the error response for each errant entity.
 // Call 'done' after doing your thing.
 // Call 'this._raiseError(err) to report your own error to the client
 // remembering to set `err.saveResult=this.saveResult;`
+// and push your errant entity responses to this.saveResult.errors
 // so client knows which entities were saved and which were not.
 // 'this' is bound to the current saveHandler instance
 fn.afterSaveEntities = undefined;
@@ -132,7 +135,7 @@ fn.save = function() {
         try {
             this.beforeSaveEntities.bind(this)(saveCoreFn);
         } catch (err){
-            err.message = "Save failed in 'beforeSaveEntities' with error '"+err.message+"'";
+            err.message = 'Save failed in "beforeSaveEntities" with error "'+err.message+'"';
             this._raiseError(err);
         }
     } else {
@@ -154,7 +157,7 @@ fn._buildSaveMap = function (){
     var kf1 = function(e) { return e.entityAspect.entityTypeName;};
     var kf2 = function(e) { return beforeSaveEntity(e) ? kf1(e) : undefined; };
     var keyFn =  beforeSaveEntity ? kf2 : kf1;
-    var errPrefix = "Save failed in 'beforeSaveEntity'";
+    var errPrefix = 'Save failed in "beforeSaveEntity"';
     return this._groupBy(this.entities, keyFn, this.saveMap = {}, errPrefix);
 };
 
@@ -227,8 +230,8 @@ fn.__prepareCollectionSaveDocsForType = function(entityTypeName) {
 
     var _this = this;
     var errPrefix = function(entity){
-        return "Save failed preparing save docs for "+entity.entityAspect.entityState+" "+
-            entityTypeName+"._id: "+entity._id;
+        return 'Save failed preparing save docs for '+entity.entityAspect.entityState+' ' +
+            entityTypeName+'._id: '+entity._id;
     };
     _this._forEach(entities, prepEntity, errPrefix);
 
@@ -343,14 +346,14 @@ fn._coerceEntity = function(entity, entityType) {
     var entityState = entity.entityAspect.entityState;
 
     if (entity._id == null){
-        _this._raiseError({statusCode: 400, message: "Save failed because missing _id for "+typeName});
+        _this._raiseError({statusCode: 400, message: 'Save failed because missing _id for '+typeName});
         return;
     }
 
     // errPrefix used by all _coerceEntity error handling below this point
     var errPrefix = function(dp){
         var dname = dp && dp.name ? '"'+dp.name + '" ' : '';
-        return "Save failed checking "+dname+"data for "+entityState+" "+typeName+"._id: "+entity._id+". ";
+        return 'Save failed checking '+dname+'data for '+entityState+' '+typeName+'._id: '+entity._id+'. ';
     };
 
     var props = entityType.dataProperties;
@@ -492,8 +495,7 @@ fn._saveCollections = function(collectionSaveDocs){
         updatedKeys:  this._updatedKeys,
         deletedKeys:  this._deletedKeys,
         keyMappings:  this._keyMappings,
-        entitiesCreatedOnServer: this._entitiesCreatedOnServer,
-        errors: []
+        entitiesCreatedOnServer: this._entitiesCreatedOnServer
     };
     // once we start saving to mongo, we have to do them all.
     collectionSaveDocs.forEach(this._saveCollection.bind(this));
@@ -514,8 +516,8 @@ fn._saveCollection = function(cd) {
     this.db.collection(cd.collectionName, {strict: true} , function (err, collection) {
         if (err) {
             err.message = err.message.replace(/ Currently in safe mode\./,'');
-            var msg = "Save failed to find the db collection for '" + cd.entityType.entityTypeName +
-                      "' because " + err.message;
+            var msg = 'Save failed to find the db collection for ' + cd.entityType.entityTypeName +
+                      ' because ' + err.message;
             err = { statusCode: 400, message: msg, error: err };
             _this._catchSaveError(err);
             return;
@@ -631,7 +633,7 @@ fn._catchSaveError = function(err, doc){
         entry.entityKey   = aspect.entityKey;
         entry.entityState = aspect.entityState;
     }
-    this.saveResult.errors.push(entry);
+    this._errors.push(entry);
     this._checkIfCompleted();
 };
 
@@ -696,15 +698,18 @@ fn._groupBy = function(arr, keyFn, groups, errPrefix) {
 // called when all mongo save operations have completed
 fn._invokeCompletedCallback=function() {
 
+    if (this._errors.length !== 0) {
+        this.saveResult.errors = this._errors;
+    }
     var done = function (){
         var sr = this.saveResult;
-        if (sr.errors.length === 0) {
+        if (!sr.errors) {
             this._isDone = true;
             this.callback(null, sr);
         } else {
             this._raiseError( {
                 statusCode: 400,
-                message: "Some entities were not saved; see the errors array.",
+                message: "Some entities were not saved; see the saveResult.errors array.",
                 saveResult: sr
             });
         }
@@ -714,7 +719,7 @@ fn._invokeCompletedCallback=function() {
         try {
             this.afterSaveEntities.bind(this)(done);
         } catch (err){
-            err.message = "Save failed in 'afterSaveEntities' with error '"+err.message+"'";
+            err.message = 'Save failed in "afterSaveEntities" with error "'+err.message+'"';
             err.saveResult = this.saveResult;
             this._raiseError(err);
         }
