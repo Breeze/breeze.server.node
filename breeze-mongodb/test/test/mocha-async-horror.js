@@ -5,7 +5,7 @@
 function asyncSUT(callback){
     setTimeout(callback, 10);
 }
-describe.skip("HORRIBLE mocha async assert behavior", function(){
+describe("HORRIBLE mocha async assert behavior", function(){
     // cross test pollution.
     it("can't simply assert in callback (times out)", function(done){
         asyncSUT(cb1);
@@ -42,7 +42,7 @@ describe.skip("HORRIBLE mocha async assert behavior", function(){
             done();
         } catch (e){
             console.log(e);
-            done(e);
+            done(e); // NB: MUST pass the exception to 'done(e)'
         }
     }
 });
