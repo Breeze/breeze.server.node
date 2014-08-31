@@ -1,0 +1,19 @@
+{
+  "name": "breeze-odataparser",
+  "version": "0.0.1",
+  "description": "ODATA query parser for Node",
+  "main": "odataParser",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "pegjs" : "= 0.7.0",
+    "mocha": ">=1.21.0"
+  },
+  "homepage": "www.breezejs.com",
+  "author": {
+      "name": "Jay Traband",
+      "email": "jayt@ideablade.com"
+  },
+  "license": ""
+}

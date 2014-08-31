@@ -1,7 +1,7 @@
 var mongodb = require('mongodb');
 var ObjectId = require('mongodb').ObjectID;
 
-var odataParser = require("./odataParser");
+var odataParser = require('breeze-odataparser');
 
 exports.MongoQuery = MongoQuery;
 
