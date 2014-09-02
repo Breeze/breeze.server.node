@@ -1,0 +1,21 @@
+{
+  "name": "breeze-sequelize",
+  "version": "0.0.1",
+  "description": "Breeze Sequelize server implementation",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+
+  },
+  "devDependencies": {
+    "gulp": "^3.8.7",
+    "mocha": "^1.21.4"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "author": "Jay Traband",
+  "license": "ISC"
+}

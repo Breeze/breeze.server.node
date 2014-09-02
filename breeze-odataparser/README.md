@@ -1,3 +1,9 @@
+breeze-odataparser
+==================
+
+Node package Breeze OData query parsing 
+
+
 To compile odataParser.peg
 
     insure that pegjs is installed both globally and locally
@@ -19,3 +25,4 @@ To run odataParser testing
 
 TODO:
     more precedence work - esp: not
+
