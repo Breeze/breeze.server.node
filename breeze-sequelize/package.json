@@ -7,6 +7,7 @@
     "test": "test"
   },
   "dependencies": {
+    "lodash": "^2.4.1",
     "mysql": "^2.4.3",
     "sequelize": "^1.7.10"
   },

@@ -1,9 +1,13 @@
 // These tests assume access to a mySql installation
 var should = require("should");
-
+var _ = require("lodash");
 var Sequelize      = require('Sequelize');
-var dbUtils = require('./dbUtils.js')
-var sequelizeUtils = require('./sequelizeUtils.js');
+
+var utils        = require('./../utils.js');
+var dbUtils = require('./../dbUtils.js')
+var sequelizeUtils = require('./../sequelizeUtils.js');
+var log = utils.log;
+// log.enabled = false;
 
 var dbConfig = {
   host: "localhost",
@@ -11,7 +15,6 @@ var dbConfig = {
   password: "password",
   dbName: 'test4'
 }
-
 
 
 describe("mySql", function() {
@@ -23,7 +26,7 @@ describe("mySql", function() {
 
   it('should connect', function(done) {
     dbUtils.connect(dbConfig, function(err, connection) {
-      if (err) done(err);
+      if (err) return done(err);
       connection.state.should.eql("authenticated");
       done();
     })
@@ -66,7 +69,7 @@ function createSimpleSchema(sequelize, done) {
   Customer.hasMany(Order, { as: "myOrders"} );
 
   sequelize.sync({ force: true}).success(function(xx){
-    console.log("schema created");
+    log("schema created");
     done();
   }).error(function(err) {
     console.log("schema creation failed");

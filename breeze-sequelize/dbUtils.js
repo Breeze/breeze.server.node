@@ -1,5 +1,7 @@
-
 var mysql      = require('mysql');
+var utils        = require('./utils.js');
+var log = utils.log;
+
 exports.connect = connect;
 exports.createDb = createDb;
 
@@ -7,28 +9,32 @@ function connect(dbConfig, done) {
   var connection = mysql.createConnection(dbConfig);
 
   connection.on('error', function(err) {
-    console.log(err.code); // 'ER_BAD_DB_ERROR'
+    log("Unable to connect to mySql (on err):" + err.code); // 'ER_BAD_DB_ERROR'
   });
 
   connection.connect(function(err) {
     if (err) {
-      console.log("ERROR: " + err.message);
-      done(err);
+      log("Unable to connect to mySql");
+      return done(err);
     }
-    console.log("connected.");
+
+    log("mysql connected: " + dbConfig.host);
     done(null, connection);
   });
 }
 
 function createDb(dbConfig, done ) {
   connect(dbConfig, function(err, connection) {
+    if (err)  return done(err);
+
     connection.query('CREATE DATABASE ' + dbConfig.dbName, function(err, results) {
       if (err && err.code != "ER_DB_CREATE_EXISTS") {
-        console.log("ERROR: " + err.message);
+        log("Database creation error: " + err.message);
         done(err);
       }
-      console.log("database created OR already exists.");
+      log("database created OR already exists.");
       done(null, connection);
     });
   });
 }
+

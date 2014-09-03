@@ -1,6 +1,8 @@
 var Sequelize      = require('Sequelize');
-exports.createSequelize = createSequelize;
+var utils        = require('./utils.js');
+var log = utils.log;
 
+exports.createSequelize = createSequelize;
 
 function createSequelize(dbConfig, done) {
   sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, {
@@ -12,10 +14,15 @@ function createSequelize(dbConfig, done) {
       .authenticate()
       .complete(function(err) {
         if (err) {
-          console.log('Unable to connect to the database:', err)
-          done(err);
+          log('Unable to connect to sequelize:', err)
+          return done(err);
         }
-        console.log('connection has been established successfully again.')
+        log('sequelize connection has been established.')
         done(null, sequelize);
       });
+}
+
+
+function log(s) {
+  console.log(s + "\n");
 }
