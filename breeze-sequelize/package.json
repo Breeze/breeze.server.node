@@ -6,7 +6,10 @@
   "directories": {
     "test": "test"
   },
-  "dependencies": {},
+  "dependencies": {
+    "mysql": "^2.4.3",
+    "sequelize": "^1.7.10"
+  },
   "devDependencies": {
     "gulp": "^3.8.7",
     "mocha": "^1.21.4",
