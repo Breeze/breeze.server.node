@@ -6,12 +6,11 @@
   "directories": {
     "test": "test"
   },
-  "dependencies": {
-
-  },
+  "dependencies": {},
   "devDependencies": {
     "gulp": "^3.8.7",
-    "mocha": "^1.21.4"
+    "mocha": "^1.21.4",
+    "should": "^4.0.4"
   },
   "scripts": {
     "test": "mocha"
