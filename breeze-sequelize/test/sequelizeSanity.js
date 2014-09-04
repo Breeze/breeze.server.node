@@ -1,11 +1,13 @@
 // These tests assume access to a mySql installation
-var should = require("should");
-var _ = require("lodash");
-var Sequelize      = require('Sequelize');
+var fs               = require("fs");
+var should           = require("should");
+var Sequelize        = require('Sequelize');
 
-var utils        = require('./../utils.js');
-var dbUtils = require('./../dbUtils.js')
-var sequelizeUtils = require('./../sequelizeUtils.js');
+var utils            = require('./../utils.js');
+var dbUtils          = require('./../dbUtils.js')
+var SequelizeManager = require('./../SequelizeManager');
+
+var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
@@ -13,7 +15,7 @@ var dbConfig = {
   host: "localhost",
   user: "root",
   password: "password",
-  dbName: 'test4'
+  dbName: 'test1'
 }
 
 
@@ -41,20 +43,23 @@ describe("mySql", function() {
 describe("sequelize", function() {
   this.enableTimeouts(false);
 
-  it("should create a schema", function(done) {
-    sequelizeUtils.createSequelize(dbConfig, function(err, sequelize) {
-      if (err) done(err);
-      createSimpleSchema(sequelize, done);
-    });
+  it("should create a simple schema", function(done) {
+    var sm = new SequelizeManager(dbConfig);
+    createSimpleSchema(sm.sequelize);
+    sm.sync(true, done);
   });
 
-  it("should convert breeze metadata")
+  it("should convert breeze metadata", function(done) {
+    nwConfig = _.clone(dbConfig);
+    nwConfig.dbName = "NorthwindIB";
+    var sm = new SequelizeManager(nwConfig);
+    var breezeMetadata = fs.readFileSync('./test/sampleMetadata.json', { encoding: 'utf8' });
+    sm.importMetadata(breezeMetadata);
+    sm.sync(true, done);
+  });
 });
 
-
-
-
-function createSimpleSchema(sequelize, done) {
+function createSimpleSchema(sequelize) {
   var Customer = sequelize.define("customer", {
     customerId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
     companyName: { type: Sequelize.STRING, allowNull: false },
@@ -66,15 +71,8 @@ function createSimpleSchema(sequelize, done) {
     orderDate: { type: Sequelize.DATE  },
     shipDate: { type: Sequelize.DATE }
   });
-  Customer.hasMany(Order, { as: "myOrders"} );
-
-  sequelize.sync({ force: true}).success(function(xx){
-    log("schema created");
-    done();
-  }).error(function(err) {
-    console.log("schema creation failed");
-    done(err)
-  });
+  Order.belongsTo(Customer, { as: "myCustomer", foreignKey: "custId"})
+  Customer.hasMany(Order, { as: "myOrders", foreignKey: "custId" } );
 
 }
 

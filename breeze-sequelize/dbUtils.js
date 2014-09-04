@@ -1,11 +1,13 @@
 var mysql      = require('mysql');
+
 var utils        = require('./utils.js');
 var log = utils.log;
 
 exports.connect = connect;
 exports.createDb = createDb;
 
-function connect(dbConfig, done) {
+// next => function(err, connection);
+function connect(dbConfig, next) {
   var connection = mysql.createConnection(dbConfig);
 
   connection.on('error', function(err) {
@@ -15,25 +17,26 @@ function connect(dbConfig, done) {
   connection.connect(function(err) {
     if (err) {
       log("Unable to connect to mySql");
-      return done(err);
+      return next(err);
     }
 
     log("mysql connected: " + dbConfig.host);
-    done(null, connection);
+    next(null, connection);
   });
 }
 
-function createDb(dbConfig, done ) {
+// next => function(err, connection);
+function createDb(dbConfig, next ) {
   connect(dbConfig, function(err, connection) {
-    if (err)  return done(err);
+    if (err)  return next(err);
 
     connection.query('CREATE DATABASE ' + dbConfig.dbName, function(err, results) {
       if (err && err.code != "ER_DB_CREATE_EXISTS") {
         log("Database creation error: " + err.message);
-        done(err);
+        next(err);
       }
       log("database created OR already exists.");
-      done(null, connection);
+      next(null, connection);
     });
   });
 }
