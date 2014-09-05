@@ -1,6 +1,5 @@
 var Sequelize    = require('Sequelize');
 
-
 var breeze       = require("breeze-client");
 var utils        = require('./utils.js');
 
@@ -23,7 +22,8 @@ MetadataMapper.prototype.mapToSqTypes = function() {
   });
   var complexTypes = typeMap["complexType"];
   var entityTypes = typeMap["entityType"];
-  entityTypeMap = {};
+  // map of entityTypeName to sqType
+  var entityTypeMap = {};
   // first create all of the sequelize types with just data properties
   var sqTypes = entityTypes.map(function(entityType) {
     var typeConfig = mapToSqTypeConfig(this, entityType);
@@ -37,7 +37,7 @@ MetadataMapper.prototype.mapToSqTypes = function() {
   }, this);
   // now add navigation props
   createNavProps(entityTypes, entityTypeMap);
-  return sqTypes;
+  return entityTypeMap;
 };
 
 // source.fn(target, { foreignKey: })

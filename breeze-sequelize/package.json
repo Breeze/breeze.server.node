@@ -9,6 +9,7 @@
   "dependencies": {
     "lodash": "^2.4.1",
     "mysql": "^2.4.3",
+    "node-uuid": "^1.4.1",
     "sequelize": "^1.7.10"
   },
   "devDependencies": {

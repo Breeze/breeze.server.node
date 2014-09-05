@@ -14,6 +14,22 @@ module.exports = SequelizeManager = function(dbConfig) {
     dialect: "mysql", // or 'sqlite', 'postgres', 'mariadb'
     port:    3306 // or 5432 (for postgres)
   });
+  // map of modelName -> model
+  this.models = {};
+};
+
+SequelizeManager.prototype.authenticate = function(next) {
+  // check database connection
+  this.sequelize.authenticate().complete(function(err) {
+    if (err) {
+      log('Unable to connect to the database:', err);
+      next(err);
+    } else {
+      log('Connection has been established successfully.');
+      next();
+    }
+  });
+
 };
 
 SequelizeManager.prototype.createDb = function(next) {
@@ -22,7 +38,9 @@ SequelizeManager.prototype.createDb = function(next) {
 
 SequelizeManager.prototype.importMetadata = function(breezeMetadata) {
   var metadataMapper = new MetadataMapper(breezeMetadata, this.sequelize);
-  metadataMapper.mapToSqTypes();
+  var etMap = metadataMapper.mapToSqTypes();
+  // TODO: should we merge here instead ; i.e. allow multiple imports...
+  this.models = _.indexBy(etMap, "name");
 };
 
 SequelizeManager.prototype.sync = function(shouldCreateDb, next) {
