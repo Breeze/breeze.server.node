@@ -1,12 +1,13 @@
 var Sequelize    = require('Sequelize');
-var _            = require('lodash');
+
 
 var breeze       = require("breeze-client");
 var utils        = require('./utils.js');
 
+var _            = Sequelize.Utils._;
 var log = utils.log;
 
-// module.exports = MetadataMapper;
+// TODO: still need to handle inherited entity types - TPT
 
 module.exports = MetadataMapper = function(breezeMetadata, sequelize) {
   this.breezeMetadata = breezeMetadata;
@@ -22,15 +23,57 @@ MetadataMapper.prototype.mapToSqTypes = function() {
   });
   var complexTypes = typeMap["complexType"];
   var entityTypes = typeMap["entityType"];
+  entityTypeMap = {};
+  // first create all of the sequelize types with just data properties
   var sqTypes = entityTypes.map(function(entityType) {
     var typeConfig = mapToSqTypeConfig(this, entityType);
-
-    var sqType = this.sequelize.define(entityType.shortName, typeConfig);
-
+    var options = {
+      // NOTE: case sensitivity of the table name may not be the same on some sql databases.
+      tableName: entityType.shortName, // this will define the table's name
+      timestamps: false           // this will deactivate the timestamp columns
+    };
+    var sqType = this.sequelize.define(entityType.shortName, typeConfig, options);
+    entityTypeMap[entityType.name] = sqType;
   }, this);
+  // now add navigation props
+  createNavProps(entityTypes, entityTypeMap);
   return sqTypes;
 };
 
+// source.fn(target, { foreignKey: })
+// hasOne - adds a foreign key to target
+// belongsTo - add a foreign key to source
+// hasMany - adds a foreign key to target, unless you also specifiy that target hasMany source, in which case a junction table is created with sourceId and targetId
+
+// entityTypeMap is a map of entityType.name to sequelize model
+function createNavProps(entityTypes, entityTypeMap) {
+  // TODO: we only support single column foreignKeys for now.
+
+  entityTypes.forEach(function(entityType) {
+    var navProps = entityType.navigationProperties;
+    var sqType = entityTypeMap[entityType.name];
+    navProps.forEach(function(np) {
+      var npName = np.nameOnServer;
+
+      var targetEntityType = np.entityType;
+      var targetSqType = entityTypeMap[targetEntityType.name];
+      if (np.isScalar) {
+        if (np.foreignKeyNamesOnServer.length > 0) {
+          sqType.belongsTo(targetSqType, { as: npName, foreignKey: np.foreignKeyNamesOnServer[0] }); // Product, Category
+        } else {
+          sqType.hasOne(targetSqType, { as: npName, foreignKey: np.invForeignKeyNamesOnServer[0] }); // Order, InternationalOrder
+        }
+      } else {
+        if ( np.foreignKeyNamesOnServer.length > 0) {
+          throw new Error("not sure what kind of reln this is");
+          // sqType.hasMany(targetSqType, { as: npName, foreignKey: np.foreignKeyNamesOnServer[0]})
+        } else {
+          sqType.hasMany(targetSqType, { as: npName, foreignKey: np.invForeignKeyNamesOnServer[0]}) // Category, Product
+        }
+      }
+    });
+  });
+}
 
 function mapToSqTypeConfig(mapper, entityOrComplexType) {
   // propConfig looks like
@@ -61,6 +104,9 @@ function mapToSqPropConfig(mapper, dataProperty) {
     throw new Error( template({ dataProperty: dataProperty.parentType.shortName + "." + dataProperty.name, dataType: dataProperty.dataType.name }));
   }
   attributes.type = sqType;
+  if (dataProperty.dataType == breeze.DataType.String && dataProperty.maxLength) {
+    attributes.type = Sequelize.STRING(dataProperty.maxLength);
+  }
   if (!dataProperty.isNullable) {
     attributes.allowNull = false;
   }
