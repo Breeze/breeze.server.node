@@ -17,6 +17,7 @@ var dbConfig = {
 
 
 describe("mySql", function() {
+
   this.enableTimeouts(false);
 
   it('sanity check', function(){
@@ -24,15 +25,16 @@ describe("mySql", function() {
   });
 
   it('should connect', function(done) {
-    dbUtils.connect(dbConfig, function(err, connection) {
-      if (err) return done(err);
+    dbUtils.connect(dbConfig).then(function(connection) {
       connection.state.should.eql("authenticated");
-      done();
-    })
+    }).then(done, done);
   })
 
   it("should create a db", function(done) {
-    dbUtils.createDb(dbConfig, done);
+    // dbUtils.createDb(dbConfig).then(done, done);
+    dbUtils.createDb(dbConfig).then(function() {
+      log(dbConfig.dbName + " created or exists");
+    }).then(done, done);
   });
 
 });
