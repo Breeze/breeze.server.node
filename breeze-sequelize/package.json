@@ -24,3 +24,5 @@
   "author": "Jay Traband",
   "license": "ISC"
 }
+
+// need to add 'breeze-client' and 'breeze-odataparser' later

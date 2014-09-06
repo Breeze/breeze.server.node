@@ -162,8 +162,8 @@ describe("sequelize", function() {
 
 function createCustDTOs() {
   return [
-    { customerID: uuid.v1(), companyName: "Test 1", City: "Los Angeles" },
-    { customerID: uuid.v1(), companyName: "Test 2", City: "Oakland" }
+    { customerID: uuid.v1(), companyName: "Test 1", city: "Los Angeles" },
+    { customerID: uuid.v1(), companyName: "Test 2", city: "Oakland" }
   ];
 }
 
@@ -187,10 +187,13 @@ function noop() {};
 
 function initializeNw() {
   nwConfig = _.clone(dbConfig);
-  nwConfig.dbName = "NorthwindIB";
+  nwConfig.dbName = "NorthwindIB_temp";
   var sm = new SequelizeManager(nwConfig);
   var breezeMetadata = fs.readFileSync('./test/sampleMetadata.json', { encoding: 'utf8' });
-  sm.importMetadata(breezeMetadata);
+  var json = JSON.parse(breezeMetadata);
+  // removing naming convention so that we don't camel case the data.
+  json.namingConvention = null;
+  sm.importMetadata(json);
   return sm;
 }
 

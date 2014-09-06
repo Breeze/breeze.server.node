@@ -11,10 +11,11 @@ var log = utils.log;
 module.exports = MetadataMapper = function(breezeMetadata, sequelize) {
   this.breezeMetadata = breezeMetadata;
   this.sequelize = sequelize;
+  this.metadataStore = new breeze.MetadataStore();
 }
 
 MetadataMapper.prototype.mapToSqTypes = function() {
-  var ms = new breeze.MetadataStore();
+  var ms = this.metadataStore;
   ms.importMetadata(this.breezeMetadata);
   var allTypes = ms.getEntityTypes();
   var typeMap = _.groupBy(allTypes, function(t) {
@@ -135,7 +136,7 @@ var _dataTypeMap = {
   Int16: Sequelize.INTEGER,
   Int32: Sequelize.INTEGER,
   Int64: Sequelize.BIGINT,
-  Decimal: Sequelize.DECIMAL,
+  Decimal: Sequelize.DECIMAL(19,4),
   Double: Sequelize.FLOAT,
   Single: Sequelize.FLOAT,
   Guid: Sequelize.UUID,
