@@ -20,7 +20,8 @@ module.exports = SequelizeManager = function(dbConfig) {
   this.models = {};
 };
 
-SequelizeManager.prototype.authenticate = function(next) {
+// returns Promise(null);
+SequelizeManager.prototype.authenticate = function() {
   // check database connection
   this.sequelize.authenticate().then(function() {
     log('Connection has been established successfully.');
@@ -31,8 +32,8 @@ SequelizeManager.prototype.authenticate = function(next) {
 
 };
 
-SequelizeManager.prototype.createDb = function(next) {
-  dbUtils.createDb(dbConfig, next);
+SequelizeManager.prototype.createDb = function() {
+  return dbUtils.createDb(this.dbConfig);
 };
 
 SequelizeManager.prototype.importMetadata = function(breezeMetadata) {
@@ -46,7 +47,7 @@ SequelizeManager.prototype.importMetadata = function(breezeMetadata) {
 SequelizeManager.prototype.sync = function(shouldCreateDb) {
   if (shouldCreateDb) {
     var that = this;
-    return dbUtils.createDb(this.dbConfig).then(function() {
+    return this.createDb().then(function() {
       return syncCore(that.sequelize);
     });
   } else {
@@ -55,19 +56,7 @@ SequelizeManager.prototype.sync = function(shouldCreateDb) {
 };
 
 
-//SequelizeManager.prototype.sync = function(shouldCreateDb, next) {
-//  if (shouldCreateDb) {
-//    var that = this;
-//    dbUtils.createDb(this.dbConfig, function(err) {
-//      if (err) next(err);
-//      sync(that.sequelize, next);
-//    });
-//  } else {
-//    sync(this.sequelize, next);
-//  }
-//};
-
-// returns promise(sequelize);
+// returns Promise(sequelize);
 function syncCore(sequelize) {
   return sequelize.sync({ force: true}).then(function() {
     log("schema created");

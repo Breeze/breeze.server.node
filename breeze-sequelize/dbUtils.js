@@ -10,8 +10,7 @@ var log = utils.log;
 exports.connect = connect;
 exports.createDb = createDb;
 
-// next => function(err, connection);
-// returns a Promise - (connection)
+// returns a Promise(connection)
 function connect(dbConfig) {
   var connection = mysql.createConnection(dbConfig);
 
@@ -27,9 +26,9 @@ function connect(dbConfig) {
     log("Unable to connect to mySql:" + err);
     throw err;
   });
-
 }
 
+// return promise(null);
 function createDb(dbConfig) {
   return connect(dbConfig).then(function(connection) {
     // promisified query
@@ -46,6 +45,7 @@ function createDb(dbConfig) {
   });
 };
 
+// old version using node 'next' semantics.
 // next => function(err, connection);
 //function createDb(dbConfig, next ) {
 //  connect(dbConfig, function(err, connection) {
