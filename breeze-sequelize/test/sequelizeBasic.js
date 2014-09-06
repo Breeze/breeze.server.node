@@ -13,6 +13,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
+
 var dbConfig = {
   host: "localhost",
   user: "root",
@@ -45,7 +46,7 @@ describe("sequelize", function() {
 
   });
 
-  function noop() {};
+
 
 
   it("should convert breeze metadata", function() {
@@ -54,7 +55,7 @@ describe("sequelize", function() {
     should.exist(CustomerModel);
   });
 
-  it("should save simple with build", function(done) {
+  it("should insert with build & save", function(done) {
     var Customer = _nwSm.models.Customer;
     var dtos = createCustDTOs();
     var cust1 = Customer.build( dtos[0]);
@@ -123,6 +124,40 @@ describe("sequelize", function() {
       r.should.have.length(dtos.length);
     }).then(done, done);
   });
+
+  it("should create associations", function(done) {
+    var Employee = _nwSm.models.Employee;
+    var Customer = _nwSm.models.Customer;
+    var Order    = _nwSm.models.Order;
+    var emps, custs, orders;
+    var dtos = createEmpDTOs();
+    Promise.all(createEmpDTOs().map(function(dto) {
+      return Employee.create(dto);
+    })).then(function(r) {
+      emps = r;
+      emps.should.have.length(dtos.length);
+      return Promise.all(createCustDTOs().map(function(dto) {
+        return Customer.create(dto);
+      }));
+    }).then(function(r) {
+      custs = r;
+      dtos = createOrderDTOs(custs[0], emps[0]);
+      return Promise.all(dtos.map(function(dto) {
+        return Order.create(dto);
+      }));
+    }).then(function(r) {
+      orders = r;
+      orders.should.have.length(dtos.length);
+      orders[0].customerID.should.equal(custs[0].customerID);
+      orders[0].employeeID.should.equal(emps[0].employeeID);
+      return Customer.find( { where: { customerID: custs[0].customerID }, include: { model: Order, as: "orders" }});
+    }).then(function(c0) {
+      c0.customerID.should.equal(custs[0].customerID);
+      var orderIds0 = _.pluck(orders, "orderID");
+      var orderIds1 = _.pluck(c0.orders, "orderID");
+      _.difference(orderIds0, orderIds1).should.be.empty;
+    }).then(done, done);
+  });
 });
 
 function createCustDTOs() {
@@ -137,15 +172,18 @@ function createEmpDTOs() {
     {   lastName: "Smith", firstName: "Don", birthDate: new Date(2001, 0, 1)},
     {   lastName: "Doe",   firstName: "John", birthDate: new Date(2001, 1, 1)},
     {   lastName: "Smith", firstName: "Mary", birthDate: new Date(2001, 2, 1)}
-  ]
+  ];
 }
 
-function createOrderDTOs() {
-  return {
-
-  };
+function createOrderDTOs(cust, emp) {
+  return [
+    {  customerID: cust.customerID, employeeID: emp.employeeID, orderDate: new Date(2013,0,1) },
+    {  customerID: cust.customerID, employeeID: emp.employeeID, orderDate: new Date(2013,1,1) },
+    {  customerID: cust.customerID, employeeID: emp.employeeID, orderDate: new Date(2013,2,1) }
+  ];
 }
 
+function noop() {};
 
 function initializeNw() {
   nwConfig = _.clone(dbConfig);
@@ -181,7 +219,7 @@ function createSimpleSchema(sequelize) {
     orderDate: { type: Sequelize.DATE  },
     shipDate: { type: Sequelize.DATE }
   });
-  Order.belongsTo(Customer, { as: "myCustomer", foreignKey: "custId"})
+  Order.belongsTo(Customer, { as: "myCustomer", foreignKey: "custId"});
   Customer.hasMany(Order, { as: "myOrders", foreignKey: "custId" } );
 
 }
