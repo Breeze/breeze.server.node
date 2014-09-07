@@ -16,7 +16,7 @@ var log = utils.log;
 
 
 
-describe("sequelizeBasic", function() {
+describe.skip("sequelizeBasic", function() {
 
   var _dbConfig = {
     host: "localhost",

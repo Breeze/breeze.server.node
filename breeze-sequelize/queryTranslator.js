@@ -2,23 +2,36 @@ var Sequelize = require('sequelize');
 var odataParser = require('breeze-odataparser');
 var url = require("url");
 
+var _ = Sequelize.Utils._;
+
 module.exports = queryTranslator;
 
 var boolOpMap = {
-  eq: { jsOp: "==="},
-  gt: { sequelizeOp: "gt",  jsOp: ">" },
-  ge: { sequelizeOp: "gte", jsOp: ">=" },
-  lt: { sequelizeOp: "lt",  jsOp: "<" },
-  le: { sequelizeOp: "lte", jsOp: "<=" },
-  ne: { sequelizeOp: "ne",  jsOp: "!=" }
-}
+  eq: { jsOp: "===", not: "ne"},
+  gt: { sequelizeOp: "gt",  jsOp: ">", not: "le" },
+  ge: { sequelizeOp: "gte", jsOp: ">=", not: "lt"  },
+  lt: { sequelizeOp: "lt",  jsOp: "<" , not: "ge"},
+  le: { sequelizeOp: "lte", jsOp: "<=", not: "gt" },
+  ne: { sequelizeOp: "ne",  jsOp: "!=", not: "eq" }
+};
+
+var _notOps = {
+  gt: "lte",
+  lte: "gt",
+  gte: "lt",
+  lt: "gte",
+  ne: "eq",
+  eq: "ne",
+  like: "nlike",
+  nlike: "like"
+};
 
 // pass in either a query string or a urlQuery object
 //    a urlQuery object is what is returned by node's url.parse(aUrl, true).query;
 function queryTranslator(query) {
   var section;
   var urlQuery = (typeof(query) === 'string') ? url.parse(query, true).query : query;
-
+  var result = {};
   section = urlQuery.$filter;
   if (section) {
     var filterTree = parse(section, "filterExpr");
@@ -27,7 +40,26 @@ function queryTranslator(query) {
         return memberPath.replace("/", ".");
       }
     };
-    this.filter = toQueryExpr(filterTree, context);
+    var where = toQueryExpr(filterTree, context);
+    result.where = processAndOr(where);
+  }
+
+  // needed to convert 'or:' and 'and:' clauses into Sequelize.and/or clauses
+  function processAndOr( where) {
+    var clauses;
+    if ( where.and) {
+      clauses = where.and.map(function(clause) {
+        return processAndOr(clause);
+      })
+      return Sequelize.and.apply(null, clauses)
+    } else if (where.or) {
+      clauses = where.or.map(function(clause) {
+        return processAndOr(clause);
+      })
+      return Sequelize.or.apply(null, clauses);
+    } else {
+      return where;
+    }
   }
 
   section = urlQuery.$select;
@@ -60,7 +92,11 @@ function queryTranslator(query) {
   }
 
   section = urlQuery.$inlinecount;
-  this.inlineCount = !!(section && section !== "none");
+  if (section) {
+    result.inlineCount = section !== "none";
+  }
+
+  return result;
 
 }
 
@@ -199,9 +235,11 @@ function makeFn2Filter(node, context) {
     }
   }
 
-  if (!isEmpty(q)) {
+  if (!_.isEmpty(q)) {
     return q;
   }
+
+  var stringify = JSON.stringify;
   throw new Error("Not yet implemented: Function: " + fnName + " p1: " + stringify(p1) + " p2: " + stringify(p2));
 }
 
@@ -211,10 +249,9 @@ function makeAndOrFilter(node, context) {
   var q2 = toQueryExpr(node.p2, context);
   var q;
   if (node.op === "and") {
-    // q = extendQuery(q1, q2);
-    q = sequelize.and(q1, q2);
+    q = { and: [q1, q2] };
   } else {
-    q = sequelize.or(q1, q2);
+    q = { or: [q1, q2] };
   }
   return q;
 }
@@ -230,21 +267,19 @@ function makeAnyAllFilter(node, context) {
 }
 
 function makeAnyFilter(node, context) {
-  var subq = toQueryExpr(node.subquery, context);
-  var q = {};
-  var key = context.translateMember(node.member);
-  q[key] = { "$elemMatch" : subq } ;
-  return q;
+  throw new Error("'any' is not yet implemented" );
+//  var subq = toQueryExpr(node.subquery, context);
+//  var q = {};
+//  return q;
 }
 
 function makeAllFilter(node, context) {
-  var subq = toQueryExpr(node.subquery, context);
-  var notSubq = applyNot(subq);
-  var q = {};
-  var key = context.translateMember(node.member);
-  q[key] = { $not: { "$elemMatch" : notSubq } } ;
-  q[key + ".0"] = { $exists: true };
-  return q;
+  throw new Error("'all' is not yet implemented" );
+//  var subq = toQueryExpr(node.subquery, context);
+//  var notSubq = applyNot(subq);
+//  var q = {};
+//  var key = context.translateMember(node.member);
+//  return q;
 }
 
 function parseNodeValue(node, context) {
@@ -252,34 +287,36 @@ function parseNodeValue(node, context) {
   if (node.type === "member") {
     return context.translateMember(node.value);
   } else if (node.type === "lit_string" ) {
-    return parseLitString(node.value);
+    return node.value;
   } else {
     return node.value;
   }
 }
 
 function applyNot(q1) {
-  // because of the #@$#1 way mongo defines $not - i.e. can't apply it at the top level of an expr
-  // and / or code gets ugly.
-  // rules are:
-  // not { a: 1}             -> { a: { $ne: 1 }}
-  // not { a: { $gt: 1 }}    -> { a: { $not: { $gt: 1}}}
-  // not { $and { a: 1, b: 2 } -> { $or:  { a: { $ne: 1 }, b: { $ne 2 }}}
-  // not { $or  { a: 1, b: 2 } -> { $and: [ a: { $ne: 1 }, b: { $ne 2 }]}
 
-  var results = [];
+  // rules are:
+  // not { a: 1}             -> { a: { ne: 1 }}
+  // not { a: { gt: 1 }}    -> { a: { le: 1}}}
+  // not { and: { a: 1, b: 2 } -> { or:  { a: { $ne: 1 }, b: { $ne 2 }}}
+  // not { or  { a: 1, b: 2 } -> { and: [ a: { $ne: 1 }, b: { $ne 2 }]}
+
+  var results = [], result;
   for (var k in q1) {
     var v = q1[k];
-    if (k === "$or") {
-      result = { $and: [ applyNot(v[0]), applyNot(v[1]) ] }
-    } else if (k === "$and") {
-      result = {  $or: [ applyNot(v[0]), applyNot(v[1]) ] }
+    if (k === "or") {
+      result = { and: [ applyNot(v[0]), applyNot(v[1]) ] };
+    } else if (k === "and") {
+      result = { or: [ applyNot(v[0]), applyNot(v[1]) ] };
+    } else if ( _notOps[k] ) {
+      result = {};
+      result[_notOps[k]] = v;
     } else {
       result = {};
       if ( v!=null && typeof(v) === "object") {
-        result[k] = { $not: v };
+        result[k] = applyNot(v);
       } else {
-        result[k] = { "$ne": v };
+        result[k] = { "ne": v };
       }
     }
 
@@ -290,7 +327,7 @@ function applyNot(q1) {
   } else {
     // Don't think we should ever get here with the current logic because all
     // queries should only have a single node
-    return { "$or": results };
+    return { "or": results };
   }
 }
 
@@ -307,14 +344,3 @@ function startsWith(str, prefix) {
   return str.indexOf(prefix, 0) === 0;
 }
 
-function parseLitString(s) {
-  if (/^[0-9a-fA-F]{24}$/.test(s)) {
-    return new ObjectId(s);
-  } else {
-    return s;
-  }
-}
-
-function stringify(node) {
-  return JSON.stringify(node);
-}

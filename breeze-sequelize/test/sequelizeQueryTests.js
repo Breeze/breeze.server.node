@@ -53,9 +53,50 @@ describe("sequelizeQuery", function() {
       r.length.should.be.greaterThan(5);
       r.forEach(function(cust) {
         cust.CompanyName.should.startWith('B');
-        var x = cust.Orders;
+        (cust.Orders || cust.orders).should.exist;
       });
     }).then(done, done);
   });
 
+  it("should be able to use include on 1-N reln with where ( any) ", function(done) {
+    var Order = _nwSm.models.Order;
+    _nwSm.models.Customer.findAll( {
+      where: { CompanyName: { like: 'B%'} },
+      include: { model: Order, as: "Orders" , where: { ShipCity : "London" }}
+    }).then(function(r) {
+          r.length.should.be.within(1, 3);
+          r.forEach(function(cust) {
+            cust.CompanyName.should.startWith('B');
+            var orders = cust.Orders || cust.orders;
+            orders.should.exist;
+            orders.forEach(function(order) {
+              order.ShipCity.should.be.eql("London");
+            })
+          });
+        }).then(done, done);
+  });
+
+  it("should be able to use Sequelize.or ", function(done) {
+    var Order = _nwSm.models.Order;
+    var q = {
+      where: Sequelize.or( { CompanyName: { like: 'B%'} }, { CompanyName: { like: 'C%' } })
+    };
+    var q1 ={
+      where: Sequelize.or( { CompanyName: { like: 'B%'} }, { CompanyName: { like: 'C%' } })
+    };
+    q.should.eql(q1);
+    _nwSm.models.Customer.findAll( q).then(function(r) {
+      r.length.should.be.greaterThan(10);
+    }).then(done, done);
+  });
+
+  it("should be able to use Sequelize.and ", function(done) {
+    var Order = _nwSm.models.Order;
+    var q = {
+      where: Sequelize.and( { CompanyName: { like: 'B%'} }, { CompanyName: { like: 'C%' } })
+    };
+    _nwSm.models.Customer.findAll( q).then(function(r) {
+      r.length.should.equal(0);
+    }).then(done, done);
+  });
 });
