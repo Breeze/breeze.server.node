@@ -18,7 +18,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("sequelize", function() {
+describe("breezeToSequelizeQuery", function() {
   this.enableTimeouts(false);
 
   var _ms;
@@ -34,7 +34,7 @@ describe("sequelize", function() {
   it("should parse simple query", function() {
     var q0 = new EntityQuery("Customer").where("companyName", "startsWith", "S");
     var uri = q0._toUri(_ms);
-    // var x = queryTranslator(uri);
+    var x = queryTranslator(uri);
 
   });
 });

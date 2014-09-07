@@ -14,29 +14,41 @@ var log = utils.log;
 // log.enabled = false;
 
 
-var dbConfig = {
-  host: "localhost",
-  user: "root",
-  password: "password",
-  dbName: 'test1'
-}
 
-var _nwDbInitialized = false;
-var _nwSm;
 
-describe("sequelize", function() {
+describe("sequelizeBasic", function() {
+
+  var _dbConfig = {
+    host: "localhost",
+    user: "root",
+    password: "password",
+    dbName: 'test1'
+  }
+
+  var _nwSm;
+
   this.enableTimeouts(false);
 
   before(function(done) {
-    // this.enableTimeouts(false);
-    syncNw().then(function(sm) {
+    var nwConfig = _.clone(_dbConfig);
+    nwConfig.dbName = "NorthwindIB_temp";
+    var sm = new SequelizeManager(nwConfig);
+    var breezeMetadata = fs.readFileSync('./test/sampleMetadata.json', { encoding: 'utf8' });
+    var json = JSON.parse(breezeMetadata);
+    // removing naming convention so that we don't camel case the data.
+    json.namingConvention = null;
+    sm.importMetadata(json);
+    sm.sync(true).then(function() {
       _nwSm = sm;
-    }).then(done, done);
+      done();
+    })
 
    });
 
+
+
   it("should create a simple schema", function(done) {
-    var sm = new SequelizeManager(dbConfig);
+    var sm = new SequelizeManager(_dbConfig);
     createSimpleSchema(sm.sequelize);
     // this will not work but the line after will;
     // sm.sync(true).then(done, done);
@@ -185,29 +197,7 @@ function createOrderDTOs(cust, emp) {
 
 function noop() {};
 
-function initializeNw() {
-  nwConfig = _.clone(dbConfig);
-  nwConfig.dbName = "NorthwindIB_temp";
-  var sm = new SequelizeManager(nwConfig);
-  var breezeMetadata = fs.readFileSync('./test/sampleMetadata.json', { encoding: 'utf8' });
-  var json = JSON.parse(breezeMetadata);
-  // removing naming convention so that we don't camel case the data.
-  json.namingConvention = null;
-  sm.importMetadata(json);
-  return sm;
-}
 
-// returns promise(sm)
-function syncNw() {
-  var sm = initializeNw();
-  return sm.sync(true).then(function() {
-    return sm;
-  }).error(function(err) {
-    log("syncNw failed" + err);
-    throw(err);
-  });
-
-}
 
 
 function createSimpleSchema(sequelize) {

@@ -13,20 +13,19 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-
-var _nwConfig = {
-  host: "localhost",
-  user: "root",
-  password: "password",
-  dbName: 'northwindib'
-}
-
-var _nwSm;
-var _sequelize;
-
 describe("sequelizeQuery", function() {
 
   this.enableTimeouts(false);
+
+  var _nwConfig = {
+    host: "localhost",
+    user: "root",
+    password: "password",
+    dbName: 'northwindib'
+  }
+
+  var _nwSm;
+  var _sequelize;
 
 
   before(function() {
@@ -37,11 +36,24 @@ describe("sequelizeQuery", function() {
   });
 
   it("should be able to use 'like'", function(done) {
-    log("customers starting with B");
     _nwSm.models.Customer.findAll( { where: { CompanyName: { like: 'B%'} }}).then(function(r) {
       r.length.should.be.greaterThan(5);
       r.forEach(function(cust) {
         cust.CompanyName.should.startWith('B');
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to use include on 1-N reln", function(done) {
+    var Order = _nwSm.models.Order;
+    _nwSm.models.Customer.findAll( {
+      where: { CompanyName: { like: 'B%'} },
+      include: { model: Order, as: "Orders" }
+    }).then(function(r) {
+      r.length.should.be.greaterThan(5);
+      r.forEach(function(cust) {
+        cust.CompanyName.should.startWith('B');
+        var x = cust.Orders;
       });
     }).then(done, done);
   });

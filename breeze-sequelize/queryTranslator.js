@@ -180,23 +180,22 @@ function makeFn2Filter(node, context) {
 
     if (startsWith(p2.type, "lit_")) {
       if (fnName === "startswith") {
-        q[p1Value] =  new RegExp("^" +p2Value, 'i' ) ;
-      }   else if (fnName === "endswith") {
-        q[p1Value] =  new RegExp( p2Value + "$", 'i');
+        q[p1Value] =  { like: p2Value+"%" } ;
+      } else if (fnName === "endswith") {
+        q[p1Value] =  { like: "%" + p2Value } ;
       }
     } else if (p2.type === "member") {
       var fn;
+      var val = sequelize.col(p2Value);
       if (fnName === "startswith") {
-        fn =  "(new RegExp('^' + this." + p2Value + ",'i')).test(this." +  p1Value + ")";
-        addWhereClause(q, fn);
-      }   else if (fnName === "endswith") {
-        fn =  "(new RegExp(this." + p2Value + " + '$','i')).test(this." +  p1Value + ")";
-        addWhereClause(q, fn);
+        q[p1Value] =  { like: val + "+%" } ;
+      } else if (fnName === "endswith") {
+        q[p1Value] =  { like: "%+" + val } ;
       }
     }
   } else if (fnName === "substringof") {
     if (p1.type === "lit_string" && p2.type === "member") {
-      q[p2Value] = new RegExp(p1Value, "i");
+      q[p2Value] = { like: "%" + p1Value + "%" };
     }
   }
 
@@ -213,9 +212,9 @@ function makeAndOrFilter(node, context) {
   var q;
   if (node.op === "and") {
     // q = extendQuery(q1, q2);
-    q = { "$and": [q1, q2] };
+    q = sequelize.and(q1, q2);
   } else {
-    q = { "$or": [q1, q2] };
+    q = sequelize.or(q1, q2);
   }
   return q;
 }
