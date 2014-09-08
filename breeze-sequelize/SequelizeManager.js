@@ -1,4 +1,4 @@
-var Sequelize      = require('Sequelize');
+var Sequelize      = require('sequelize');
 var breeze         = require("breeze-client");
 var Promise        = require("bluebird");
 
@@ -42,6 +42,10 @@ SequelizeManager.prototype.importMetadata = function(breezeMetadata) {
   // TODO: should we merge here instead ; i.e. allow multiple imports...
   this.models = _.indexBy(etMap, "name");
 };
+
+SequelizeManager.prototype.executeQuery = function(odataQueryString) {
+
+}
 
 // returns Promise(sequelize);
 SequelizeManager.prototype.sync = function(shouldCreateDb) {

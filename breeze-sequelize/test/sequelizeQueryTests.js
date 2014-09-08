@@ -1,9 +1,9 @@
 // These tests assume access to a mySql installation
-var fs               = require("fs");
-var should           = require("should");
-var Sequelize        = require('Sequelize');
+var fs               = require('fs');
+var should           = require('should');
+var Sequelize        = require('sequelize');
 var uuid             = require('node-uuid');
-var Promise          = require("bluebird");
+var Promise          = require('bluebird');
 
 var utils            = require('./../utils.js');
 var dbUtils          = require('./../dbUtils.js');
@@ -25,14 +25,14 @@ describe("sequelizeQuery", function() {
   }
 
   var _nwSm;
-  var _sequelize;
+
 
 
   before(function() {
     _nwSm = new SequelizeManager(_nwConfig);
     var breezeMetadata = fs.readFileSync('./test/sampleMetadata.json', { encoding: 'utf8' });
     _nwSm.importMetadata(breezeMetadata);
-    _sequelize = _nwSm.sequelize;
+
   });
 
   it("should be able to use 'like'", function(done) {
@@ -76,15 +76,28 @@ describe("sequelizeQuery", function() {
         }).then(done, done);
   });
 
-  it("should be able to use Sequelize.or ", function(done) {
-    var Order = _nwSm.models.Order;
+  var isSequelizeAnd = function(o) {
+    return Object.getPrototypeOf(o).constructor == Sequelize.Utils.and;
+  }
+
+  var isSequelizeOr = function(o) {
+    return Object.getPrototypeOf(o).constructor == Sequelize.Utils.or;
+  }
+
+  var buildOrQuery = function() {
+    var c1= { CompanyName: { like: 'B%'} };
+    var c2 = { City: { like: 'L%' } };
     var q = {
-      where: Sequelize.or( { CompanyName: { like: 'B%'} }, { CompanyName: { like: 'C%' } })
+      where: Sequelize.or( c1, c2 )
     };
-    var q1 ={
-      where: Sequelize.or( { CompanyName: { like: 'B%'} }, { CompanyName: { like: 'C%' } })
-    };
-    q.should.eql(q1);
+
+    return q;
+  }
+
+  it("should be able to use Sequelize.or ", function(done) {
+
+    var q = buildOrQuery();
+
     _nwSm.models.Customer.findAll( q).then(function(r) {
       r.length.should.be.greaterThan(10);
     }).then(done, done);
@@ -93,10 +106,10 @@ describe("sequelizeQuery", function() {
   it("should be able to use Sequelize.and ", function(done) {
     var Order = _nwSm.models.Order;
     var q = {
-      where: Sequelize.and( { CompanyName: { like: 'B%'} }, { CompanyName: { like: 'C%' } })
+      where: Sequelize.and( { CompanyName: { like: 'B%'} }, { City: { like: 'L%' } })
     };
     _nwSm.models.Customer.findAll( q).then(function(r) {
-      r.length.should.equal(0);
+      r.length.should.greaterThan(1);
     }).then(done, done);
   });
 });

@@ -1,4 +1,4 @@
-var Sequelize      = require('Sequelize');
+var Sequelize      = require('sequelize');
 var breeze         = require("breeze-client");
 
 var MetadataMapper = require('./MetadataMapper.js');

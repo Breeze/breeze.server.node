@@ -1,7 +1,7 @@
 // These tests assume access to a mySql installation
-var fs               = require("fs");
-var should           = require("should");
-var _                = require("lodash");
+var fs               = require('fs');
+var should           = require('should');
+var _                = require('lodash');
 var utils            = require('./../utils.js');
 var dbUtils          = require('./../dbUtils.js')
 

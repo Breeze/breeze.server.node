@@ -1,15 +1,15 @@
 var fs               = require("fs");
 var should           = require("should");
-var Sequelize        = require('Sequelize');
+var Sequelize        = require('sequelize');
 var uuid             = require('node-uuid');
 var Promise          = require("bluebird");
 var breeze           = require("breeze-client");
 
 
 var utils            = require('./../utils.js');
-var dbUtils          = require('./../dbUtils.js');
-var SequelizeManager = require('./../SequelizeManager');
-var queryTranslator  = require('./../queryTranslator.js');
+//var dbUtils          = require('./../dbUtils.js');
+//var SequelizeManager = require('./../SequelizeManager');
+var SequelizeQuery  = require('./../SequelizeQuery.js');
 
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
@@ -19,7 +19,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("breezeToSequelizeQuery", function() {
+describe("breezeParser", function() {
   this.enableTimeouts(false);
 
   var _ms;
@@ -61,9 +61,19 @@ describe("breezeToSequelizeQuery", function() {
     );
   });
 
+  it("should parse and clauses", function () {
+    var p = Predicate("companyName", "startsWith", "S").and("companyName", "startsWith", "D");
+    var q0 = new EntityQuery("Customer").where(p);
+    check(q0,
+        { where:
+            Sequelize.and( { CompanyName: { like: 'S%' }}, { CompanyName: { like: 'D%'}})
+        }
+    );
+  });
+
   function check(entityQuery, expectedResult) {
     var uri = entityQuery._toUri(_ms);
-    var result = queryTranslator(uri);
-    expectedResult.should.eql(result);
+    var sq = new SequelizeQuery(uri);
+    expectedResult.should.eql(sq.queryObj);
   }
 });
