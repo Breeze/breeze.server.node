@@ -17,7 +17,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe.only("breezeQuery", function() {
+describe("breezeQuery", function() {
   this.enableTimeouts(false);
 
   var _nwConfig = {
@@ -94,11 +94,7 @@ describe.only("breezeQuery", function() {
   });
 
   it("should be able to query with two string field names", function(done) {
-    // BUG: casing issue...
     var q0 = new EntityQuery("Employees").where("lastName", "startsWith", "firstName");
-    var sq = toSequelizeQuery(q0)
-    var q0 = new EntityQuery("Employees").where("hireDate", ">", "birthDate");
-    // var q0 = new EntityQuery("Employee").where("hireDate", ">", { value: "birthDate", isLiteral: false });
     var sq = toSequelizeQuery(q0)
     sq.execute(_sm).then( function(r) {
       r.length.should.be.greaterThan(1);

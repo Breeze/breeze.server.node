@@ -11,7 +11,7 @@
     "lodash": "^2.4.1",
     "mysql": "^2.4.3",
     "node-uuid": "^1.4.1",
-    "sequelize": "^1.7.10"
+    "sequelize": "^2.0.0-dev13"
   },
   "devDependencies": {
     "gulp": "^3.8.7",
@@ -24,5 +24,3 @@
   "author": "Jay Traband",
   "license": "ISC"
 }
-
-// need to add 'breeze-client' and 'breeze-odataparser' later

@@ -36,7 +36,7 @@ describe("sequelizeQuery", function() {
   });
 
   it("should be able to use 'like'", function(done) {
-    _nwSm.models.Customer.findAll( { where: { CompanyName: { like: 'B%'} }}).then(function(r) {
+    _nwSm.models.Customers.findAll( { where: { CompanyName: { like: 'B%'} }}).then(function(r) {
       r.length.should.be.greaterThan(5);
       r.forEach(function(cust) {
         cust.CompanyName.should.startWith('B');
@@ -45,8 +45,8 @@ describe("sequelizeQuery", function() {
   });
 
   it("should be able to use include on 1-N reln", function(done) {
-    var Order = _nwSm.models.Order;
-    _nwSm.models.Customer.findAll( {
+    var Order = _nwSm.models.Orders;
+    _nwSm.models.Customers.findAll( {
       where: { CompanyName: { like: 'B%'} },
       include: { model: Order, as: "Orders" }
     }).then(function(r) {
@@ -59,15 +59,15 @@ describe("sequelizeQuery", function() {
   });
 
   it("should be able to use include on 1-N reln with where ( any) ", function(done) {
-    var Order = _nwSm.models.Order;
-    _nwSm.models.Customer.findAll( {
+    var Order = _nwSm.models.Orders;
+    _nwSm.models.Customers.findAll( {
       where: { CompanyName: { like: 'B%'} },
       include: { model: Order, as: "Orders" , where: { ShipCity : "London" }}
     }).then(function(r) {
           r.length.should.be.within(1, 3);
           r.forEach(function(cust) {
             cust.CompanyName.should.startWith('B');
-            var orders = cust.Orders || cust.orders;
+            var orders = cust.Orders;
             orders.should.exist;
             orders.forEach(function(order) {
               order.ShipCity.should.be.eql("London");
@@ -91,17 +91,17 @@ describe("sequelizeQuery", function() {
 
     var q = buildOrQuery();
 
-    _nwSm.models.Customer.findAll( q).then(function(r) {
+    _nwSm.models.Customers.findAll( q).then(function(r) {
       r.length.should.be.greaterThan(10);
     }).then(done, done);
   });
 
   it("should be able to use Sequelize.and ", function(done) {
-    var Order = _nwSm.models.Order;
+    var Order = _nwSm.models.Orders;
     var q = {
       where: Sequelize.and( { CompanyName: { like: 'B%'} }, { City: { like: 'L%' } })
     };
-    _nwSm.models.Customer.findAll( q).then(function(r) {
+    _nwSm.models.Customers.findAll( q).then(function(r) {
       r.length.should.greaterThan(1);
     }).then(done, done);
   });

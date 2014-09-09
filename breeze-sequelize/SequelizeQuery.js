@@ -202,7 +202,7 @@ function makeFn2Filter(node, context) {
       var fn;
       var val = Sequelize.col(p2Value);
       if (fnName === "startswith") {
-        q[p1Value] =  { like: val + "+%" } ;
+        q[p1Value] =  { like: Sequelize.col(p2Value + "'+%'") } ;
       } else if (fnName === "endswith") {
         q[p1Value] =  { like: "%+" + val } ;
       }
