@@ -6,6 +6,9 @@ var _ = Sequelize.Utils._;
 
 module.exports = SequelizeQuery;
 
+// TODO: still need to add support for OData fns like toUpper, length etc.
+// TODO: still need to add support for OData any/all
+
 function SequelizeQuery(odataQueryString) {
 
   var parsedUrl = url.parse(odataQueryString, true);
@@ -44,7 +47,7 @@ function toSequelizeQuery(parsedQueryString) {
   section = parsedQueryString.$select;
   if (section) {
     var selectItems = parse(section, "selectExpr");
-
+    result.attributes = toSelectExpr(selectItems);
   }
 
   section = parsedQueryString.$expand;
@@ -61,13 +64,13 @@ function toSequelizeQuery(parsedQueryString) {
   section = parsedQueryString.$top;
   // not ok to ignore top: 0
   if (section !== undefined) {
-
+    result.limit = parseInt(section, 10);
   }
 
   section = parsedQueryString.$skip;
   // ok to ignore skip: 0
   if (section) {
-
+    result.offset = parseInt(section, 10);
   }
 
   section = parsedQueryString.$inlinecount;
@@ -103,11 +106,10 @@ function toOrderbyExpr(orderbyItems) {
 }
 
 function toSelectExpr(selectItems) {
-  var result = {};
-  selectItems.forEach(function(s) {
+  var result = selectItems.map(function(s) {
     var sPath = s.replace("/",".");
-    result[sPath] = 1;
-  }) ;
+    return sPath;
+  });
   return result;
 }
 

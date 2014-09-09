@@ -1,6 +1,6 @@
 // These tests assume access to a mySql installation
 var fs               = require('fs');
-var should           = require('should');
+var expect           = require('chai').expect;
 var _                = require('lodash');
 var utils            = require('./../utils.js');
 var dbUtils          = require('./../dbUtils.js')
@@ -21,12 +21,12 @@ describe("mySql", function() {
   this.enableTimeouts(false);
 
   it('sanity check', function(){
-    'an arbitrary string'.should.containEql("arb");
+    expect('an arbitrary string').to.have.string("arb");
   });
 
   it('should connect', function(done) {
     dbUtils.connect(dbConfig).then(function(connection) {
-      connection.state.should.eql("authenticated");
+      expect(connection.state).to.eql("authenticated");
     }).then(done, done);
   })
 

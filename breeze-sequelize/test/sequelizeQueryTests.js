@@ -1,6 +1,6 @@
 // These tests assume access to a mySql installation
 var fs               = require('fs');
-var should           = require('should');
+var expect           = require('chai').expect;
 var Sequelize        = require('sequelize');
 var uuid             = require('node-uuid');
 var Promise          = require('bluebird');
@@ -37,9 +37,9 @@ describe("sequelizeQuery", function() {
 
   it("should be able to use 'like'", function(done) {
     _nwSm.models.Customers.findAll( { where: { CompanyName: { like: 'B%'} }}).then(function(r) {
-      r.length.should.be.greaterThan(5);
+      expect(r).to.have.length.above(5);
       r.forEach(function(cust) {
-        cust.CompanyName.should.startWith('B');
+        expect(cust.CompanyName).to.match(/B.*/);
       });
     }).then(done, done);
   });
@@ -50,10 +50,10 @@ describe("sequelizeQuery", function() {
       where: { CompanyName: { like: 'B%'} },
       include: { model: Order, as: "Orders" }
     }).then(function(r) {
-      r.length.should.be.greaterThan(5);
+      expect(r).to.have.length.above(5);
       r.forEach(function(cust) {
-        cust.CompanyName.should.startWith('B');
-        (cust.Orders || cust.orders).should.exist;
+        expect(cust.CompanyName).to.match(/B*./);
+        expect(cust).to.have.property("Orders");
       });
     }).then(done, done);
   });
@@ -64,16 +64,52 @@ describe("sequelizeQuery", function() {
       where: { CompanyName: { like: 'B%'} },
       include: { model: Order, as: "Orders" , where: { ShipCity : "London" }}
     }).then(function(r) {
-          r.length.should.be.within(1, 3);
+          expect(r).to.have.length.within(1, 3);
           r.forEach(function(cust) {
-            cust.CompanyName.should.startWith('B');
+            expect(cust.CompanyName).to.match(/B.*/);
+            expect(cust).to.have.property("Orders");
             var orders = cust.Orders;
-            orders.should.exist;
             orders.forEach(function(order) {
-              order.ShipCity.should.be.eql("London");
+              expect(order.ShipCity).to.be.eql("London");
             })
           });
         }).then(done, done);
+  });
+
+  it("should be able to project included scalar attributes on reln ", function(done) {
+    var Customer = _nwSm.models.Customers;
+    var Order = _nwSm.models.Orders;
+    _nwSm.models.Orders.findAll( {
+      limit: 2,
+      include: { model: Customer, as: "Customer", attributes: [ "CompanyName"]} ,
+      attributes: [ "OrderDate", "Customer.CompanyName"]
+    }).then(function(r) {
+      expect(r).to.have.length(2);
+      r.forEach(function(orderx) {
+        expect(orderx).to.have.property("Customer");
+        expect(orderx.Customer).to.have.property("CompanyName");
+        expect(orderx.Customer).to.not.have.property("City");
+        expect(orderx).to.have.property("OrderDate");
+      });
+    }).then(done, done).catch(done);
+  });
+
+  it("should be able to project included nonscalar attributes on reln ", function(done) {
+
+    var Order = _nwSm.models.Orders;
+    _nwSm.models.Customers.findAll( {
+      limit: 2,
+      include: { model: Order, as: "Orders"} ,
+      attributes: [ "CompanyName"]
+    }).then(function(r) {
+      expect(r).to.have.length(2);
+      r.forEach(function(custx) {
+        expect(custx).to.have.property("CompanyName");
+        expect(custx).to.have.property("Orders");
+        expect(custx).to.not.have.property("City");
+        expect(custx.Orders).to.be.instanceOf(Array);
+      });
+    }).then(done, done);
   });
 
 
@@ -92,7 +128,7 @@ describe("sequelizeQuery", function() {
     var q = buildOrQuery();
 
     _nwSm.models.Customers.findAll( q).then(function(r) {
-      r.length.should.be.greaterThan(10);
+      expect(r).to.have.length.above(10);
     }).then(done, done);
   });
 
@@ -102,7 +138,7 @@ describe("sequelizeQuery", function() {
       where: Sequelize.and( { CompanyName: { like: 'B%'} }, { City: { like: 'L%' } })
     };
     _nwSm.models.Customers.findAll( q).then(function(r) {
-      r.length.should.greaterThan(1);
+      expect(r).to.have.length.above(1);
     }).then(done, done);
   });
 });

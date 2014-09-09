@@ -1,5 +1,5 @@
-var fs               = require("fs");
-var should           = require("should");
+var fs               = require('fs');
+var expect           = require('chai').expect;
 var Sequelize        = require('sequelize');
 var uuid             = require('node-uuid');
 var Promise          = require("bluebird");
@@ -19,7 +19,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("breezeParser", function() {
+describe("breezeQueryParser", function() {
   this.enableTimeouts(false);
 
   var _ms;
@@ -74,6 +74,6 @@ describe("breezeParser", function() {
   function check(entityQuery, expectedResult) {
     var uri = entityQuery._toUri(_ms);
     var sq = new SequelizeQuery(uri);
-    expectedResult.should.eql(sq.queryObj);
+    expect(expectedResult).to.be.eql(sq.queryObj);
   }
 });

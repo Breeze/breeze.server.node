@@ -1,6 +1,6 @@
 // These tests assume access to a mySql installation
 var fs               = require("fs");
-var should           = require("should");
+var expect           = require("chai").expect;
 var Sequelize        = require('sequelize');
 var uuid             = require('node-uuid');
 var Promise          = require('bluebird');
