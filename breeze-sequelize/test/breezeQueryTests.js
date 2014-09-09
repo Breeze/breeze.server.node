@@ -93,16 +93,29 @@ describe("breezeQuery", function() {
     }).then(done, done);
   });
 
-  it("should be able to query with two string field names", function(done) {
-    var q0 = new EntityQuery("Employees").where("lastName", "startsWith", "firstName");
+  it("should be able to query with contains and two field names", function(done) {
+    var q0 = new EntityQuery("Employees").where("firstName", "contains", "lastName");
     var sq = toSequelizeQuery(q0)
     sq.execute(_sm).then( function(r) {
-      r.length.should.be.greaterThan(1);
-      r.forEach( function(emp) {
-        emp.should.have.property("HireDate");
-        emp.HireDate.should.be.greaterThan(emp.BirthDate);
+      r.length.should.be.eql(0);
+      var q1 = new EntityQuery("Employees").where("firstName", "contains", "firstName");
+      var sq = toSequelizeQuery(q1);
+      return sq.execute(_sm);
+    }).then(function(r1) {
+      r1.length.should.be.greaterThan(5);
+    }).then(done, done);
+  });
 
-      })
+  it("should be able to query using startsWith with two field names", function(done) {
+    var q0 = new EntityQuery("Employees").where("firstName", "startsWith", "lastName");
+    var sq = toSequelizeQuery(q0)
+    sq.execute(_sm).then( function(r) {
+      r.length.should.be.eql(0);
+      var q1 = new EntityQuery("Employees").where("lastName", "endsWith", "lastName");
+      var sq = toSequelizeQuery(q1)
+      return sq.execute(_sm);
+    }).then(function(r1) {
+      r1.length.should.be.greaterThan(5);
     }).then(done, done);
   });
 

@@ -200,11 +200,13 @@ function makeFn2Filter(node, context) {
       }
     } else if (p2.type === "member") {
       var fn;
-      var val = Sequelize.col(p2Value);
       if (fnName === "startswith") {
-        q[p1Value] =  { like: Sequelize.col(p2Value + "'+%'") } ;
+        q[p1Value] = { like: Sequelize.literal("concat(" + p2Value + ",'%')") } ;
       } else if (fnName === "endswith") {
-        q[p1Value] =  { like: "%+" + val } ;
+        q[p1Value] = { like: Sequelize.literal("concat('%'," + p2Value + ")") } ;
+      } else if (fnName === "substringof") {
+        // p1, p2 inversion below is deliberate - substring args are reversed from startsWith and endsWith
+        q[p2Value] = { like: Sequelize.literal("concat('%'," + p1Value + ",'%')") } ;
       }
     }
   } else if (fnName === "substringof") {
