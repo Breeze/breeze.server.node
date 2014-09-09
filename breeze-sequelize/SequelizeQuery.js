@@ -12,25 +12,12 @@ function SequelizeQuery(odataQueryString) {
   this.pathname = parsedUrl.pathname;
   this.parsedQueryString = parsedUrl.query;
   this.queryObj = toSequelizeQuery(this.parsedQueryString);
-  this.Sequelize = Sequelize;
 }
 
 SequelizeQuery.prototype.execute = function(sequelizeManager) {
   var model = sequelizeManager.models[this.pathname];
   return model.findAll(this.queryObj);
 }
-
-
-
-// TODO: for testing only - remove these two methods later.
-var isSequelizeAnd = function(o) {
-  return Object.getPrototypeOf(o).constructor == Sequelize.Utils.and;
-}
-
-var isSequelizeOr = function(o) {
-  return Object.getPrototypeOf(o).constructor == Sequelize.Utils.or;
-}
-// --------------------------------
 
 // pass in either a query string or a urlQuery object
 //    a urlQuery object is what is returned by node's url.parse(aUrl, true).query;
@@ -43,15 +30,14 @@ function toSequelizeQuery(parsedQueryString) {
   if (section) {
     var filterTree = parse(section, "filterExpr");
     var context = {
+
       translateMember: function(memberPath) {
         return memberPath.replace("/", ".");
       }
     };
     var where = toQueryExpr(filterTree, context);
-    //    result.where = processAndOr(where);
-    // var isAnd = isSequelizeAnd(where);
-    // var isOr = isSequelizeOr(where);
-    result.where = where;
+    result.where = processAndOr(where);
+
   }
 
 
@@ -161,7 +147,7 @@ function makeBoolFilter(node, context) {
       }
       return q;
     } else if (p2.type === "member") {
-      var val = sequelize.col(p2Value);
+      var val = Sequelize.col(p2Value);
       if (op === "eq") {
         q[p1Value] = val;
       } else {
@@ -214,7 +200,7 @@ function makeFn2Filter(node, context) {
       }
     } else if (p2.type === "member") {
       var fn;
-      var val = sequelize.col(p2Value);
+      var val = Sequelize.col(p2Value);
       if (fnName === "startswith") {
         q[p1Value] =  { like: val + "+%" } ;
       } else if (fnName === "endswith") {
@@ -242,11 +228,11 @@ function makeAndOrFilter(node, context) {
   var q2 = toQueryExpr(node.p2, context);
   var q;
   if (node.op === "and") {
-    // q = { and: [q1, q2] };
-    q = Sequelize.and(q1, q2);
+    q = { and: [q1, q2] };
+    // q = Sequelize.and(q1, q2);
   } else {
-    // q = { or: [q1, q2] };
-    q = Sequelize.or(q1, q2);
+    q = { or: [q1, q2] };
+    // q = Sequelize.or(q1, q2);
   }
 
 
@@ -283,23 +269,23 @@ function makeAllFilter(node, context) {
 // Object.getPrototypeOf(xxx).constructor === Sequelize.Utils.or
 
 // needed to convert 'or:' and 'and:' clauses into Sequelize.and/or clauses
-//function processAndOr( where) {
-//  var clauses;
-//  if ( where.and) {
-//    clauses = where.and.map(function(clause) {
-//      return processAndOr(clause);
-//    })
-//    // return Sequelize.and.apply(null, clauses)
-//    return Sequelize.and(clauses[0], clauses[1]);
-//  } else if (where.or) {
-//    clauses = where.or.map(function(clause) {
-//      return processAndOr(clause);
-//    })
-//    return Sequelize.or.apply(null, clauses);
-//  } else {
-//    return where;
-//  }
-//}
+function processAndOr( where) {
+  var clauses;
+  if ( where.and) {
+    clauses = where.and.map(function(clause) {
+      return processAndOr(clause);
+    })
+    return Sequelize.and.apply(null, clauses)
+    // return Sequelize.and(clauses[0], clauses[1]);
+  } else if (where.or) {
+    clauses = where.or.map(function(clause) {
+      return processAndOr(clause);
+    })
+    return Sequelize.or.apply(null, clauses);
+  } else {
+    return where;
+  }
+}
 
 function parseNodeValue(node, context) {
   if (!node) return null;
@@ -375,5 +361,17 @@ var _notOps = {
   like: "nlike",
   nlike: "like"
 };
+
+// Used to determine if a clause is the result of a Sequelize.and/or method call.
+// Not currently need because of processAndOr method below
+//var isSequelizeAnd = function(o) {
+//  return Object.getPrototypeOf(o).constructor == Sequelize.Utils.and;
+//}
+//
+//var isSequelizeOr = function(o) {
+//  return Object.getPrototypeOf(o).constructor == Sequelize.Utils.or;
+//}
+// --------------------------------
+
 
 

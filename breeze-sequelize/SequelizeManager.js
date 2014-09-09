@@ -38,9 +38,10 @@ SequelizeManager.prototype.createDb = function() {
 
 SequelizeManager.prototype.importMetadata = function(breezeMetadata) {
   var metadataMapper = new MetadataMapper(breezeMetadata, this.sequelize);
-  var etMap = metadataMapper.mapToSqTypes();
   // TODO: should we merge here instead ; i.e. allow multiple imports...
-  this.models = _.indexBy(etMap, "name");
+  this.models = metadataMapper.mapToSqModels();
+
+
 };
 
 SequelizeManager.prototype.executeQuery = function(odataQueryString) {

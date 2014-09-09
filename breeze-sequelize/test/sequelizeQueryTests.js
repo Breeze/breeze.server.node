@@ -76,13 +76,6 @@ describe("sequelizeQuery", function() {
         }).then(done, done);
   });
 
-  var isSequelizeAnd = function(o) {
-    return Object.getPrototypeOf(o).constructor == Sequelize.Utils.and;
-  }
-
-  var isSequelizeOr = function(o) {
-    return Object.getPrototypeOf(o).constructor == Sequelize.Utils.or;
-  }
 
   var buildOrQuery = function() {
     var c1= { CompanyName: { like: 'B%'} };
