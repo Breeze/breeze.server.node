@@ -3,12 +3,12 @@ var fs = require('fs');
 var expect = require('chai').expect;
 
 
-describe('metadata', function () {
+describe('breezeMetadata', function () {
   this.enableTimeouts(false);
 
   it('should be able to import metadata', function() {
 
-    var data = fs.readFileSync('./test/sampleMetadata.json', { encoding: 'utf8' });
+    var data = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
     var ms = new breeze.MetadataStore();
     ms.importMetadata(data);
     var entityTypes = ms.getEntityTypes();

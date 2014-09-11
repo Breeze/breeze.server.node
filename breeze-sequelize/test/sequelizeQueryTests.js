@@ -30,7 +30,7 @@ describe("sequelizeQuery", function() {
 
   before(function() {
     _nwSm = new SequelizeManager(_nwConfig);
-    var breezeMetadata = fs.readFileSync('./test/sampleMetadata.json', { encoding: 'utf8' });
+    var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
     _nwSm.importMetadata(breezeMetadata);
 
   });

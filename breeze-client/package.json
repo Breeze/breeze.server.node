@@ -1,15 +1,16 @@
 {
-    "name": "breeze-client",
-    "version": "1.5.0",
-    "description": "Breeze javascript client",
-    "main": "breeze.debug",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "author": "Jay Traband",
-    "license": "ISC",
-    "devDependencies": {
-        "gulp": "^3.8.7",
-        "gulp-changed": "^1.0.0"
-    }
+  "name": "breeze-client",
+  "version": "1.5.0",
+  "description": "Breeze javascript client",
+  "main": "breeze.debug",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jay Traband",
+  "license": "ISC",
+  "devDependencies": {
+    "gulp": "^3.8.7",
+    "gulp-changed": "^1.0.0",
+    "gulp-shell": "^0.2.9"
+  }
 }

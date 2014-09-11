@@ -13,10 +13,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-
-
-
-describe.skip("sequelizeBasic", function() {
+describe("sequelizeBasic", function() {
 
   var _dbConfig = {
     host: "localhost",
@@ -33,7 +30,7 @@ describe.skip("sequelizeBasic", function() {
     var nwConfig = _.clone(_dbConfig);
     nwConfig.dbName = "NorthwindIB_temp";
     var sm = new SequelizeManager(nwConfig);
-    var breezeMetadata = fs.readFileSync('./test/sampleMetadata.json', { encoding: 'utf8' });
+    var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
     var json = JSON.parse(breezeMetadata);
     // removing naming convention so that we don't camel case the data.
     json.namingConvention = null;
@@ -57,8 +54,6 @@ describe.skip("sequelizeBasic", function() {
     sm.sync(true).then(noop).then(done, done);
 
   });
-
-
 
 
   it("should convert breeze metadata", function() {
