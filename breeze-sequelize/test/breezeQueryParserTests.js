@@ -72,7 +72,7 @@ describe("breezeQueryParser", function() {
   });
 
   function check(entityQuery, expectedResult) {
-    var uri = entityQuery._toUri(_ms);
+    var uri = entityQuery._toUri(_em);
     var sq = new SequelizeQuery(uri);
     expect(expectedResult).to.be.eql(sq.queryObj);
   }
