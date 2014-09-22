@@ -66,16 +66,16 @@ function createNavProps(entityTypes, entityTypeSqModelMap) {
       var targetSqModel = entityTypeSqModelMap[targetEntityType.name];
       if (np.isScalar) {
         if (np.foreignKeyNamesOnServer.length > 0) {
-          sqModel.belongsTo(targetSqModel, { as: npName, foreignKey: np.foreignKeyNamesOnServer[0] }); // Product, Category
+          sqModel.belongsTo(targetSqModel, { as: npName, foreignKey: np.foreignKeyNamesOnServer[0], onDelete: "no action" }); // Product, Category
         } else {
-          sqModel.hasOne(targetSqModel, { as: npName, foreignKey: np.invForeignKeyNamesOnServer[0] }); // Order, InternationalOrder
+          sqModel.hasOne(targetSqModel, { as: npName, foreignKey: np.invForeignKeyNamesOnServer[0], onDelete: "no action" }); // Order, InternationalOrder
         }
       } else {
         if ( np.foreignKeyNamesOnServer.length > 0) {
           throw new Error("not sure what kind of reln this is");
           // sqModel.hasMany(targetSqModel, { as: npName, foreignKey: np.foreignKeyNamesOnServer[0]})
         } else {
-          sqModel.hasMany(targetSqModel, { as: npName, foreignKey: np.invForeignKeyNamesOnServer[0]}) // Category, Product
+          sqModel.hasMany(targetSqModel, { as: npName, foreignKey: np.invForeignKeyNamesOnServer[0], onDelete: "no action"}) // Category, Product
         }
       }
     });

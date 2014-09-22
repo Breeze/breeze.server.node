@@ -9667,11 +9667,18 @@ breeze.NamingConvention = NamingConvention;
     ctor.create = ctor;
 
     ctor.and = function () {
-      return new AndOrPredicate("and", __arraySlice(arguments));
+      var pred = new AndOrPredicate("and", __arraySlice(arguments));
+      // return undefined if empty
+      return pred.op && pred;
     }
 
     ctor.or = function () {
-      return new AndOrPredicate("or", __arraySlice(arguments));
+      var pred = new AndOrPredicate("or", __arraySlice(arguments));
+      return pred.op && pred;
+    }
+
+    ctor.not = function(pred) {
+      return new UnaryPredicate("not", pred);
     }
 
     ctor.attachVisitor = function (visitor) {
@@ -9968,6 +9975,13 @@ breeze.NamingConvention = NamingConvention;
       }).map(function (pred) {
         return Predicate(pred);
       });
+      if (this.preds.length == 0) {
+        // marker for an empty predicate
+        this.op = null;
+      }
+      if( this.preds.length == 1) {
+        return preds[0];
+      }
     };
 
     var proto = ctor.prototype = new Predicate();
@@ -11249,20 +11263,15 @@ breeze.Predicate = Predicate;
     return __toJson(this, {
       "from,resourceName": null,
       "toType,resultEntityType": function(v) {
-        return v ? v.name : undefined;
+        // resultEntityType can be either a string or an entityType
+        return v ? ( __isString(v) ? v : v.name) : undefined;
       },
       "where,wherePredicate": function(v) {
         return v ? v.toJSON(that.fromEntityType) : undefined;
       },
-      "orderBy,orderByClause": function(v) {
-        return v ? v.toJSON() : undefined;
-      },
-      "select,selectClause": function(v) {
-        return v ? v.toJSON() : undefined;
-      },
-      "expand,expandClause": function(v) {
-        return v ? v.toJSON() : undefined;
-      },
+      "orderBy,orderByClause": null,
+      "select,selectClause": null,
+      "expand,expandClause": null,
       "skip,skipCount": null,
       "take,takeCount": null,
       parameters: function(v) {
@@ -11278,9 +11287,8 @@ breeze.Predicate = Predicate;
   function fromJSON(eq, json) {
     __toJson(json, {
       "resourceName,from": null,
-//      resultEntityType: function(v) {
-//        return v ? v.name : undefined;
-//      },
+      // just the name comes back and will be resolved later
+      "resultEntityType,toType": null,
       "wherePredicate,where": function(v) {
         return v ? new Predicate(v) : undefined;
       },
@@ -11300,7 +11308,9 @@ breeze.Predicate = Predicate;
       },
       "inlineCountEnabled,inlineCount": false,
       "noTrackingEnabled,noTracking": false,
-      queryOptions: null
+      queryOptions: function(v) {
+        return v ? QueryOptions.fromJSON(v) : undefined;
+      }
     }, eq);
     return eq;
   }
@@ -12274,7 +12284,6 @@ breeze.MergeStrategy = MergeStrategy;
       },
 
       andOrPredicate: function (context) {
-        if (this.preds.length === 0) return;
         var result = this.preds.map(function (pred) {
           return "(" + pred.toODataFragment(context) + ")";
         }).join(" " + odataOpFrom(this) + " ");

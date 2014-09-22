@@ -25,15 +25,15 @@ describe("breezeQuery", function () {
   
   var _nwConfig = {
     host: "localhost",
-    user: "root",
+    user: "jayt",
     password: "password",
-    dbName: 'northwindib'
+    dbName: "northwindib"
   };
   
   var _ms, _em, _sm;
   
   before(function () {
-    _em = new EntityManager();
+    _em = new EntityManager("Foo");
     _ms = _em.metadataStore;
     var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
     _ms.importMetadata(breezeMetadata);
@@ -243,7 +243,7 @@ describe("breezeQuery", function () {
   
   
   function toSequelizeQuery(breezeQuery) {
-    var uri = breezeQuery._toUri(_ms);
+    var uri = breezeQuery._toUri(_em);
     var sq = new SequelizeQuery(uri);
     return sq;
   }

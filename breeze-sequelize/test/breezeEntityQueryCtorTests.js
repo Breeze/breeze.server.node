@@ -12,6 +12,7 @@ var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
 var FilterQueryOp = breeze.FilterQueryOp;
 var OrderByClause = breeze.OrderByClause;
+var FetchStrategy = breeze.FetchStrategy;
 
 var _ = Sequelize.Utils._;
 var log = utils.log;
@@ -46,6 +47,13 @@ describe("EntityQuery tests", function() {
     }
     if (q.orderByClause) {
       expect(q2).to.have.deep.property("orderByClause.toJSON");
+    }
+    if (q.queryOptions && q.queryOptions.fetchStrategy) {
+      expect(q2.queryOptions.fetchStrategy).to.eql(q.queryOptions.fetchStrategy);
+    }
+    if (q.resultEntityType) {
+      var name = (typeof q.resultEntityType == 'string') ? q.resultEntityType : q.resultEntityType.name;
+      expect(q2.resultEntityType).to.eql(name);
     }
     var json2 = q2.toJSON();
     var json2String = JSON.stringify(q2);
@@ -93,6 +101,24 @@ describe("EntityQuery tests", function() {
         .expand("customer")
         .take(1);
     testPropCount(q, 4);
+  });
+
+  it("query with FetchStrategy - toJSON", function() {
+    var p = Predicate.create("freight", ">", 100);
+    var q = new EntityQuery()
+        .from("Orders")
+        .where(p)
+        .using(FetchStrategy.FromLocalCache);
+    testPropCount(q, 3);
+  });
+
+  it("query with toType - toJSON", function() {
+    var p = Predicate.create("freight", ">", 100);
+    var q = new EntityQuery()
+        .from("Foos")
+        .where(p)
+        .toType("Order")
+    testPropCount(q, 3);
   });
 
   it("query kitchen sink - toJSON", function() {

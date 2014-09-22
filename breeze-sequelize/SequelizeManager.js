@@ -23,7 +23,7 @@ module.exports = SequelizeManager = function(dbConfig) {
 // returns Promise(null);
 SequelizeManager.prototype.authenticate = function() {
   // check database connection
-  this.sequelize.authenticate().then(function() {
+  return this.sequelize.authenticate().then(function() {
     log('Connection has been established successfully.');
   }).error(function(err) {
     log('Unable to connect to the database:', err);
@@ -60,14 +60,34 @@ SequelizeManager.prototype.sync = function(shouldCreateDb) {
   }
 };
 
-
 // returns Promise(sequelize);
 function syncCore(sequelize) {
+
   return sequelize.sync({ force: true}).then(function() {
     log("schema created");
     return sequelize;
   }).catch(function(err) {
     console.log("schema creation failed");
+    // TODO: fix this later - right now no table are created after this is thrown.
+    // return false;
     throw err;
   });
 }
+
+//  function syncCore(sequelize) {
+//    var options;
+//    return sequelize.transaction(function (t) {
+//      options = { raw: true, transaction: t };
+//      return sequelize.query('SET FOREIGN_KEY_CHECKS = 0', null, options);
+//    }).then(function (t)  {
+//      return sequelize.sync({ force: true});
+//    }).then(function() {
+//      return sequelize.query('SET FOREIGN_KEY_CHECKS = 1', null, options);
+//    }).then(function() {
+//      log("schema created");
+//      return sequelize;
+//    }).catch(function(err) {
+//      console.log("schema creation failed");
+//      throw err;
+//    });
+//  }

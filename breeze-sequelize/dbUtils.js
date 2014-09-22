@@ -34,6 +34,8 @@ function createDb(dbConfig) {
     // promisified query
     return connection.queryAsync('CREATE DATABASE ' + dbConfig.dbName);
   }).then(function() {
+
+  }).then(function() {
     log("Database created: " + dbConfig.dbName);
   }).error(function(err) {
     if (err.cause && err.cause.code == "ER_DB_CREATE_EXISTS") {

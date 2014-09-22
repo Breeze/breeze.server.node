@@ -16,7 +16,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe.only("predicate tests", function() {
+describe("predicate tests", function() {
   this.enableTimeouts(false);
 
   var _ms;
@@ -204,6 +204,20 @@ describe.only("predicate tests", function() {
     var entityType = _ms.getEntityType("Order");
     var p = Predicate.create( { "orderDate": { ">":  new Date(1998, 3, 1)}});
     test(p, entityType,"OrderDate gt datetime'1998-04-01T07:00:00.000Z'");
+  });
+
+  it("oring just 1", function() {
+    var entityType = _ms.getEntityType("Customer");
+    var p1 = Predicate.create("companyName", "startsWith", "S");
+    var p = Predicate.or([p1]);
+    test(p, entityType,"startswith(CompanyName,'S') eq true");
+  });
+
+  it("anding just 1", function() {
+    var entityType = _ms.getEntityType("Customer");
+    var p1 = Predicate.create("companyName", "startsWith", "S");
+    var p = Predicate.and([p1]);
+    test(p, entityType,"startswith(CompanyName,'S') eq true");
   });
 
   it("anding 1", function() {
@@ -398,6 +412,13 @@ describe.only("predicate tests", function() {
     var p = Predicate.create("EmployeeID add ReportsToEmployeeID gt 3").and("employeeID", "<", 9999);
 
     test(p, entityType, "(EmployeeID add ReportsToEmployeeID gt 3) and (EmployeeID lt 9999)");
+  });
+
+  it("empty predicates", function() {
+    var entityType = _ms.getEntityType("Employee");
+    var p = Predicate.and([]);
+    expect(p).to.be.null;
+
   });
 
   it("reserved words 1", function() {

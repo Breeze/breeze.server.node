@@ -10,7 +10,7 @@ var log = utils.log;
 
 var dbConfig = {
   host: "localhost",
-  user: "root",
+  user: "jayt",
   password: "password",
   dbName: 'test1'
 }

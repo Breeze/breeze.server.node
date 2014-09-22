@@ -19,7 +19,7 @@ describe("sequelizeQuery", function() {
 
   var _nwConfig = {
     host: "localhost",
-    user: "root",
+    user: "jayt",
     password: "password",
     dbName: 'northwindib'
   }

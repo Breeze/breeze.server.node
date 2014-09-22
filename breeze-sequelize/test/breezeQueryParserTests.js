@@ -25,7 +25,7 @@ describe("breezeQueryParser", function() {
   var _ms;
   var _em;
   before(function() {
-    _em = new EntityManager();
+    _em = new EntityManager("Foo");
     _ms = _em.metadataStore;
     var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
     _ms.importMetadata(breezeMetadata);
