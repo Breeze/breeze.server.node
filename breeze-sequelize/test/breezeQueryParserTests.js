@@ -5,31 +5,37 @@ var uuid             = require('node-uuid');
 var Promise          = require("bluebird");
 var breeze           = require("breeze-client");
 
-
 var utils            = require('./../utils.js');
-//var dbUtils          = require('./../dbUtils.js');
-//var SequelizeManager = require('./../SequelizeManager');
-var SequelizeQuery  = require('./../SequelizeQuery.js');
+var testFns          = require('./testFns.js');
+
+var SequelizeQuery   = testFns.getSequelizeQuery();
 
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
+var DataService = breeze.DataService;
 
 var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("breezeQueryParser", function() {
+describe("breezeQuery - parse", function() {
   this.enableTimeouts(false);
 
-  var _ms;
-  var _em;
+  var _ms, _em;
   before(function() {
-    _em = new EntityManager("Foo");
+    _em = testFns.newEm();
     _ms = _em.metadataStore;
-    var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
-    _ms.importMetadata(breezeMetadata);
+
   });
+
+  function check(entityQuery, expectedResult) {
+    // _em is client side entityManager;
+    var uri = entityQuery._toUri(_em);
+    var sq = new SequelizeQuery(uri );
+    log(JSON.stringify(sq.jsonQuery));
+    expect(sq.queryObj).to.be.eql(expectedResult);
+  }
 
 
   it("should parse where startsWith", function() {
@@ -61,7 +67,7 @@ describe("breezeQueryParser", function() {
     );
   });
 
-  it("should parse and clauses", function () {
+  it("should parse and clauses that don't normalize", function () {
     var p = Predicate("companyName", "startsWith", "S").and("companyName", "startsWith", "D");
     var q0 = new EntityQuery("Customer").where(p);
     check(q0,
@@ -71,9 +77,14 @@ describe("breezeQueryParser", function() {
     );
   });
 
-  function check(entityQuery, expectedResult) {
-    var uri = entityQuery._toUri(_em);
-    var sq = new SequelizeQuery(uri);
-    expect(expectedResult).to.be.eql(sq.queryObj);
-  }
+  it("should parse and clauses that do normalize", function () {
+    var p = new Predicate( { freight: { ">" : 100, "<": 200 }});
+    var q0 = new EntityQuery("Order").where(p);
+    check(q0,
+        { where:
+            Sequelize.and( { Freight: { gt: 100 }}, { Freight: { lt: 200}})
+        }
+    );
+  });
+
 });

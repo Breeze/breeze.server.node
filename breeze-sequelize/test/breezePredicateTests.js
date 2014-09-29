@@ -3,9 +3,7 @@ var expect           = require('chai').expect;
 var breeze           = require('breeze-client');
 var Sequelize        = require('sequelize');
 var utils            = require('./../utils.js');
-//var dbUtils          = require('./../dbUtils.js');
-//var SequelizeManager = require('./../SequelizeManager');
-var SequelizeQuery  = require('./../SequelizeQuery.js');
+var testFns          = require('./testFns.js');
 
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
@@ -19,14 +17,11 @@ var log = utils.log;
 describe("predicate tests", function() {
   this.enableTimeouts(false);
 
-  var _ms;
-  var _em;
+  var _ms, _em;
   before(function() {
-    _em = new EntityManager();
+    _em = testFns.newEm();
     _ms = _em.metadataStore;
-    var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
-    _ms.importMetadata(breezeMetadata);
-  })
+  });
 
   function test(predicate, entityType, expected) {
     var frag1 = predicate.toODataFragment(entityType);
@@ -36,7 +31,7 @@ describe("predicate tests", function() {
     var jsonString = JSON.stringify(predicate);
     var jsonExplicit = predicate.toJSONExt( { entityType: entityType, useExplicitDataType: true });
     var jsonStringExplicit = JSON.stringify(jsonExplicit);
-    console.log(frag1 + "\n" + jsonString + "\n" + jsonStringExplicit);
+    console.log("OData: " + frag1 + "\nJSON:  " + jsonString + "\nJSONx: " + jsonStringExplicit);
 
     var json2 = JSON.parse(jsonString);
     var newP = Predicate(json2);
@@ -105,7 +100,7 @@ describe("predicate tests", function() {
     test(p, orderType, "ShippedDate eq datetime'1998-04-01T07:00:00.000Z'");
   });
 
-  it("binary predicate int32 - json", function() {
+  it("binary predicate int32 (and) - json", function() {
     var orderType = _ms.getEntityType("Order");
     var p = new Predicate( { freight: { ">" : 100, "<": 200 }});
 

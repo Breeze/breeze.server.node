@@ -40,7 +40,7 @@ SequelizeManager.prototype.importMetadata = function(breezeMetadata) {
   var metadataMapper = new MetadataMapper(breezeMetadata, this.sequelize);
   // TODO: should we merge here instead ; i.e. allow multiple imports...
   this.models = metadataMapper.mapToSqModels();
-
+  this.metadataStore = metadataMapper.metadataStore;
 
 };
 
@@ -68,26 +68,7 @@ function syncCore(sequelize) {
     return sequelize;
   }).catch(function(err) {
     console.log("schema creation failed");
-    // TODO: fix this later - right now no table are created after this is thrown.
-    // return false;
     throw err;
   });
 }
 
-//  function syncCore(sequelize) {
-//    var options;
-//    return sequelize.transaction(function (t) {
-//      options = { raw: true, transaction: t };
-//      return sequelize.query('SET FOREIGN_KEY_CHECKS = 0', null, options);
-//    }).then(function (t)  {
-//      return sequelize.sync({ force: true});
-//    }).then(function() {
-//      return sequelize.query('SET FOREIGN_KEY_CHECKS = 1', null, options);
-//    }).then(function() {
-//      log("schema created");
-//      return sequelize;
-//    }).catch(function(err) {
-//      console.log("schema creation failed");
-//      throw err;
-//    });
-//  }

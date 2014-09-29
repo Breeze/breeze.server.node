@@ -7,42 +7,53 @@ var breeze = require('breeze-client');
 
 var utils = require('./../utils.js');
 var SequelizeManager = require('./../SequelizeManager');
-var SequelizeQuery = require('./../SequelizeQuery.js');
+
+var testFns          = require('./testFns.js');
+var SequelizeQuery = testFns.getSequelizeQuery();
+
 
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
+var DataService = breeze.DataService;
 
 var _ = Sequelize.Utils._;
 
 var log = utils.log;
 // log.enabled = false;
 
-describe("breezeQuery", function () {
-  
+describe("breezeQuery - execute", function () {
   
   this.enableTimeouts(false);
-  
-  var _nwConfig = {
-    host: "localhost",
-    user: "jayt",
-    password: "password",
-    dbName: "northwindib"
-  };
-  
+
   var _ms, _em, _sm;
   
   before(function () {
-    _em = new EntityManager("Foo");
+    _em = testFns.newEm();
     _ms = _em.metadataStore;
-    var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
-    _ms.importMetadata(breezeMetadata);
-    
-    _sm = new SequelizeManager(_nwConfig);
-    _sm.importMetadata(breezeMetadata);
+
+    _sm = new SequelizeManager(testFns.dbConfigNw);
+    _sm.importMetadata(testFns.getMetadata());
 
   });
-  
+
+  function toSequelizeQuery(breezeQuery) {
+    var uri = breezeQuery._toUri(_em);
+    console.log(uri);
+    var sq = new SequelizeQuery(uri, _sm.metadataStore);
+    return sq;
+  }
+
+  it("should be inconclusive");
+
+  it("should be able to select specific nested scalar properties", function (done) {
+    var q = new EntityQuery("Orders").select("orderDate, customer").take(2);
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length(2);
+    }).then(done, done);
+  });
+
+
   it("should be able to query with 'startsWith'", function (done) {
     var q0 = new EntityQuery("Customers").where("companyName", "startsWith", "S");
     var sq = toSequelizeQuery(q0);
@@ -233,20 +244,12 @@ describe("breezeQuery", function () {
 
     }).then(done, done);
   });
+
+
   
-  it("should be able to select specific nested scalar properties", function (done) {
-    var q = new EntityQuery("Orders").select("orderDate, customer").take(2);
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
-      expect(r).to.have.length(2);
-    }).then(done, done);
-  });
+
   
   
-  function toSequelizeQuery(breezeQuery) {
-    var uri = breezeQuery._toUri(_em);
-    var sq = new SequelizeQuery(uri);
-    return sq;
-  }
-  
+
   
 });

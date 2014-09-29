@@ -531,6 +531,10 @@ function __noop() {
   // does nothing
 }
 
+function __identity(x) {
+  return x;
+}
+
 function __classof(o) {
   if (o === null) {
     return "null";
@@ -1649,8 +1653,8 @@ var __config = (function () {
   __config.interfaceRegistry = {
     ajax: new InterfaceDef("ajax"),
     modelLibrary: new InterfaceDef("modelLibrary"),
-    dataService: new InterfaceDef("dataService")
-    // uriBuilder: new InterfaceDef("uriBuilder")
+    dataService: new InterfaceDef("dataService"),
+    uriBuilder: new InterfaceDef("uriBuilder")
   };
 
   __config.interfaceRegistry.modelLibrary.getDefaultInstance = function () {
@@ -1752,7 +1756,7 @@ var __config = (function () {
         .whereParam("dataService").isOptional()
         .whereParam("modelLibrary").isOptional()
         .whereParam("ajax").isOptional()
-      // .whereParam("uriBuilder").isOptional()
+        .whereParam("uriBuilder").isOptional()
         .applyAll(this, false);
     return __objectMap(config, __config.initializeAdapterInstance);
 
@@ -1795,20 +1799,19 @@ var __config = (function () {
   __config.getAdapterInstance = function (interfaceName, adapterName) {
     var idef = getInterfaceDef(interfaceName);
     var impl;
-    if (adapterName && adapterName !== "") {
-      impl = idef.getImpl(adapterName);
-      return impl ? impl.defaultInstance : null;
+
+    var isDefault = adapterName == null || adapterName == "";
+    if (isDefault) {
+      if (idef.defaultInstance) return idef.defaultInstance;
+      impl = idef.getFirstImpl();
     } else {
-      if (idef.defaultInstance) {
-        return idef.defaultInstance;
-      } else {
-        impl = idef.getFirstImpl();
-        if (impl.defaultInstance) {
-          return impl.defaultInstance;
-        } else {
-          return initializeAdapterInstanceCore(idef, impl, true);
-        }
-      }
+      impl = idef.getImpl(adapterName);
+    }
+    if (!impl) return null;
+    if (impl.defaultInstance) {
+      return impl.defaultInstance;
+    } else {
+      return initializeAdapterInstanceCore(idef, impl, isDefault);
     }
   };
 
@@ -5945,13 +5948,14 @@ var DataService = (function () {
    @param config {Object}
    @param config.serviceName {String} The name of the service.
    @param [config.adapterName] {String} The name of the dataServiceAdapter to be used with this service.
+   @param [config.uriBuilderName] {String} The name of the uriBuilder to be used with this service.
    @param [config.hasServerMetadata] {bool} Whether the server can provide metadata for this service.
    @param [config.jsonResultsAdapter] {JsonResultsAdapter}  The JsonResultsAdapter used to process the results of any query against this service.
    @param [config.useJsonp] {Boolean}  Whether to use JSONP when making a 'get' request against this service.
    **/
 
   var ctor = function (config) {
-    this.uriBuilder = uriBuilderForOData;
+    // this.uriBuilder = uriBuilderForOData;
     updateWithConfig(this, config);
   };
   var proto = ctor.prototype;
@@ -6019,14 +6023,14 @@ var DataService = (function () {
       useJsonp: false
     });
     var ds = new DataService(__resolveProperties(dataServices,
-        ["serviceName", "adapterName", "hasServerMetadata", "jsonResultsAdapter", "useJsonp"]));
+        ["serviceName", "adapterName", "uriBuilderName", "hasServerMetadata", "jsonResultsAdapter", "useJsonp"]));
 
     if (!ds.serviceName) {
       throw new Error("Unable to resolve a 'serviceName' for this dataService");
     }
     ds.adapterInstance = ds.adapterInstance || __config.getAdapterInstance("dataService", ds.adapterName);
     ds.jsonResultsAdapter = ds.jsonResultsAdapter || ds.adapterInstance.jsonResultsAdapter;
-
+    ds.uriBuilder = ds.uriBuilder || __config.getAdapterInstance("uriBuilder", ds.uriBuilderName);
     return ds;
   };
 
@@ -6035,13 +6039,14 @@ var DataService = (function () {
       assertConfig(config)
           .whereParam("serviceName").isOptional()
           .whereParam("adapterName").isString().isOptional()
+          .whereParam("uriBuilderName").isString().isOptional()
           .whereParam("hasServerMetadata").isBoolean().isOptional()
           .whereParam("jsonResultsAdapter").isInstanceOf(JsonResultsAdapter).isOptional()
           .whereParam("useJsonp").isBoolean().isOptional()
           .applyAll(obj);
       obj.serviceName = obj.serviceName && DataService._normalizeServiceName(obj.serviceName);
       obj.adapterInstance = obj.adapterName && __config.getAdapterInstance("dataService", obj.adapterName);
-
+      obj.uriBuilder = obj.uriBuilderName && __config.getAdapterInstance("uriBuilder", obj.uriBuilderName);
     }
     return obj;
   }
@@ -6060,6 +6065,7 @@ var DataService = (function () {
     return __toJson(this, {
       serviceName: null,
       adapterName: null,
+      uriBuilderName: null,
       hasServerMetadata: null,
       jsonResultsAdapter: function (v) {
         return v && v.name;
@@ -6073,7 +6079,7 @@ var DataService = (function () {
     return new DataService(json);
   };
 
-  proto.makeUrl = function (suffix) {
+  proto.qualifyUrl = function (suffix) {
     var url = this.serviceName;
     // remove any trailing "/"
     if (core.stringEndsWith(url, "/")) {
@@ -6772,6 +6778,7 @@ var MetadataStore = (function () {
       entityType.defaultResourceName = resourceName;
     }
   };
+
 
   // protected methods
 
@@ -7619,6 +7626,8 @@ var EntityType = (function () {
     return this._addPropertyCore(property, true);
   };
 
+
+
   proto._updateFromBase = function (baseEntityType) {
     this.baseEntityType = baseEntityType;
     if (this.autoGeneratedKeyType === AutoGeneratedKeyType.None) {
@@ -7906,9 +7915,8 @@ var EntityType = (function () {
    @param propertyName {String}
    @return {DataProperty} Will be null if not found.
    **/
-  proto.getDataProperty = function (propertyName, isServerName) {
-    var propName = isServerName ? "nameOnServer" : "name";
-    return __arrayFirst(this.dataProperties, __propEq(propName, propertyName));
+  proto.getDataProperty = function (propertyName) {
+    return __arrayFirst(this.dataProperties, __propEq("name", propertyName));
   };
 
   /**
@@ -7921,9 +7929,8 @@ var EntityType = (function () {
    @param propertyName {String}
    @return {NavigationProperty} Will be null if not found.
    **/
-  proto.getNavigationProperty = function (propertyName, isServerName) {
-    var propName = isServerName ? "nameOnServer" : "name";
-    return __arrayFirst(this.navigationProperties, __propEq(propName, propertyName));
+  proto.getNavigationProperty = function (propertyName) {
+    return __arrayFirst(this.navigationProperties, __propEq("name", propertyName));
   };
 
   /**
@@ -7945,9 +7952,45 @@ var EntityType = (function () {
    @return {DataProperty|NavigationProperty} Will be null if not found.
    **/
   proto.getProperty = function (propertyPath, throwIfNotFound) {
-    var props = getPropertiesOnPath(this, propertyPath, throwIfNotFound);
+    var props = this.getPropertiesOnPath(propertyPath, throwIfNotFound);
     return props ? props[props.length - 1] : null;
   };
+
+  proto.getPropertiesOnPath = function(propertyPath, throwIfNotFound) {
+    throwIfNotFound = throwIfNotFound || false;
+    var propertyNames = (Array.isArray(propertyPath)) ? propertyPath : propertyPath.trim().split('.');
+
+    var ok = true;
+    var parentType = this;
+    var props = propertyNames.map(function (propName) {
+      var prop = __arrayFirst(parentType.getProperties(), __propEq("name", propName));
+      if (prop) {
+        parentType = prop.isNavigationProperty ? prop.entityType : prop.dataType;
+      } else if (throwIfNotFound) {
+        throw new Error("unable to locate property: " + propName + " on entityType: " + parentType.name);
+      } else {
+        ok = false;
+      }
+      return prop;
+    });
+    return ok ? props : null;
+  }
+
+  proto.clientPropertyPathToServer = function(propertyPath, delimiter) {
+    var delimiter = delimiter || '.';
+    var propNames;
+    if (this.isAnonymous) {
+      var fn = this.metadataStore.namingConvention.clientPropertyNameToServer;
+      propNames = propertyPath.split(".").map(function (propName) {
+        return fn(propName);
+      });
+    } else {
+      propNames = this.getPropertiesOnPath(propertyPath, true).map(function(prop) {
+        return prop.nameOnServer;
+      });
+    }
+    return propNames.join(delimiter);
+  }
 
   proto.getEntityKeyFromRawEntity = function (rawEntity, rawValueFn) {
     var keyValues = this.keyProperties.map(function (dp) {
@@ -8044,21 +8087,7 @@ var EntityType = (function () {
     });
   }
 
-  // fromJSON is handled by structuralTypeFromJson function.
-  proto._clientPropertyPathToServer = function (propertyPath) {
-    var fn = this.metadataStore.namingConvention.clientPropertyNameToServer;
-    var parentType = this;
-    var serverPropPath = propertyPath.split(".").map(function (propName) {
-      var prop;
-      if (!parentType.isAnonymous) {
-        prop = parentType.getProperty(propName, true);
-        // prop can be either a nav property or a complex property ( hence the .dataType below)
-        parentType = prop.entityType || prop.dataType;
-      }
-      return fn(propName, prop);
-    }).join("/");
-    return serverPropPath;
-  };
+
 
   proto._updateNames = function (property) {
     var nc = this.metadataStore.namingConvention;
@@ -8077,24 +8106,7 @@ var EntityType = (function () {
     }
   };
 
-  function getPropertiesOnPath(parentType, propertyPath, throwIfNotFound) {
-    throwIfNotFound = throwIfNotFound || false;
-    var propertyNames = (Array.isArray(propertyPath)) ? propertyPath : propertyPath.trim().split('.');
 
-    var ok = true;
-    var props = propertyNames.map(function (propName) {
-      var prop = __arrayFirst(parentType.getProperties(), __propEq("name", propName));
-      if (prop) {
-        parentType = prop.isNavigationProperty ? prop.entityType : prop.dataType;
-      } else if (throwIfNotFound) {
-        throw new Error("unable to locate property: " + propName + " on entityType: " + parentType.name);
-      } else {
-        ok = false;
-      }
-      return prop;
-    });
-    return ok ? props : null;
-  }
 
   function updateClientServerNames(nc, parent, clientPropName) {
     var serverPropName = clientPropName + "OnServer";
@@ -8444,6 +8456,7 @@ var ComplexType = (function () {
   proto = __extend(proto, EntityType.prototype, [
     "addValidator",
     "getProperty",
+    "getPropertiesOnPath",
     "getPropertyNames",
     "_addPropertyCore",
     "_addDataProperty",
@@ -8451,7 +8464,6 @@ var ComplexType = (function () {
     "_updateCps",
     "_initializeInstance",
     "_updateTargetFromRaw",
-    "_clientPropertyPathToServer",
     "_setCtor"
   ]);
 
@@ -9670,16 +9682,16 @@ breeze.NamingConvention = NamingConvention;
       var pred = new AndOrPredicate("and", __arraySlice(arguments));
       // return undefined if empty
       return pred.op && pred;
-    }
+    };
 
     ctor.or = function () {
       var pred = new AndOrPredicate("or", __arraySlice(arguments));
       return pred.op && pred;
-    }
+    };
 
     ctor.not = function(pred) {
-      return new UnaryPredicate("not", pred);
-    }
+      return pred.not();
+    };
 
     ctor.attachVisitor = function (visitor) {
       var fnName = visitor.config.fnName;
@@ -9698,8 +9710,9 @@ breeze.NamingConvention = NamingConvention;
 
     var _nodeMap = {};
 
-    ctor._registerProto = function (name, proto, validateFn) {
-      _nodeMap[name.toLowerCase()] = proto;
+    ctor._registerProto = function (typeName, proto, validateFn) {
+      _nodeMap[typeName.toLowerCase()] = proto;
+      proto.typeName = typeName;
       // perf improvement so that we don't keep revalidating
       proto.validate = validateFn ? cacheValidation(validateFn) : __noop;
     };
@@ -9732,8 +9745,8 @@ breeze.NamingConvention = NamingConvention;
       return JSON.stringify(this);
     };
 
-    proto._initialize = function (name, validateFn, map) {
-      ctor._registerProto(name, this, validateFn);
+    proto._initialize = function (typeName, validateFn, map) {
+      ctor._registerProto(typeName, this, validateFn);
       var aliasMap = {};
       for (var key in (map || {})) {
         var value = map[key];
@@ -10429,12 +10442,17 @@ breeze.NamingConvention = NamingConvention;
 
       binaryPredicate: function (context) {
         var json = {};
+        var expr1Val = this.expr1.toJSONExt(context);
+        var expr2Val = this.expr2.toJSONExt(context);
+        if (this.expr2 instanceof PropExpr) {
+          expr2Val = { value: expr2Val, isProperty: true };
+        }
         if (this.op.key === "eq") {
-          json[this.expr1Source] = this.expr2.toJSONExt(context);
+          json[expr1Val] = expr2Val;
         } else {
           var value = {};
-          json[this.expr1Source] = value;
-          value[this.op.key] = this.expr2.toJSONExt(context);
+          json[expr1Val] = value;
+          value[this.op.key] = expr2Val;
         }
         return json;
       },
@@ -10444,13 +10462,15 @@ breeze.NamingConvention = NamingConvention;
         var jsonValues = this.preds.map(function (pred) {
           return pred.toJSONExt(context);
         });
+        // normalizeAnd clauses if possible.
         // passthru predicate will appear as string and their 'ands' can't be 'normalized'
-        if (this.op.key == 'or' || jsonValues.some(__isString)) {
+        if (this.op.key === 'and' && jsonValues.length === 2 && !jsonValues.some(__isString)) {
+          // normalize 'and' clauses - will return null if can't be combined.
+          json = jsonValues.reduce(combine);
+        }
+        if (json == null) {
           json = {};
           json[this.op.key] = jsonValues;
-        } else {
-          // normalize 'and' clauses
-          json = jsonValues.reduce(combine);
         }
         return json;
       },
@@ -10458,11 +10478,12 @@ breeze.NamingConvention = NamingConvention;
       anyAllPredicate: function (context) {
         var json = {};
         var value = {};
-
+        var expr1Val = this.expr.toJSONExt(context);
         var newContext = __extend({}, context);
         newContext.entityType = this.expr.dataType;
         value[this.op.key] = this.pred.toJSONExt(newContext);
-        json[this.exprSource] = value;
+
+        json[expr1Val] = value;
         return json;
       },
 
@@ -10475,13 +10496,13 @@ breeze.NamingConvention = NamingConvention;
       },
 
       propExpr: function (context) {
-        if (context.toServer) {
-          var entityType = context.entityType;
-          return entityType ? entityType._clientPropertyPathToServer(this.propertyPath) : this.propertyPath;
+        if (context.onServer) {
+          return context.entityType.clientPropertyPathToServer(this.propertyPath);
         } else {
           return this.propertyPath;
         }
       },
+
       fnExpr: function (context) {
         var frags = this.exprArgs.map(function (expr) {
           return expr.toJSONExt(context);
@@ -10491,14 +10512,21 @@ breeze.NamingConvention = NamingConvention;
     };
 
     function combine(j1, j2) {
-      Object.keys(j2).forEach(function (key) {
+      var ok = Object.keys(j2).every(function (key) {
         if (j1.hasOwnProperty(key)) {
-          combine(j1[key], j2[key]);
+          if (typeof(j2[key]) != 'object') {
+            // exit and indicate that we can't combine
+            return false;
+          }
+          if (combine(j1[key], j2[key]) == null) {
+            return false;
+          }
         } else {
           j1[key] = j2[key];
         }
-      })
-      return j1;
+        return true;
+      });
+      return ok ? j1 : null;
     }
 
     return visitor;
@@ -10577,7 +10605,7 @@ breeze.NamingConvention = NamingConvention;
       // TODO: get rid of isAnonymous below when we get the chance.
       if (entityType == null || entityType.isAnonymous) {
         // this fork will only be reached on the LHS of an BinaryPredicate -
-        // a RHS expr cannot get here.
+        // a RHS expr cannot get here with an anon type
         return new PropExpr(value);
       } else {
         var mayBeIdentifier = RX_IDENTIFIER.test(value);
@@ -10608,6 +10636,7 @@ breeze.NamingConvention = NamingConvention;
       // a dataType of Undefined on a context basically means not to try parsing
       // the value if the expr is a literal
       newContext.dataType = DataType.Undefined;
+      newContext.isFnArg = true;
       var exprArgs = args.map(function (a) {
         return parseExpr(a, tokens, newContext);
       });
@@ -11259,19 +11288,29 @@ breeze.Predicate = Predicate;
   };
 
   proto.toJSON = function() {
+    return this.toJSONExt();
+  }
+
+  proto.toJSONExt = function(context) {
+    context = context || {};
+    context.entityType = context.entityType || this.fromEntityType;
+    context.propertyPathFn = context.onServer ? context.entityType.clientPropertyPathToServer.bind(context.entityType) : __identity;
+
     var that = this;
+
+    var toJSONExtFn = function(v) {
+      return v ? v.toJSONExt(context) : undefined;
+    };
     return __toJson(this, {
       "from,resourceName": null,
       "toType,resultEntityType": function(v) {
         // resultEntityType can be either a string or an entityType
         return v ? ( __isString(v) ? v : v.name) : undefined;
       },
-      "where,wherePredicate": function(v) {
-        return v ? v.toJSON(that.fromEntityType) : undefined;
-      },
-      "orderBy,orderByClause": null,
-      "select,selectClause": null,
-      "expand,expandClause": null,
+      "where,wherePredicate": toJSONExtFn,
+      "orderBy,orderByClause": toJSONExtFn,
+      "select,selectClause": toJSONExtFn,
+      "expand,expandClause": toJSONExtFn,
       "skip,skipCount": null,
       "take,takeCount": null,
       parameters: function(v) {
@@ -11468,7 +11507,8 @@ breeze.Predicate = Predicate;
 
   // for testing
   proto._toUri = function (em) {
-    return em.dataService.uriBuilder.buildUri(this, em.metadataStore);
+    var ds = DataService.resolve([em.dataService]);
+    return ds.uriBuilder.buildUri(this, em.metadataStore);
   }
 
 // private functions
@@ -11635,7 +11675,7 @@ var FilterQueryOp = (function () {
    @final
    @static
    **/
-  aEnum.Contains = aEnum.addSymbol({ operator: "substringof"  });
+  aEnum.Contains = aEnum.addSymbol({ operator: "contains"  });
   /**
    @property StartsWith {FilterQueryOp}
    @final
@@ -11771,9 +11811,9 @@ var OrderByClause = (function () {
     };
   };
 
-  proto.toJSON = function() {
+  proto.toJSONExt = function(context) {
     return this.items.map(function(item) {
-      return item.propertyPath + (item.isDesc ? " desc" : "");
+      return  context.propertyPathFn(item.propertyPath) + (item.isDesc ? " desc" : "");
     });
   };
 
@@ -11877,8 +11917,10 @@ var SelectClause = (function () {
     };
   };
 
-  proto.toJSON = function() {
-    return this.propertyPaths;
+  proto.toJSONExt = function(context) {
+    return this.propertyPaths.map(function(pp) {
+      return context.propertyPathFn(pp);
+    })
   };
 
   return ctor;
@@ -11893,14 +11935,16 @@ var ExpandClause = (function () {
   };
   var proto = ctor.prototype;
 
-  proto.toJSON = function() {
-    return this.propertyPaths;
+  proto.toJSONExt = function(context) {
+    return this.propertyPaths.map(function(pp) {
+      return context.propertyPathFn(pp);
+    })
   };
 
   return ctor;
 })();
 
-// also used by Predicate
+// used by EntityQuery and Predicate
 function getPropertyPathValue(obj, propertyPath) {
   var properties = Array.isArray(propertyPath) ? propertyPath : propertyPath.split(".");
   if (properties.length === 1) {
@@ -12153,200 +12197,6 @@ var QueryOptions = (function () {
 breeze.QueryOptions = QueryOptions;
 breeze.FetchStrategy = FetchStrategy;
 breeze.MergeStrategy = MergeStrategy;
-
-
-;var uriBuilderForOData = (function () {
-
-  var buildUri = function (entityQuery, metadataStore) {
-    // force entityType validation;
-    var entityType = entityQuery._getFromEntityType(metadataStore, false);
-    if (!entityType) {
-      // anonymous type but still has naming convention info avail
-      entityType = new EntityType(metadataStore);
-    }
-
-    var queryOptions = {};
-    queryOptions["$filter"] = toWhereODataFragment(entityQuery.wherePredicate);
-    queryOptions["$orderby"] = toOrderByODataFragment(entityQuery.orderByClause);
-
-    if (entityQuery.skipCount) {
-      queryOptions["$skip"] = entityQuery.skipCount;
-    }
-
-    if (entityQuery.takeCount != null) {
-      queryOptions["$top"] = entityQuery.takeCount;
-    }
-
-    queryOptions["$expand"] = toExpandODataFragment(entityQuery.expandClause);
-    queryOptions["$select"] = toSelectODataFragment(entityQuery.selectClause);
-
-    if (entityQuery.inlineCountEnabled) {
-      queryOptions["$inlinecount"] = "allpages";
-    }
-
-    var qoText = toQueryOptionsString(queryOptions);
-    return entityQuery.resourceName + qoText;
-
-    // private methods to this func.
-
-    function toWhereODataFragment(wherePredicate) {
-      if (!wherePredicate) return;
-      // validation occurs inside of the toODataFragment call here.
-      return wherePredicate.toODataFragment({ entityType: entityType});
-    }
-
-    function toOrderByODataFragment(orderByClause) {
-      if (!orderByClause) return;
-      orderByClause.validate(entityType);
-      var strings = orderByClause.items.map(function (item) {
-        return entityType._clientPropertyPathToServer(item.propertyPath) + (item.isDesc ? " desc" : "");
-      });
-      // should return something like CompanyName,Address/City desc
-      return strings.join(',');
-    };
-
-    function toSelectODataFragment(selectClause) {
-      if (!selectClause) return;
-      selectClause.validate(entityType);
-      var frag = selectClause.propertyPaths.map(function (pp) {
-        return entityType._clientPropertyPathToServer(pp);
-      }).join(",");
-      return frag;
-    };
-
-    function toExpandODataFragment(expandClause) {
-      if (!expandClause) return;
-      // no validate on expand clauses currently.
-      // expandClause.validate(entityType);
-      var frag = expandClause.propertyPaths.map(function (pp) {
-        return entityType._clientPropertyPathToServer(pp);
-      }).join(",");
-      return frag;
-    };
-
-    function toQueryOptionsString(queryOptions) {
-      var qoStrings = [];
-      for (var qoName in queryOptions) {
-        var qoValue = queryOptions[qoName];
-        if (qoValue !== undefined) {
-          if (qoValue instanceof Array) {
-            qoValue.forEach(function (qov) {
-              qoStrings.push(qoName + "=" + encodeURIComponent(qov));
-            });
-          } else {
-            qoStrings.push(qoName + "=" + encodeURIComponent(qoValue));
-          }
-        }
-      }
-
-      if (qoStrings.length > 0) {
-        return "?" + qoStrings.join("&");
-      } else {
-        return "";
-      }
-    }
-
-  };
-
-  // toODataFragment visitor
-  Predicate.attachVisitor(function () {
-    var visitor = {
-      config: { fnName: "toODataFragment"   },
-
-      passthruPredicate: function () {
-        return this.value;
-      },
-
-      unaryPredicate: function (context) {
-        return odataOpFrom(this) + " " + "(" + this.pred.toODataFragment(context) + ")";
-      },
-
-      binaryPredicate: function (context) {
-        var v1Expr = this.expr1.toODataFragment(context);
-        var prefix = context.prefix;
-        if (prefix) {
-          v1Expr = prefix + "/" + v1Expr;
-        }
-
-        var v2Expr = this.expr2.toODataFragment(context);
-
-        var odataOp = odataOpFrom(this);
-
-        if (this.op.isFunction) {
-          if (odataOp == "substringof") {
-            return odataOp + "(" + v2Expr + "," + v1Expr + ") eq true";
-          } else {
-            return odataOp + "(" + v1Expr + "," + v2Expr + ") eq true";
-          }
-        } else {
-          return v1Expr + " " + odataOp + " " + v2Expr;
-        }
-      },
-
-      andOrPredicate: function (context) {
-        var result = this.preds.map(function (pred) {
-          return "(" + pred.toODataFragment(context) + ")";
-        }).join(" " + odataOpFrom(this) + " ");
-        return result;
-      },
-
-      anyAllPredicate: function (context) {
-        var v1Expr = this.expr.toODataFragment(context);
-
-        var prefix = context.prefix;
-        if (prefix) {
-          v1Expr = prefix + "/" + v1Expr;
-          prefix = "x" + (parseInt(prefix.substring(1)) + 1);
-        } else {
-          prefix = "x1";
-        }
-        var newConfig = __extend({}, context);
-        newConfig.entityType = this.expr.dataType;
-        newConfig.prefix = prefix;
-        return v1Expr + "/" + odataOpFrom(this) + "(" + prefix + ": " + this.pred.toODataFragment(newConfig) + ")";
-      },
-
-      litExpr: function () {
-        return this.dataType.fmtOData(this.value);
-      },
-
-      propExpr: function (context) {
-        var entityType = context.entityType;
-        return entityType ? entityType._clientPropertyPathToServer(this.propertyPath) : this.propertyPath;
-      },
-
-      fnExpr: function (context) {
-        var frags = this.exprArgs.map(function (expr) {
-          return expr.toODataFragment(context);
-        });
-        return this.fnName + "(" + frags.join(",") + ")";
-      }
-    };
-
-    var _operatorMap = {
-      'contains': 'substringof'
-      // ops where op.key === odataOperator
-      // not
-      // eq, ne, gt, ge, lt, le,
-      // any, all, and, or
-      // startswith, endswith
-    }
-
-    function odataOpFrom(node) {
-      var op = node.op.key;
-      var odataOp = _operatorMap[op];
-      return odataOp || op;
-    }
-
-    return visitor;
-  }());
-
-  return {
-    buildUri: buildUri
-  };
-
-})();
-
 
 
 ;/**
@@ -14899,7 +14749,7 @@ var MappingContext = (function () {
     } else {
       throw new Error("unable to recognize query parameter as either a string or an EntityQuery");
     }
-    return  this.dataService.makeUrl(uriString);
+    return  this.dataService.qualifyUrl(uriString);
   }
 
   proto.visitAndMerge = function (nodes, nodeContext) {
@@ -15375,7 +15225,7 @@ breeze.SaveOptions = SaveOptions;
 
   proto.fetchMetadata = function (metadataStore, dataService) {
     var serviceName = dataService.serviceName;
-    var url = dataService.makeUrl("Metadata");
+    var url = dataService.qualifyUrl("Metadata");
 
     var deferred = Q.defer();
 
@@ -15461,7 +15311,7 @@ breeze.SaveOptions = SaveOptions;
     saveBundle = adapter._prepareSaveBundle(saveContext, saveBundle);
     var bundle = JSON.stringify(saveBundle);
 
-    var url = saveContext.dataService.makeUrl(saveContext.resourceName);
+    var url = saveContext.dataService.qualifyUrl(saveContext.resourceName);
 
     ajaxImpl.ajax({
       type: "POST",
@@ -16026,7 +15876,7 @@ breeze.SaveOptions = SaveOptions;
     var deferred = Q.defer();
 
     var serviceName = dataService.serviceName;
-    var url = dataService.makeUrl('$metadata');
+    var url = dataService.qualifyUrl('$metadata');
     // OData.read(url,
     OData.read({
           requestUri: url,
@@ -16075,7 +15925,7 @@ breeze.SaveOptions = SaveOptions;
     var adapter = saveContext.adapter = this;
     var deferred = Q.defer();
     saveContext.routePrefix = adapter.getRoutePrefix(saveContext.dataService);
-    var url = saveContext.dataService.makeUrl("$batch");
+    var url = saveContext.dataService.qualifyUrl("$batch");
 
     var requestData = createChangeRequests(saveContext, saveBundle);
     var tempKeys = saveContext.tempKeys;
@@ -17009,10 +16859,267 @@ breeze.SaveOptions = SaveOptions;
   breeze.config.registerAdapter("modelLibrary", ctor);
 
 }));
+;(function (factory) {
+  if (breeze) {
+    factory(breeze);
+  } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
+    // CommonJS or Node: hard-coded dependency on "breeze"
+    factory(require("breeze"));
+  } else if (typeof define === "function" && define["amd"] && !breeze) {
+    // AMD anonymous module with hard-coded dependency on "breeze"
+    define(["breeze"], factory);
+  }
+}(function (breeze) {
+  "use strict";
+
+  var ctor = function() {
+    this.name = "json";
+  };
+  var proto = ctor.prototype;
+
+  proto.initialize = function() {};
+
+  proto.buildUri = function (entityQuery, metadataStore) {
+    // force entityType validation;
+    var entityType = entityQuery._getFromEntityType(metadataStore, false);
+    if (!entityType) entityType = new EntityType(metadataStore);
+    var json = entityQuery.toJSONExt( { entityType: entityType, onServer: true});
+    json.from = undefined;
+    json.queryOptions = undefined;
+
+    var jsonString = JSON.stringify(json);
+    var urlBody = encodeURIComponent(jsonString);
+    return entityQuery.resourceName + "?" + urlBody;
+
+  };
+
+  breeze.config.registerAdapter("uriBuilder", ctor);
+
+}));
+
+
+
+;(function (factory) {
+  if (breeze) {
+    factory(breeze);
+  } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
+    // CommonJS or Node: hard-coded dependency on "breeze"
+    factory(require("breeze"));
+  } else if (typeof define === "function" && define["amd"] && !breeze) {
+    // AMD anonymous module with hard-coded dependency on "breeze"
+    define(["breeze"], factory);
+  }
+}(function (breeze) {
+  "use strict";
+  var EntityType = breeze.EntityType;
+
+  var ctor = function() {
+    this.name = "odata";
+  };
+  var proto = ctor.prototype;
+
+  proto.initialize = function() {};
+
+  proto.buildUri = function (entityQuery, metadataStore) {
+    // force entityType validation;
+    var entityType = entityQuery._getFromEntityType(metadataStore, false);
+    if (!entityType) {
+      // anonymous type but still has naming convention info avail
+      entityType = new EntityType(metadataStore);
+    }
+
+    var queryOptions = {};
+    queryOptions["$filter"] = toWhereODataFragment(entityQuery.wherePredicate);
+    queryOptions["$orderby"] = toOrderByODataFragment(entityQuery.orderByClause);
+
+    if (entityQuery.skipCount) {
+      queryOptions["$skip"] = entityQuery.skipCount;
+    }
+
+    if (entityQuery.takeCount != null) {
+      queryOptions["$top"] = entityQuery.takeCount;
+    }
+
+    queryOptions["$expand"] = toExpandODataFragment(entityQuery.expandClause);
+    queryOptions["$select"] = toSelectODataFragment(entityQuery.selectClause);
+
+    if (entityQuery.inlineCountEnabled) {
+      queryOptions["$inlinecount"] = "allpages";
+    }
+
+    var qoText = toQueryOptionsString(queryOptions);
+    return entityQuery.resourceName + qoText;
+
+    // private methods to this func.
+
+    function toWhereODataFragment(wherePredicate) {
+      if (!wherePredicate) return;
+      // validation occurs inside of the toODataFragment call here.
+      return wherePredicate.toODataFragment({ entityType: entityType});
+    }
+
+    function toOrderByODataFragment(orderByClause) {
+      if (!orderByClause) return;
+      orderByClause.validate(entityType);
+      var strings = orderByClause.items.map(function (item) {
+        return entityType.clientPropertyPathToServer(item.propertyPath, "/") + (item.isDesc ? " desc" : "");
+      });
+      // should return something like CompanyName,Address/City desc
+      return strings.join(',');
+    };
+
+    function toSelectODataFragment(selectClause) {
+      if (!selectClause) return;
+      selectClause.validate(entityType);
+      var frag = selectClause.propertyPaths.map(function (pp) {
+        return  entityType.clientPropertyPathToServer(pp, "/");
+      }).join(",");
+      return frag;
+    };
+
+    function toExpandODataFragment(expandClause) {
+      if (!expandClause) return;
+      // no validate on expand clauses currently.
+      // expandClause.validate(entityType);
+      var frag = expandClause.propertyPaths.map(function (pp) {
+        return entityType.clientPropertyPathToServer(pp, "/");
+      }).join(",");
+      return frag;
+    };
+
+    function toQueryOptionsString(queryOptions) {
+      var qoStrings = [];
+      for (var qoName in queryOptions) {
+        var qoValue = queryOptions[qoName];
+        if (qoValue !== undefined) {
+          if (qoValue instanceof Array) {
+            qoValue.forEach(function (qov) {
+              qoStrings.push(qoName + "=" + encodeURIComponent(qov));
+            });
+          } else {
+            qoStrings.push(qoName + "=" + encodeURIComponent(qoValue));
+          }
+        }
+      }
+
+      if (qoStrings.length > 0) {
+        return "?" + qoStrings.join("&");
+      } else {
+        return "";
+      }
+    }
+  };
+
+
+
+
+  // toODataFragment visitor
+  breeze.Predicate.attachVisitor(function () {
+    var visitor = {
+      config: { fnName: "toODataFragment"   },
+
+      passthruPredicate: function () {
+        return this.value;
+      },
+
+      unaryPredicate: function (context) {
+        return odataOpFrom(this) + " " + "(" + this.pred.toODataFragment(context) + ")";
+      },
+
+      binaryPredicate: function (context) {
+        var v1Expr = this.expr1.toODataFragment(context);
+        var prefix = context.prefix;
+        if (prefix) {
+          v1Expr = prefix + "/" + v1Expr;
+        }
+
+        var v2Expr = this.expr2.toODataFragment(context);
+
+        var odataOp = odataOpFrom(this);
+
+        if (this.op.isFunction) {
+          if (odataOp == "substringof") {
+            return odataOp + "(" + v2Expr + "," + v1Expr + ") eq true";
+          } else {
+            return odataOp + "(" + v1Expr + "," + v2Expr + ") eq true";
+          }
+        } else {
+          return v1Expr + " " + odataOp + " " + v2Expr;
+        }
+      },
+
+      andOrPredicate: function (context) {
+        var result = this.preds.map(function (pred) {
+          return "(" + pred.toODataFragment(context) + ")";
+        }).join(" " + odataOpFrom(this) + " ");
+        return result;
+      },
+
+      anyAllPredicate: function (context) {
+        var v1Expr = this.expr.toODataFragment(context);
+
+        var prefix = context.prefix;
+        if (prefix) {
+          v1Expr = prefix + "/" + v1Expr;
+          prefix = "x" + (parseInt(prefix.substring(1)) + 1);
+        } else {
+          prefix = "x1";
+        }
+        var newConfig = breeze.core.extend({}, context);
+        newConfig.entityType = this.expr.dataType;
+        newConfig.prefix = prefix;
+        return v1Expr + "/" + odataOpFrom(this) + "(" + prefix + ": " + this.pred.toODataFragment(newConfig) + ")";
+      },
+
+      litExpr: function () {
+        return this.dataType.fmtOData(this.value);
+      },
+
+      propExpr: function (context) {
+        var entityType = context.entityType;
+        // '/' is the OData path delimiter
+        return entityType ? entityType.clientPropertyPathToServer(this.propertyPath, "/") : this.propertyPath;
+      },
+
+      fnExpr: function (context) {
+        var frags = this.exprArgs.map(function (expr) {
+          return expr.toODataFragment(context);
+        });
+        return this.fnName + "(" + frags.join(",") + ")";
+      }
+    };
+
+    var _operatorMap = {
+      'contains': 'substringof'
+      // ops where op.key === odataOperator
+      // not
+      // eq, ne, gt, ge, lt, le,
+      // any, all, and, or
+      // startswith, endswith
+    }
+
+    function odataOpFrom(node) {
+      var op = node.op.key;
+      var odataOp = _operatorMap[op];
+      return odataOp || op;
+    }
+
+    return visitor;
+  }());
+
+  breeze.config.registerAdapter("uriBuilder", ctor);
+
+}));
+
+
+
+
+
 ;
 // set defaults
 // will no longer fail at initialization time if jQuery is not found.
-breeze.config.initializeAdapterInstances( { dataService: "webApi", ajax: "jQuery" });
+breeze.config.initializeAdapterInstances( { dataService: "webApi", ajax: "jQuery", uriBuilder: "odata" });
+
 
 var ko = __requireLibCore("ko");
 

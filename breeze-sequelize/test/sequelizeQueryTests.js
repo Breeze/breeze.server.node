@@ -9,6 +9,8 @@ var utils            = require('./../utils.js');
 var dbUtils          = require('./../dbUtils.js');
 var SequelizeManager = require('./../SequelizeManager');
 
+var testFns          = require('./testFns.js');
+
 var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
@@ -16,23 +18,25 @@ var log = utils.log;
 describe("sequelizeQuery", function() {
 
   this.enableTimeouts(false);
-
-  var _nwConfig = {
-    host: "localhost",
-    user: "jayt",
-    password: "password",
-    dbName: 'northwindib'
-  }
-
   var _nwSm;
 
-
-
   before(function() {
-    _nwSm = new SequelizeManager(_nwConfig);
-    var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
+    _nwSm = new SequelizeManager(testFns.dbConfigNw);
+    var breezeMetadata = testFns.getMetadata();
     _nwSm.importMetadata(breezeMetadata);
 
+  });
+
+  it.skip("should be able to use functions", function(done) {
+    var where = {};
+    var fn = Sequelize.fn("upper", Sequelize.col("CompanyName"));
+    where[ fn] = { like: 'B%'} ;
+    _nwSm.models.Customers.findAll( { where: where }).then(function(r) {
+      expect(r).to.have.length.above(5);
+      r.forEach(function(cust) {
+        expect(cust.CompanyName).to.match(/B.*/);
+      });
+    }).then(done, done);
   });
 
   it("should be able to use 'like'", function(done) {
@@ -43,6 +47,8 @@ describe("sequelizeQuery", function() {
       });
     }).then(done, done);
   });
+
+
 
   it("should be able to use include on 1-N reln", function(done) {
     var Order = _nwSm.models.Orders;

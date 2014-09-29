@@ -9,32 +9,26 @@ var utils            = require('./../utils.js');
 var dbUtils          = require('./../dbUtils.js');
 var SequelizeManager = require('./../SequelizeManager');
 
+var testFns          = require('./testFns.js');
 var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe.only("sequelizeBasic", function() {
+describe("sequelizeBasic", function() {
 
-  var _dbConfig = {
-    host: "localhost",
-    user: "jayt",
-    password: "password",
-    dbName: 'test1'
-  }
 
   var _nwSm;
 
   this.enableTimeouts(false);
 
   before(function(done) {
-    var nwConfig = _.clone(_dbConfig);
+    var nwConfig = _.clone(testFns.dbConfigNw);
     nwConfig.dbName = "NorthwindIB_temp";
     var sm = new SequelizeManager(nwConfig);
-    var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
-    var json = JSON.parse(breezeMetadata);
+    var breezeMetadata = testFns.getMetadata();
     // removing naming convention so that we don't camel case the data.
-    json.namingConvention = null;
-    sm.importMetadata(json);
+    breezeMetadata.namingConvention = null;
+    sm.importMetadata(breezeMetadata);
     sm.sync(true).then(function() {
       _nwSm = sm;
     }).then(done, done)
@@ -44,7 +38,10 @@ describe.only("sequelizeBasic", function() {
 
 
   it("should create a simple schema", function(done) {
-    var sm = new SequelizeManager(_dbConfig);
+    var testConfig = _.clone(testFns.dbConfigNw);
+    testConfig.dbName = "test";
+    var sm = new SequelizeManager(testConfig);
+
     createSimpleSchema(sm.sequelize);
     // this will not work but the line after will;
     // sm.sync(true).then(done, done);

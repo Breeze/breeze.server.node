@@ -3,9 +3,8 @@ var expect           = require('chai').expect;
 var breeze           = require('breeze-client');
 var Sequelize        = require('sequelize');
 var utils            = require('./../utils.js');
-//var dbUtils          = require('./../dbUtils.js');
-//var SequelizeManager = require('./../SequelizeManager');
-var SequelizeQuery  = require('./../SequelizeQuery.js');
+
+var testFns          = require('./testFns.js');
 
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
@@ -21,14 +20,11 @@ var log = utils.log;
 describe("EntityQuery tests", function() {
   this.enableTimeouts(false);
 
-  var _ms;
-  var _em;
+  var _ms, _em;
   before(function() {
-    _em = new EntityManager();
+    _em = testFns.newEm();
     _ms = _em.metadataStore;
-    var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
-    _ms.importMetadata(breezeMetadata);
-  })
+  });
 
   function testPropCount(q, propCount) {
     var json = q.toJSON();
@@ -40,13 +36,13 @@ describe("EntityQuery tests", function() {
 
     var q2 = new EntityQuery(jsonParsed);
     if (q.expandClause) {
-      expect(q2).to.have.deep.property("expandClause.toJSON");
+      expect(q2).to.have.deep.property("expandClause.propertyPaths");
     }
     if (q.selectClause) {
-      expect(q2).to.have.deep.property("selectClause.toJSON");
+      expect(q2).to.have.deep.property("selectClause.propertyPaths");
     }
     if (q.orderByClause) {
-      expect(q2).to.have.deep.property("orderByClause.toJSON");
+      expect(q2).to.have.deep.property("orderByClause.items");
     }
     if (q.queryOptions && q.queryOptions.fetchStrategy) {
       expect(q2.queryOptions.fetchStrategy).to.eql(q.queryOptions.fetchStrategy);

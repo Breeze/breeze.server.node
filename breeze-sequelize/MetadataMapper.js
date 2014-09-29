@@ -11,12 +11,14 @@ var log = utils.log;
 module.exports = MetadataMapper = function(breezeMetadata, sequelize) {
   this.breezeMetadata = breezeMetadata;
   this.sequelize = sequelize;
-  this.metadataStore = new breeze.MetadataStore();
+  var ms = new breeze.MetadataStore();
+  ms.importMetadata(this.breezeMetadata);
+  ms.onServer = true;
+  this.metadataStore = ms;
 }
 
 MetadataMapper.prototype.mapToSqModels = function() {
   var ms = this.metadataStore;
-  ms.importMetadata(this.breezeMetadata);
   var allTypes = ms.getEntityTypes();
   var typeMap = _.groupBy(allTypes, function(t) {
     return t.isComplexType ? "complexType" : "entityType";
