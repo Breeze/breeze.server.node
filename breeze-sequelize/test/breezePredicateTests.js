@@ -21,6 +21,8 @@ describe("predicate tests", function() {
   before(function() {
     _em = testFns.newEm();
     _ms = _em.metadataStore;
+
+
   });
 
   function test(predicate, entityType, expected) {
@@ -43,6 +45,13 @@ describe("predicate tests", function() {
     var frag2Explicit = newP.toODataFragment(entityType);
     expect(frag2Explicit).to.eql(expected, "frag2Explict");
   }
+
+  it("added like predicate - json", function() {
+    var entityType = _ms.getEntityType("Customer");
+    var p = new Predicate( { companyName: { like: "%er%" }});
+    test(p, entityType, "CompanyName like '%er%'" );
+
+  });
 
   it("simple binary predicate - json", function() {
     var orderType = _ms.getEntityType("Order");

@@ -16,8 +16,7 @@ module.exports = SequelizeManager = function(dbConfig) {
     port:    3306, // or 5432 (for postgres)
     omitNull: true
   });
-  // map of modelName -> model
-  this.models = {};
+
 };
 
 // returns Promise(null);
@@ -39,7 +38,8 @@ SequelizeManager.prototype.createDb = function() {
 SequelizeManager.prototype.importMetadata = function(breezeMetadata) {
   var metadataMapper = new MetadataMapper(breezeMetadata, this.sequelize);
   // TODO: should we merge here instead ; i.e. allow multiple imports...
-  this.models = metadataMapper.mapToSqModels();
+  this.models = this.resourceNameSqModelMap = metadataMapper.resourceNameSqModelMap;
+  this.entityTypeSqModelMap = metadataMapper.entityTypeSqModelMap;
   this.metadataStore = metadataMapper.metadataStore;
 
 };

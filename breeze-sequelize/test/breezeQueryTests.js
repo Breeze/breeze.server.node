@@ -22,7 +22,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("breezeQuery - execute", function () {
+describe.only("breezeQuery - execute", function () {
   
   this.enableTimeouts(false);
 
@@ -40,19 +40,118 @@ describe("breezeQuery - execute", function () {
   function toSequelizeQuery(breezeQuery) {
     var uri = breezeQuery._toUri(_em);
     console.log(uri);
-    var sq = new SequelizeQuery(uri, _sm.metadataStore);
+    var sq = new SequelizeQuery(uri, _sm);
     return sq;
   }
 
   it("should be inconclusive");
 
+  it("should be able to query scalar navigation property", function (done) {
+    // TODO: need to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("OrderDetails")
+        .where("product.productID", "==", 1);
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+    }).then(done, done);
+  });
+
+
   it("should be able to select specific nested scalar properties", function (done) {
+    // TODO: need to use 'include'
     var q = new EntityQuery("Orders").select("orderDate, customer").take(2);
     toSequelizeQuery(q).execute(_sm).then(function (r) {
       expect(r).to.have.length(2);
     }).then(done, done);
   });
 
+  it("should be able to expand nonscalar properties", function (done) {
+    var q = EntityQuery.from("Customers")
+        .where("companyName", 'startsWith', "B")
+        .expand("orders");
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+      var count = 0;
+      r.forEach(function (cust) {
+        expect(cust).to.have.property("Orders");
+        count = count + cust.Orders.length;
+      });
+      expect(count).to.be.greaterThan(0);
+    }).then(done, done);
+  });
+
+  it("should be able to expand nested nonscalar properties", function (done) {
+    var q = EntityQuery.from("Customers")
+        .where("companyName", 'startsWith', "B")
+        .expand("orders.orderDetails");
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+      var ordersCount = odCount = 0;
+      r.forEach(function (cust) {
+        expect(cust).to.have.property("Orders");
+        var orders = cust.Orders;
+        ordersCount = ordersCount + orders.length;
+        orders.forEach(function(order) {
+          expect(order).to.have.property("OrderDetails");
+          odCount = odCount + order.OrderDetails.length;
+        });
+
+      });
+      expect(ordersCount).to.be.greaterThan(0);
+      expect(odCount).to.be.greaterThan(0);
+    }).then(done, done);
+  });
+
+  it("should be able to expand scalar properties", function (done) {
+    var q = EntityQuery.from("Orders").take(5)
+        .expand("customer");
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+      r.forEach(function (order) {
+        expect(order).to.have.property("Customer");
+        var cust = order.Customer;
+        expect(cust).to.have.property("CompanyName");
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to expand nested scalar and nonscalar properties", function (done) {
+    var q = EntityQuery.from("Orders").take(5)
+        .expand("customer, orderDetails");
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+      r.forEach(function (order) {
+        expect(order).to.have.property("Customer");
+        expect(order).to.have.property("OrderDetails");
+        var cust = order.Customer;
+        expect(cust).to.have.property("CompanyName");
+        var orderDetails = order.OrderDetails;
+        expect(orderDetails[0]).to.have.property("UnitPrice");
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to expand recursively", function (done) {
+    var q = EntityQuery.from("Orders").take(5)
+        .expand("customer, customer.orders");
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+      r.forEach(function (order) {
+        expect(order).to.have.property("Customer");
+        var cust = order.Customer;
+        expect(cust).to.have.property("Orders");
+        var orders = cust.Orders;
+        expect(orders[0]).to.have.property("Freight");
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to query with embedded quotes", function (done) {
+    var q = EntityQuery.from("Customers")
+        .where("companyName", 'contains', "'");
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+    }).then(done, done);
+  });
 
   it("should be able to query with 'startsWith'", function (done) {
     var q0 = new EntityQuery("Customers").where("companyName", "startsWith", "S");
@@ -245,11 +344,4 @@ describe("breezeQuery - execute", function () {
     }).then(done, done);
   });
 
-
-  
-
-  
-  
-
-  
 });

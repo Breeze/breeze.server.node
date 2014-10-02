@@ -13,11 +13,12 @@ module.exports = SequelizeQuery;
 // TODO: still need to add support for OData fns like toUpper, length etc.
 // TODO: still need to add support for OData any/all
 
-function SequelizeQuery(jsonUrl, metadataStore) {
+function SequelizeQuery(jsonUrl, sequelizeManager) {
 
-  var ds = new DataService( { serviceName: "Foo", uriBuilderName: "json"})
-  this.entityManager = new EntityManager( {dataService: ds});
-
+//  var ds = new DataService( { serviceName: "Foo", uriBuilderName: "json"})
+//  this.entityManager = new EntityManager( {dataService: ds});
+  this.sequelizeManager = sequelizeManager;
+  this.metadataStore = sequelizeManager.metadataStore;
   var parsedUrl = url.parse(jsonUrl, true);
   this.pathname = parsedUrl.pathname;
 
@@ -27,24 +28,32 @@ function SequelizeQuery(jsonUrl, metadataStore) {
   this.jsonQuery = JSON.parse(jsonQueryString);
   var entityQuery = new EntityQuery(this.jsonQuery);
   this.entityQuery = entityQuery.from(this.pathname);
-  this.queryObj = toSequelizeQuery(this.entityQuery, metadataStore);
+  this.queryObj = this._toSequelizeQuery(this.entityQuery);
 
 }
 
-SequelizeQuery.prototype.execute = function(sequelizeManager) {
-  var model = sequelizeManager.models[this.pathname];
+SequelizeQuery.prototype.execute = function() {
+  var model = this.sequelizeManager.resourceNameSqModelMap[this.pathname];
   return model.findAll(this.queryObj);
 }
 
 // pass in either a query string or a urlQuery object
 //    a urlQuery object is what is returned by node's url.parse(aUrl, true).query;
-function toSequelizeQuery(entityQuery ) {
+SequelizeQuery.prototype._toSequelizeQuery = function(entityQuery) {
   var section;
   var result = {};
   if (entityQuery.wherePredicate) {
-    var where = entityQuery.wherePredicate.toSQ();
+    var where = entityQuery.wherePredicate.visit(toSQVisitor);
     var where2 = processAndOr(where);
     result.where = where2;
+  }
+
+  if (entityQuery.selectClause) {
+    result.attributes = entityQuery.selectClause.propertyPaths;
+  }
+
+  if (entityQuery.expandClause) {
+    result.include = this._processExpand(entityQuery);
   }
 
   var section = entityQuery.takeCount;
@@ -59,28 +68,56 @@ function toSequelizeQuery(entityQuery ) {
     result.offset = entityQuery.skipCount;
   }
 
-  section = entityQuery.$inlinecount;
+  section = entityQuery.inlinecount;
   if (section) {
-    result.inlineCount = section !== "none";
+    result.$method = section !== "none" ? "findAndCountAll" : "findAll";
   }
 
   return result;
 
 }
 
-breeze.Predicate.attachVisitor(function () {
+SequelizeQuery.prototype._processExpand = function(entityQuery) {
+  var expandClause = entityQuery.expandClause;
+  var entityType = entityQuery._getFromEntityType(this.metadataStore, true);
+  var propertyPaths = expandClause.propertyPaths;
+  var includes = [];
+  var sm = this.sequelizeManager;
+  propertyPaths.forEach(function(pp) {
+    var props = entityType.getPropertiesOnPath(pp, true, true);
+    addInclude(includes, sm, props);
+  })
+  return includes;
+};
+
+function addInclude(includes, sequelizeManager, props) {
+  var prop = props[0];
+  var sqModel = sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
+  var include = _.find(includes, { model: sqModel });
+  if (!include) {
+    var include = {model: sqModel, as: prop.nameOnServer }
+    includes.push(include);
+  }
+  props = props.slice(1);
+  if (props.length > 0) {
+    var nextIncludes = [];
+    include["include"] = nextIncludes;
+    addInclude(nextIncludes, sequelizeManager, props);
+  }
+}
+
+
+var toSQVisitor = (function () {
   var visitor = {
-    config: { fnName: "toSQ"   },
 
     passthruPredicate: function () {
       return this.value;
     },
 
-    unaryPredicate: function (context) {
+    unaryPredicate: function (context, predSQ) {
       if (this.op.key !== "not") {
         throw new Error("Not yet implemented: Unary operation: " + this.op.key + " pred: " + JSON.stringify(this.pred));
       }
-      var predSQ = this.pred.toSQ(context);
       return applyNot(predSQ);
     },
 
@@ -91,9 +128,9 @@ breeze.Predicate.attachVisitor(function () {
       // not yet handled: e1: FnExpr | e2: FnExpr
 
       var p1Value, p2Value;
-      if (this.expr1.typeName === "PropExpr") {
+      if (this.expr1.visitorMethodName === "propExpr") {
         p1Value = this.expr1.propertyPath;
-        if (this.expr2.typeName === "LitExpr") {
+        if (this.expr2.visitorMethodName === "litExpr") {
           p2Value = this.expr2.value;
           if (op === "eq") {
             q[p1Value] = p2Value;
@@ -110,7 +147,7 @@ breeze.Predicate.attachVisitor(function () {
             q[p1Value] = crit;
           }
         }
-        else if (this.expr2.typeName == "PropExpr") {
+        else if (this.expr2.visitorMethodName == "propExpr") {
           var p2Value = this.expr2.propertyPath;
           var colVal = Sequelize.col(p2Value);
           if (op === "eq") {
@@ -129,16 +166,12 @@ breeze.Predicate.attachVisitor(function () {
           }
         }
       } else {
-        throw new Error("Not yet implemented: binary predicate with a expr1 type of: " + this.expr1.typeName + " - " + this.expr1.toString());
+        throw new Error("Not yet implemented: binary predicate with a expr1 type of: " + this.expr1.visitorMethodName + " - " + this.expr1.toString());
       }
       return q;
     },
 
-    andOrPredicate: function (context) {
-      var predSQs = this.preds.map(function (pred) {
-        return  pred.toSQ(context)
-      });
-
+    andOrPredicate: function (context, predSQs) {
       if (this.op.key === "and") {
         q = { and: predSQs };
         // q = Sequelize.and(q1, q2);

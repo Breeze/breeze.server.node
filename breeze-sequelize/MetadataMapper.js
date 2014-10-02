@@ -15,9 +15,12 @@ module.exports = MetadataMapper = function(breezeMetadata, sequelize) {
   ms.importMetadata(this.breezeMetadata);
   ms.onServer = true;
   this.metadataStore = ms;
+  this._createMaps();
 }
 
-MetadataMapper.prototype.mapToSqModels = function() {
+MetadataMapper.prototype._createMaps = function() {
+  // creates entityTypeSqModelMap and resourceNameSqModelMap
+
   var ms = this.metadataStore;
   var allTypes = ms.getEntityTypes();
   var typeMap = _.groupBy(allTypes, function(t) {
@@ -27,7 +30,7 @@ MetadataMapper.prototype.mapToSqModels = function() {
   var entityTypes = typeMap["entityType"];
 
   // map of entityTypeName to sqModel
-  var entityTypeSqModelMap = {};
+  var entityTypeSqModelMap = this.entityTypeSqModelMap = {};
   // first create all of the sequelize types with just data properties
   entityTypes.forEach(function(entityType) {
     var typeConfig = mapToSqModelConfig(this, entityType);
@@ -43,10 +46,10 @@ MetadataMapper.prototype.mapToSqModels = function() {
   // now add navigation props
   createNavProps(entityTypes, entityTypeSqModelMap);
   // map of breeze resourceName to sequelize model
-  var resourceNameSqModelMap = _.mapValues(ms._resourceEntityTypeMap, function(value, key) {
+  this.resourceNameSqModelMap = _.mapValues(ms._resourceEntityTypeMap, function(value, key) {
     return entityTypeSqModelMap[value];
   });
-  return resourceNameSqModelMap;
+
 };
 
 // source.fn(target, { foreignKey: })

@@ -8,7 +8,15 @@ var log = utils.log;
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
-var DataService = breeze.DataService;
+var DataService = breeze.DataService
+
+// test predicate extension
+breeze.Predicate.extendBinaryPredicateFn( { like: {}, nlike: { alias: 'notLike' }}, function(context, expr1, expr2) {
+  var e2 = "^" + expr2.replace("%", ".*?") + "$";
+  var rx = new RegEx(e2);
+  var isLike =  rx.test(expr1);
+  return (this.op.key == 'like') ? isLike : !isLike;
+});
 
 var __dbConfigNw = {
   host: "localhost",
