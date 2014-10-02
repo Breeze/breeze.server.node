@@ -16,7 +16,7 @@ var dbConfig = {
 }
 
 
-describe("mySql", function() {
+describe("MySql", function() {
 
   this.enableTimeouts(false);
 

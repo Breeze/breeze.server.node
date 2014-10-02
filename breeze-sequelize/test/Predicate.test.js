@@ -14,7 +14,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("predicate tests", function() {
+describe("Predicate - parse", function() {
   this.enableTimeouts(false);
 
   var _ms, _em;

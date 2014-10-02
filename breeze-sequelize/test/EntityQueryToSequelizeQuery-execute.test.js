@@ -22,7 +22,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe.only("breezeQuery - execute", function () {
+describe("EntityQuery to SequelizeQuery - execute", function () {
   
   this.enableTimeouts(false);
 

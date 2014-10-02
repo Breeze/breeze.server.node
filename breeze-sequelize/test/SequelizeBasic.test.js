@@ -14,8 +14,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("sequelizeBasic", function() {
-
+describe("SequelizeManager", function() {
 
   var _nwSm;
 

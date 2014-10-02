@@ -9,11 +9,16 @@ var log = utils.log;
 // TODO: still need to handle inherited entity types - TPT
 
 module.exports = MetadataMapper = function(breezeMetadata, sequelize) {
-  this.breezeMetadata = breezeMetadata;
+
   this.sequelize = sequelize;
-  var ms = new breeze.MetadataStore();
-  ms.importMetadata(this.breezeMetadata);
-  ms.onServer = true;
+  var ms;
+  if (breezeMetadata instanceof breeze.MetadataStore) {
+    ms = breezeMetadata;
+  } else {
+    var ms = new breeze.MetadataStore();
+    ms.importMetadata(breezeMetadata);
+  }
+  // ms.onServer = true;
   this.metadataStore = ms;
   this._createMaps();
 }

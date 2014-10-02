@@ -42,6 +42,9 @@ SequelizeQuery.prototype.execute = function() {
 SequelizeQuery.prototype._toSequelizeQuery = function(entityQuery) {
   var section;
   var result = {};
+
+  // NOTE: wherePredicate and selectClause can both
+
   if (entityQuery.wherePredicate) {
     var where = entityQuery.wherePredicate.visit(toSQVisitor);
     var where2 = processAndOr(where);

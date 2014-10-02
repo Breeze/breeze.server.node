@@ -9,6 +9,7 @@ var utils            = require('./../utils.js');
 var testFns          = require('./testFns.js');
 
 var SequelizeQuery   = testFns.getSequelizeQuery();
+var SequelizeManager = require('./../SequelizeManager');
 
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
@@ -19,20 +20,22 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("breezeQuery - parse", function() {
+describe("EntityQuery to SequelizeQuery - parse", function() {
   this.enableTimeouts(false);
 
-  var _ms, _em;
+  var _ms, _em, _sm;
   before(function() {
     _em = testFns.newEm();
     _ms = _em.metadataStore;
-
+    _sm = new SequelizeManager(testFns.dbConfigNw);
+    // _sm.importMetadata(testFns.getMetadata());
+    _sm.importMetadata(_ms);
   });
 
   function check(entityQuery, expectedResult) {
     // _em is client side entityManager;
     var uri = entityQuery._toUri(_em);
-    var sq = new SequelizeQuery(uri );
+    var sq = new SequelizeQuery(uri, _sm );
     log(JSON.stringify(sq.jsonQuery));
     expect(sq.queryObj).to.be.eql(expectedResult);
   }

@@ -17,7 +17,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("EntityQuery tests", function() {
+describe("EntityQuery - parse", function() {
   this.enableTimeouts(false);
 
   var _ms, _em;
@@ -56,6 +56,19 @@ describe("EntityQuery tests", function() {
     console.log(json2String);
     expect(json2String).to.eql(jsonString);
   }
+
+  it('should be able to import metadata', function() {
+
+    var data = testFns.getMetadata();
+    var ms = new breeze.MetadataStore();
+    ms.importMetadata(data);
+    var entityTypes = ms.getEntityTypes();
+
+    expect(entityTypes).to.be.instanceOf(Array);
+    expect(entityTypes).to.have.length.above(0);
+
+
+  });
 
   it("query just resource - toJSON", function() {
     var q = EntityQuery.from("Customers")

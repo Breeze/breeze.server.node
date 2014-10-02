@@ -15,7 +15,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("sequelizeQuery", function() {
+describe("SequelizeQuery", function() {
 
   this.enableTimeouts(false);
   var _nwSm;
@@ -27,7 +27,7 @@ describe("sequelizeQuery", function() {
 
   });
 
-  it.skip("should be able to use functions", function(done) {
+  it("should be able to use functions", function(done) {
     var where = {};
     var fn = Sequelize.fn("upper", Sequelize.col("CompanyName"));
     where[ fn] = { like: 'B%'} ;
