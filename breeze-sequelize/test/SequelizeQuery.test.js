@@ -15,7 +15,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("SequelizeQuery", function() {
+describe.only("SequelizeQuery", function() {
 
   this.enableTimeouts(false);
   var _nwSm;
@@ -35,6 +35,48 @@ describe("SequelizeQuery", function() {
       expect(r).to.have.length.above(5);
       r.forEach(function(cust) {
         expect(cust.CompanyName).to.match(/B.*/);
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to project and include nonscalar props in same query", function(done) {
+    var Order = _nwSm.models.Orders;
+    var q = {
+      where: { CompanyName: { like: 'B%'} },
+      attributes: [ "CompanyName", "City" ],
+      include: [ { model: Order, as: "Orders" }]
+    };
+    _nwSm.models.Customers.findAll(q ).then(function(r) {
+      expect(r).to.have.length.above(5);
+      r.forEach(function(cust) {
+        expect(Object.keys(cust.values)).to.have.length(3);
+        expect(cust).to.have.property("CompanyName");
+        expect(cust).to.have.property("Orders");
+        expect(cust.CompanyName).to.match(/B.*/)
+
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to project and include scalar props in same query", function(done) {
+    var CustomerModel = _nwSm.models.Customers;
+    var q = {
+      where: { Freight: { gt: 100} },
+      attributes: [ "OrderID", "Freight" ],
+      include: [ { model: CustomerModel, as: "Customer", attributes: [ "CompanyName" , "City"] }]
+    };
+    _nwSm.models.Orders.findAll(q ).then(function(r) {
+      expect(r).to.have.length.above(1);
+      r.forEach(function(order) {
+        expect(Object.keys(order.values)).to.have.length(3);
+        expect(order).to.have.property("OrderID");
+        expect(order).to.have.property("Freight");
+        expect(order).to.have.property("Customer");
+        var cust = order.Customer;
+        expect(Object.keys(cust.values)).to.have.length(2);
+        expect(cust).to.have.property("CompanyName");
+        expect(cust).to.have.property("City");
+
       });
     }).then(done, done);
   });

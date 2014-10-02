@@ -28,7 +28,8 @@ function SequelizeQuery(jsonUrl, sequelizeManager) {
   this.jsonQuery = JSON.parse(jsonQueryString);
   var entityQuery = new EntityQuery(this.jsonQuery);
   this.entityQuery = entityQuery.from(this.pathname);
-  this.queryObj = this._toSequelizeQuery(this.entityQuery);
+  this.entityType = this.entityQuery._getFromEntityType(this.metadataStore, true);
+  this.queryObj = this._toSequelizeQuery();
 
 }
 
@@ -39,58 +40,85 @@ SequelizeQuery.prototype.execute = function() {
 
 // pass in either a query string or a urlQuery object
 //    a urlQuery object is what is returned by node's url.parse(aUrl, true).query;
-SequelizeQuery.prototype._toSequelizeQuery = function(entityQuery) {
+SequelizeQuery.prototype._toSequelizeQuery = function() {
   var section;
-  var result = {};
+  var entityQuery = this.entityQuery;
+  var sqQuery = this.sqQuery = {};
+  sqQuery.include = [];
 
-  // NOTE: wherePredicate and selectClause can both
+  this._processWhere();
 
-  if (entityQuery.wherePredicate) {
-    var where = entityQuery.wherePredicate.visit(toSQVisitor);
-    var where2 = processAndOr(where);
-    result.where = where2;
-  }
+  this._processSelect();
 
-  if (entityQuery.selectClause) {
-    result.attributes = entityQuery.selectClause.propertyPaths;
-  }
+  this._processOrderBy();
 
-  if (entityQuery.expandClause) {
-    result.include = this._processExpand(entityQuery);
-  }
+  this._processExpand();
 
   var section = entityQuery.takeCount;
   // not ok to ignore top: 0
   if (section !== undefined) {
-    result.limit = entityQuery.takeCount;
+    sqQuery.limit = entityQuery.takeCount;
   }
 
   section = entityQuery.skipCount
   // ok to ignore skip: 0
   if (section) {
-    result.offset = entityQuery.skipCount;
+    sqQuery.offset = entityQuery.skipCount;
   }
 
   section = entityQuery.inlinecount;
   if (section) {
-    result.$method = section !== "none" ? "findAndCountAll" : "findAll";
+    sqQuery.$method = section !== "none" ? "findAndCountAll" : "findAll";
   }
 
-  return result;
+  if (_.isEmpty(sqQuery.include)) {
+    delete sqQuery.include;
+  }
+  return this.sqQuery;
 
 }
 
-SequelizeQuery.prototype._processExpand = function(entityQuery) {
-  var expandClause = entityQuery.expandClause;
-  var entityType = entityQuery._getFromEntityType(this.metadataStore, true);
-  var propertyPaths = expandClause.propertyPaths;
-  var includes = [];
-  var sm = this.sequelizeManager;
+SequelizeQuery.prototype._processWhere = function() {
+  var wherePredicate = this.entityQuery.wherePredicate;
+  if (wherePredicate == null) return;
+  var where = wherePredicate.visit(toSQVisitor);
+  var where2 = processAndOr(where);
+  this.sqQuery.where = where2;
+}
+
+SequelizeQuery.prototype._processSelect = function() {
+  var selectClause = this.entityQuery.selectClause;
+  if (selectClause == null) return;
+  // extract any nest paths and move them onto the include
+  var navPropertyPaths = [];
+  this.sqQuery.attributes = selectClause.propertyPaths.filter(function(pp) {
+    var props = this.entityType.getPropertiesOnPath(pp, true, true);
+    var isNavPropertyPath = props[0].isNavigationProperty;
+    if (isNavPropertyPath) {
+      addInclude(this.sqQuery.include, this.sequelizeManager, props);
+    }
+    return !isNavPropertyPath;
+  }, this);
+}
+
+SequelizeQuery.prototype._processOrderBy = function() {
+  var orderByClause = this.entityQuery.orderByClause;
+  if (orderByClause == null) return;
   propertyPaths.forEach(function(pp) {
-    var props = entityType.getPropertiesOnPath(pp, true, true);
-    addInclude(includes, sm, props);
-  })
-  return includes;
+    var props = this.entityType.getPropertiesOnPath(pp, true, true);
+    addInclude(this.sqQuery.include, this.sequelizeManager, props);
+  }, this);
+
+};
+
+SequelizeQuery.prototype._processExpand = function() {
+  var expandClause = this.entityQuery.expandClause;
+  if (expandClause == null) return;
+  expandClause.propertyPaths.forEach(function(pp) {
+    var props = this.entityType.getPropertiesOnPath(pp, true, true);
+    addInclude(this.sqQuery.include, this.sequelizeManager, props);
+  }, this);
+
 };
 
 function addInclude(includes, sequelizeManager, props) {
@@ -207,23 +235,6 @@ var toSQVisitor = (function () {
   return visitor;
 }());
 
-function toOrderbyExpr(orderbyItems) {
-  // "sort": [['field1','asc'], ['field2','desc']]
-
-  var sortItems = orderbyItems.map(function(s) {
-    var sPath = s.path.replace("/",".");
-    return [sPath,  s.isAsc ? "asc" : "desc"];
-  }) ;
-  return { sort: sortItems };
-}
-
-function toSelectExpr(selectItems) {
-  var result = selectItems.map(function(s) {
-    var sPath = s.replace("/",".");
-    return sPath;
-  });
-  return result;
-}
 
 function applyNot(q1) {
 
