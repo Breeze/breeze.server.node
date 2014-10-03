@@ -19,6 +19,7 @@ function SequelizeQuery(jsonUrl, sequelizeManager) {
 //  this.entityManager = new EntityManager( {dataService: ds});
   this.sequelizeManager = sequelizeManager;
   this.metadataStore = sequelizeManager.metadataStore;
+
   var parsedUrl = url.parse(jsonUrl, true);
   this.pathname = parsedUrl.pathname;
 
@@ -27,10 +28,11 @@ function SequelizeQuery(jsonUrl, sequelizeManager) {
   var jsonQueryString = Object.keys(parsedUrl.query)[0];
   this.jsonQuery = JSON.parse(jsonQueryString);
   var entityQuery = new EntityQuery(this.jsonQuery);
+  this.metadataStore.onServer = true;
   this.entityQuery = entityQuery.from(this.pathname);
   this.entityType = this.entityQuery._getFromEntityType(this.metadataStore, true);
   this.queryObj = this._toSequelizeQuery();
-
+  this.metadataStore.onServer = false;
 }
 
 SequelizeQuery.prototype.execute = function() {
@@ -81,9 +83,21 @@ SequelizeQuery.prototype._toSequelizeQuery = function() {
 SequelizeQuery.prototype._processWhere = function() {
   var wherePredicate = this.entityQuery.wherePredicate;
   if (wherePredicate == null) return;
-  var where = wherePredicate.visit(toSQVisitor);
-  var where2 = processAndOr(where);
-  this.sqQuery.where = where2;
+  var where = wherePredicate.visit(toSQVisitor, {
+    // we don't want to pass in the 'real' entityType because this query
+    // is using server side names so it won't pass validation - a null
+    // entityType bypasses validations.
+    entityType: this.entityType,
+    sequelizeQuery: this,
+    metadataStore: this.metadataStore
+  });
+  // this can happen if all predicates are nested
+  // in which case the top level where becomes null, and includes hold
+  // the where clauses.
+  if ( where != null) {
+    var where2 = processAndOr(where);
+    this.sqQuery.where = where2;
+  }
 }
 
 SequelizeQuery.prototype._processSelect = function() {
@@ -92,22 +106,22 @@ SequelizeQuery.prototype._processSelect = function() {
   // extract any nest paths and move them onto the include
   var navPropertyPaths = [];
   this.sqQuery.attributes = selectClause.propertyPaths.filter(function(pp) {
-    var props = this.entityType.getPropertiesOnPath(pp, true, true);
+    var props = this.entityType.getPropertiesOnPath(pp, true);
     var isNavPropertyPath = props[0].isNavigationProperty;
     if (isNavPropertyPath) {
-      addInclude(this.sqQuery.include, this.sequelizeManager, props);
+      this._addInclude(null, props);
     }
     return !isNavPropertyPath;
   }, this);
 }
 
 SequelizeQuery.prototype._processOrderBy = function() {
-  var orderByClause = this.entityQuery.orderByClause;
-  if (orderByClause == null) return;
-  propertyPaths.forEach(function(pp) {
-    var props = this.entityType.getPropertiesOnPath(pp, true, true);
-    addInclude(this.sqQuery.include, this.sequelizeManager, props);
-  }, this);
+//  var orderByClause = this.entityQuery.orderByClause;
+//  if (orderByClause == null) return;
+//  propertyPaths.forEach(function(pp) {
+//    var props = this.entityType.getPropertiesOnPath(pp, true);
+//    this._addInclude(this.sqQuery, props);
+//  }, this);
 
 };
 
@@ -115,26 +129,51 @@ SequelizeQuery.prototype._processExpand = function() {
   var expandClause = this.entityQuery.expandClause;
   if (expandClause == null) return;
   expandClause.propertyPaths.forEach(function(pp) {
-    var props = this.entityType.getPropertiesOnPath(pp, true, true);
-    addInclude(this.sqQuery.include, this.sequelizeManager, props);
+    var props = this.entityType.getPropertiesOnPath(pp, true);
+    this._addInclude(null, props);
   }, this);
 
 };
 
-function addInclude(includes, sequelizeManager, props) {
+SequelizeQuery.prototype._addInclude = function(parent, props) {
+  // returns 'last' include in props chain
   var prop = props[0];
-  var sqModel = sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
+  if (!parent) parent = this.sqQuery;
+  var include = this._getIncludeFor(parent, props[0]);
+  // $disallowAttributes code is used to insure two things
+  // 1) if a navigation property is declared as the last prop of a select or expand expression
+  //    that it is not 'trimmed'
+  // 2) that we support retricted projections on expanded nodes as long as we don't
+  //    violate #1 above.
+  props = props.slice(1);
+  if (props.length > 0) {
+    if (props[0].isNavigationProperty) {
+      return this._addInclude(include, props);
+    } else {
+      // dataProperty
+      if (!include.$disallowAttributes) {
+        include.attributes = include.attributes || [];
+        include.attributes.push(props[0].nameOnServer);
+      }
+    }
+  } else {
+    // do not allow attributes set on any final navNodes nodes
+    include.$disallowAttributes = true
+    // and remove any that might have been added.
+    delete include.attributes;
+  }
+  return include;
+}
+
+SequelizeQuery.prototype._getIncludeFor = function(parent, prop) {
+  var sqModel = this.sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
+  var includes = parent.include = parent.include || [];
   var include = _.find(includes, { model: sqModel });
   if (!include) {
     var include = {model: sqModel, as: prop.nameOnServer }
     includes.push(include);
   }
-  props = props.slice(1);
-  if (props.length > 0) {
-    var nextIncludes = [];
-    include["include"] = nextIncludes;
-    addInclude(nextIncludes, sequelizeManager, props);
-  }
+  return include;
 }
 
 
@@ -161,6 +200,13 @@ var toSQVisitor = (function () {
       var p1Value, p2Value;
       if (this.expr1.visitorMethodName === "propExpr") {
         p1Value = this.expr1.propertyPath;
+        var props = context.entityType.getPropertiesOnPath(p1Value, true);
+        if (props.length > 1) {
+          // handle a nested property path on the LHS - query gets moved into the include
+          var include = context.sequelizeQuery._addInclude(null, props);
+          // after this line the logic below will apply to the include instead of the top level where.
+          var q = include.where = include.where || {};
+        }
         if (this.expr2.visitorMethodName === "litExpr") {
           p2Value = this.expr2.value;
           if (op === "eq") {
@@ -177,8 +223,7 @@ var toSQVisitor = (function () {
             crit[mop] = p2Value;
             q[p1Value] = crit;
           }
-        }
-        else if (this.expr2.visitorMethodName == "propExpr") {
+        } else if (this.expr2.visitorMethodName == "propExpr") {
           var p2Value = this.expr2.propertyPath;
           var colVal = Sequelize.col(p2Value);
           if (op === "eq") {
@@ -196,6 +241,10 @@ var toSQVisitor = (function () {
             q[p1Value] = crit;
           }
         }
+        // check if query got moved into the include.
+        if (include != null) {
+          return null;
+        }
       } else {
         throw new Error("Not yet implemented: binary predicate with a expr1 type of: " + this.expr1.visitorMethodName + " - " + this.expr1.toString());
       }
@@ -203,11 +252,24 @@ var toSQVisitor = (function () {
     },
 
     andOrPredicate: function (context, predSQs) {
+      // compacting is needed because preds involving nested property paths
+      // will have been removed ( moved onto an include).
+      var preds = _.compact(predSQs);
+
       if (this.op.key === "and") {
-        q = { and: predSQs };
-        // q = Sequelize.and(q1, q2);
+        if (preds.length == 0) {
+          q = null;
+        } else if (preds.length == 1) {
+          q = preds[0];
+        } else {
+          q = { and: preds };
+          // q = Sequelize.and(q1, q2);
+        }
       } else {
-        q = { or: predSQs };
+        if (preds.length != predSQs.length) {
+          throw new Error("Cannot translate a query with nested property paths and 'OR' conditions to Sequelize. (Sorry).")
+        }
+        q = { or: preds };
         // q = Sequelize.or(q1, q2);
       }
       return q;

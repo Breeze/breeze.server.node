@@ -22,7 +22,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe("EntityQuery to SequelizeQuery - execute", function () {
+describe.only("EntityQuery to SequelizeQuery - execute", function () {
   
   this.enableTimeouts(false);
 
@@ -44,23 +44,144 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     return sq;
   }
 
-  it("should be inconclusive");
+  it("should be able to query with where on a nested property", function (done) {
+    // needs to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("Orders")
+        .where("customer.companyName", "startsWith", "B")
+        .take(2);
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length(2);
+      r.forEach(function(order) {
+        expect(order).to.have.property("Customer");
+        var cust = order.Customer;
+        expect(cust.CompanyName.indexOf("B", 0)).to.eql(0);
+        // insure that we are only bringing the min necessary down.
+        expect(Object.keys(cust.values)).to.have.length(1);
+      });
+    }).then(done, done);
+  });
 
-  it("should be able to query scalar navigation property", function (done) {
+  it("should be able to query with where on a nested property - 2", function (done) {
     // TODO: need to turn the query into one with an include with a where condition.
     var q = EntityQuery.from("OrderDetails")
         .where("product.productID", "==", 1);
     toSequelizeQuery(q).execute(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(0);
+      r.forEach(function(od) {
+        expect(od).to.have.property("Product");
+        var product = od.Product;
+        expect(product).to.have.property("ProductID");
+        expect(product.ProductID).to.eql(1);
+        expect(Object.keys(product.values)).to.have.length(1);
+
+      });
     }).then(done, done);
   });
 
+  it("should be able to query with where on a nested property - 3", function (done) {
+    // TODO: need to turn the query into one with an include with a where condition.
+    var p =   {
+      "product.productID": { '>':  11},
+      "product.productName": {startsWith:  'Q'}
+    };
+    var q = EntityQuery.from("OrderDetails")
+        .where(p);
 
-  it("should be able to select specific nested scalar properties", function (done) {
-    // TODO: need to use 'include'
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.gt(1);
+      r.forEach(function(od) {
+        expect(od).to.have.property("Product");
+        var product = od.Product;
+        expect(product).to.have.property("ProductID");
+        expect(product).to.have.property("ProductName");
+        expect(product.ProductID).to.be.greaterThan(11);
+        expect(product.ProductName.indexOf("Q") == 0).true;
+        expect(Object.keys(product.values)).to.have.length(2);
+
+      });
+    }).then(done, done);
+  });
+
+  it("should fail on a nested query with an 'or' condition", function () {
+    var p =  { or: [
+      { "product.productID": { '>':  11} },
+      { "product.productName": {startsWith:  'Q'} }
+    ]};
+    var q = EntityQuery.from("OrderDetails")
+        .where(p);
+    try {
+      toSequelizeQuery(q)
+      throw new Error("shouldn't get here");
+    } catch(e) {
+      expect(e.message).to.contain('nested property paths');
+    }
+  });
+
+
+
+  it("should be able to select from table with bool/tinyint cols", function (done) {
+    var q = new EntityQuery("Products").where("discontinued","==", true).take(2);
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length(2);
+      r.forEach(function(order) {
+        expect(order).to.have.property("Discontinued");
+        expect(order.Discontinued == true);
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to select scalar navigation property", function (done) {
     var q = new EntityQuery("Orders").select("orderDate, customer").take(2);
     toSequelizeQuery(q).execute(_sm).then(function (r) {
       expect(r).to.have.length(2);
+      r.forEach(function(order) {
+        expect(order).to.have.property("OrderDate");
+        expect(order).to.have.property("Customer");
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to select nested data property", function (done) {
+    var q = new EntityQuery("Orders").select("orderDate,  customer.companyName").take(2);
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length(2);
+      r.forEach(function(order) {
+        expect(order).to.have.property("OrderDate");
+        expect(order).to.have.property("Customer");
+        var customer = order.Customer;
+        expect(customer).to.have.property("CompanyName");
+        expect(Object.keys(customer.values)).to.have.length(1);
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to 'ignore' nested data property projections if they conflict", function (done) {
+    // customer projection 'trumps' customer.companyName projection.
+    var q = new EntityQuery("Orders").select("orderDate, customer, customer.companyName").take(2);
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length(2);
+      r.forEach(function(order) {
+        expect(order).to.have.property("OrderDate");
+        expect(order).to.have.property("Customer");
+        var customer = order.Customer;
+        expect(customer).to.have.property("CompanyName");
+        expect(Object.keys(customer.values).length).to.be.greaterThan(1);
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to 'ignore' nested data property projections if they conflict - 2", function (done) {
+    // same as above but the order of projections in different.
+    var q = new EntityQuery("Orders").select("orderDate, customer.companyName, customer").take(2);
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length(2);
+      r.forEach(function(order) {
+        expect(order).to.have.property("OrderDate");
+        expect(order).to.have.property("Customer");
+        var customer = order.Customer;
+        expect(customer).to.have.property("CompanyName");
+        expect(Object.keys(customer.values).length).to.be.greaterThan(1);
+      });
     }).then(done, done);
   });
 
