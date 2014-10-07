@@ -44,6 +44,96 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     return sq;
   }
 
+  it("should be able to order by a single property", function (done) {
+    // needs to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("Customers")
+        .orderBy("companyName")
+        .take(10);
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length(10);
+      var ok = testFns.isSorted(r, "CompanyName");
+      expect(ok).true;
+      r.forEach(function(cust) {
+        expect(cust).to.have.property("CompanyName");
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to order by two properties", function (done) {
+    // needs to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("Customers")
+        .orderBy("country, companyName DESC")
+        .take(10);
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length(10);
+      var ok = testFns.isSorted(r, ["Country", "CompanyName desc"]);
+      expect(ok, "should be sorted").true;
+      r.forEach(function(cust) {
+        expect(cust).to.have.property("CompanyName");
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to order by nested property", function (done) {
+    // needs to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("Orders")
+        .where("freight", ">", 300)
+        .orderBy("customer.companyName desc");
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.greaterThan(1);
+      var custs = r.map(function(order) {
+        expect(order).to.have.property("Customer");
+        return order.Customer;
+      })
+      var ok = testFns.isSorted(custs, ["CompanyName desc"]);
+      expect(ok, "should be sorted").true;
+
+    }).then(done, done);
+  });
+
+  it("should be able to order by nested property and regular property", function (done) {
+    // needs to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("Orders")
+        .where("freight", ">", 300)
+        .orderBy("customer.companyName desc, freight");
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.greaterThan(1);
+      var anons = r.map(function(order) {
+        expect(order).to.have.property("Customer");
+        return { CompanyName: order.Customer.CompanyName, Freight: order.Freight };
+      })
+      var ok = testFns.isSorted(anons, ["CompanyName desc", "Freight"]);
+      expect(ok, "should be sorted").true;
+
+    }).then(done, done);
+  });
+
+  it("should be able to order by nested properties with a nested where", function (done) {
+    // needs to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("Orders")
+        // .where("customer.companyName", "startsWith", "S")
+        .where( {
+          "customer.companyName": { startsWith: "S"},
+          "freight" : { ">": 300 }
+        })
+        .orderBy("customer.companyName desc, freight");
+
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length.greaterThan(1);
+
+      var anons = r.map(function(order) {
+        expect(order.Freight).to.be.greaterThan(300);
+        expect(order).to.have.property("Customer");
+        expect(order.Customer.CompanyName).to.match(/^S/);
+        return { CompanyName: order.Customer.CompanyName, Freight: order.Freight };
+      })
+      var ok = testFns.isSorted(anons, ["CompanyName desc", "Freight"]);
+      expect(ok, "should be sorted").true;
+
+    }).then(done, done);
+  });
+
+
   it("should be able to query with where on a nested property", function (done) {
     // needs to turn the query into one with an include with a where condition.
     var q = EntityQuery.from("Orders")

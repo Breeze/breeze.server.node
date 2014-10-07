@@ -15,7 +15,7 @@ var _ = Sequelize.Utils._;
 var log = utils.log;
 // log.enabled = false;
 
-describe.only("SequelizeQuery", function() {
+describe("SequelizeQuery", function() {
 
   this.enableTimeouts(false);
   var _nwSm;

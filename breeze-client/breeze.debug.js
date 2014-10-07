@@ -15774,7 +15774,8 @@ breeze.SaveOptions = SaveOptions;
       var compositeConfig = core.extend({}, this.defaultSettings);
       ngConfig = core.extend(compositeConfig, ngConfig);
       // extend is shallow; extend headers separately
-      ngConfig.headers = core.extend(this.defaultSettings.headers, ngConfig.headers);
+      var headers =core.extend({}, this.defaultSettings.headers); // copy default headers 1st
+      ngConfig.headers = core.extend(headers, ngConfig.headers);
     }
 
     var requestInfo = {
@@ -15916,7 +15917,8 @@ breeze.SaveOptions = SaveOptions;
       var compositeConfig = core.extend({}, this.defaultSettings);
       jqConfig = core.extend(compositeConfig, jqConfig);
       // extend is shallow; extend headers separately
-      jqConfig.headers = core.extend(this.defaultSettings.headers, jqConfig.headers);
+      var headers =core.extend({}, this.defaultSettings.headers); // copy default headers 1st
+      ngConfig.headers = core.extend(headers, ngConfig.headers);
     }
 
     var requestInfo = {

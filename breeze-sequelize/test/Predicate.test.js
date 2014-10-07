@@ -88,8 +88,8 @@ describe("Predicate - parse", function() {
 
   it("binary predicate bool - json", function() {
     var entityType = _ms.getEntityType("Product");
-    var p = new Predicate("isDiscontinued", "==", true);
-    test(p, entityType, "IsDiscontinued eq true");
+    var p = new Predicate("discontinued", "==", true);
+    test(p, entityType, "Discontinued eq true");
   });
 
   it("binary predicate date - json", function() {

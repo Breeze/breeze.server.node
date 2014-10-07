@@ -116,12 +116,33 @@ SequelizeQuery.prototype._processSelect = function() {
 }
 
 SequelizeQuery.prototype._processOrderBy = function() {
-//  var orderByClause = this.entityQuery.orderByClause;
-//  if (orderByClause == null) return;
-//  propertyPaths.forEach(function(pp) {
-//    var props = this.entityType.getPropertiesOnPath(pp, true);
-//    this._addInclude(this.sqQuery, props);
-//  }, this);
+  var orderByClause = this.entityQuery.orderByClause;
+  if (orderByClause == null) return;
+  var orders = this.sqQuery.order = [];
+  orderByClause.items.forEach(function(item) {
+    var pp = item.propertyPath;
+    var props = this.entityType.getPropertiesOnPath(pp, true);
+    var isNavPropertyPath = props[0].isNavigationProperty;
+    if (isNavPropertyPath) {
+      this._addInclude(this.sqQuery, props);
+    }
+    var nextParent = this.sqQuery;
+    var r = [];
+    orders.push(r);
+
+    props.forEach(function(prop) {
+      if (prop.isNavigationProperty) {
+        nextParent = this._getIncludeFor(nextParent, prop)
+        r.push(nextParent);
+      } else {
+        if (item.isDesc) {
+          r.push([ prop.nameOnServer, "DESC"]);
+        } else {
+          r.push(prop.nameOnServer);
+        }
+      }
+    }, this);
+  }, this);
 
 };
 
@@ -143,7 +164,7 @@ SequelizeQuery.prototype._addInclude = function(parent, props) {
   // $disallowAttributes code is used to insure two things
   // 1) if a navigation property is declared as the last prop of a select or expand expression
   //    that it is not 'trimmed'
-  // 2) that we support retricted projections on expanded nodes as long as we don't
+  // 2) that we support restricted projections on expanded nodes as long as we don't
   //    violate #1 above.
   props = props.slice(1);
   if (props.length > 0) {
