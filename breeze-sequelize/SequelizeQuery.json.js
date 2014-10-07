@@ -31,18 +31,19 @@ function SequelizeQuery(jsonUrl, sequelizeManager) {
   this.metadataStore.onServer = true;
   this.entityQuery = entityQuery.from(this.pathname);
   this.entityType = this.entityQuery._getFromEntityType(this.metadataStore, true);
-  this.queryObj = this._toSequelizeQuery();
+  this.sqQuery = this._process();
   this.metadataStore.onServer = false;
 }
 
 SequelizeQuery.prototype.execute = function() {
   var model = this.sequelizeManager.resourceNameSqModelMap[this.pathname];
-  return model.findAll(this.queryObj);
+  var methodName = this.entityQuery.inlineCountEnabled ? "findAndCountAll" : "findAll";
+  return model[methodName].call(model, this.sqQuery);
 }
 
 // pass in either a query string or a urlQuery object
 //    a urlQuery object is what is returned by node's url.parse(aUrl, true).query;
-SequelizeQuery.prototype._toSequelizeQuery = function() {
+SequelizeQuery.prototype._process = function() {
   var section;
   var entityQuery = this.entityQuery;
   var sqQuery = this.sqQuery = {};
@@ -68,14 +69,6 @@ SequelizeQuery.prototype._toSequelizeQuery = function() {
     sqQuery.offset = entityQuery.skipCount;
   }
 
-  section = entityQuery.inlinecount;
-  if (section) {
-    sqQuery.$method = section !== "none" ? "findAndCountAll" : "findAll";
-  }
-
-  if (_.isEmpty(sqQuery.include)) {
-    delete sqQuery.include;
-  }
   return this.sqQuery;
 
 }
@@ -84,9 +77,6 @@ SequelizeQuery.prototype._processWhere = function() {
   var wherePredicate = this.entityQuery.wherePredicate;
   if (wherePredicate == null) return;
   var where = wherePredicate.visit(toSQVisitor, {
-    // we don't want to pass in the 'real' entityType because this query
-    // is using server side names so it won't pass validation - a null
-    // entityType bypasses validations.
     entityType: this.entityType,
     sequelizeQuery: this,
     metadataStore: this.metadataStore

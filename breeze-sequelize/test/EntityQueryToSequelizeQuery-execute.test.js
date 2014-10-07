@@ -44,6 +44,41 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     return sq;
   }
 
+
+
+  it("should be able to use inlineCount", function (done) {
+    // needs to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("Customers")
+        .orderBy("companyName")
+        .take(20)
+        .inlineCount();
+    var last10;
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.property("rows");
+      expect(r).to.have.property("count");
+      expect(r.rows.length).to.be.lessThan(r.count);
+
+    }).then(done, done);
+  });
+
+
+  it("should be able to skip and take", function (done) {
+    // needs to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("Customers")
+        .orderBy("companyName")
+        .take(20);
+    var last10;
+    toSequelizeQuery(q).execute(_sm).then(function (r) {
+      expect(r).to.have.length(20);
+      last10 = r.slice(10);
+      var q2 = q.skip(10).take(10);
+      return toSequelizeQuery(q2).execute(_sm);
+    }).then(function(r2) {
+      expect(r2).eql(last10, "last10 should be the same");
+    }).then(done, done);
+  });
+
+
   it("should be able to order by a single property", function (done) {
     // needs to turn the query into one with an include with a where condition.
     var q = EntityQuery.from("Customers")
