@@ -53,7 +53,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
         .take(20)
         .inlineCount();
     var last10;
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.property("rows");
       expect(r).to.have.property("count");
       expect(r.rows.length).to.be.lessThan(r.count);
@@ -68,11 +68,11 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
         .orderBy("companyName")
         .take(20);
     var last10;
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(20);
       last10 = r.slice(10);
       var q2 = q.skip(10).take(10);
-      return toSequelizeQuery(q2).execute(_sm);
+      return toSequelizeQuery(q2).executeRaw(_sm);
     }).then(function(r2) {
       expect(r2).eql(last10, "last10 should be the same");
     }).then(done, done);
@@ -84,7 +84,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q = EntityQuery.from("Customers")
         .orderBy("companyName")
         .take(10);
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(10);
       var ok = testFns.isSorted(r, "CompanyName");
       expect(ok).true;
@@ -99,7 +99,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q = EntityQuery.from("Customers")
         .orderBy("country, companyName DESC")
         .take(10);
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(10);
       var ok = testFns.isSorted(r, ["Country", "CompanyName desc"]);
       expect(ok, "should be sorted").true;
@@ -114,14 +114,18 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q = EntityQuery.from("Orders")
         .where("freight", ">", 300)
         .orderBy("customer.companyName desc");
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(1);
-      var custs = r.map(function(order) {
+      var custs = r.map(function (order) {
         expect(order).to.have.property("Customer");
         return order.Customer;
       })
       var ok = testFns.isSorted(custs, ["CompanyName desc"]);
       expect(ok, "should be sorted").true;
+      return toSequelizeQuery(q).execute(_sm);
+    }).then(function(r2) {
+      expect(r2).to.have.length.greaterThan(1);
+      expect(r2).not.to.have.property("Customer");
 
     }).then(done, done);
   });
@@ -131,7 +135,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q = EntityQuery.from("Orders")
         .where("freight", ">", 300)
         .orderBy("customer.companyName desc, freight");
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(1);
       var anons = r.map(function(order) {
         expect(order).to.have.property("Customer");
@@ -153,7 +157,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
         })
         .orderBy("customer.companyName desc, freight");
 
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(1);
 
       var anons = r.map(function(order) {
@@ -174,7 +178,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q = EntityQuery.from("Orders")
         .where("customer.companyName", "startsWith", "B")
         .take(2);
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(2);
       r.forEach(function(order) {
         expect(order).to.have.property("Customer");
@@ -190,7 +194,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     // TODO: need to turn the query into one with an include with a where condition.
     var q = EntityQuery.from("OrderDetails")
         .where("product.productID", "==", 1);
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(0);
       r.forEach(function(od) {
         expect(od).to.have.property("Product");
@@ -212,7 +216,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q = EntityQuery.from("OrderDetails")
         .where(p);
 
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.gt(1);
       r.forEach(function(od) {
         expect(od).to.have.property("Product");
@@ -246,7 +250,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
 
   it("should be able to select from table with bool/tinyint cols", function (done) {
     var q = new EntityQuery("Products").where("discontinued","==", true).take(2);
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(2);
       r.forEach(function(order) {
         expect(order).to.have.property("Discontinued");
@@ -257,7 +261,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
 
   it("should be able to select scalar navigation property", function (done) {
     var q = new EntityQuery("Orders").select("orderDate, customer").take(2);
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(2);
       r.forEach(function(order) {
         expect(order).to.have.property("OrderDate");
@@ -268,7 +272,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
 
   it("should be able to select nested data property", function (done) {
     var q = new EntityQuery("Orders").select("orderDate,  customer.companyName").take(2);
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(2);
       r.forEach(function(order) {
         expect(order).to.have.property("OrderDate");
@@ -283,7 +287,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to 'ignore' nested data property projections if they conflict", function (done) {
     // customer projection 'trumps' customer.companyName projection.
     var q = new EntityQuery("Orders").select("orderDate, customer, customer.companyName").take(2);
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(2);
       r.forEach(function(order) {
         expect(order).to.have.property("OrderDate");
@@ -298,7 +302,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to 'ignore' nested data property projections if they conflict - 2", function (done) {
     // same as above but the order of projections in different.
     var q = new EntityQuery("Orders").select("orderDate, customer.companyName, customer").take(2);
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(2);
       r.forEach(function(order) {
         expect(order).to.have.property("OrderDate");
@@ -314,7 +318,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q = EntityQuery.from("Customers")
         .where("companyName", 'startsWith', "B")
         .expand("orders");
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(0);
       var count = 0;
       r.forEach(function (cust) {
@@ -329,14 +333,14 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q = EntityQuery.from("Customers")
         .where("companyName", 'startsWith', "B")
         .expand("orders.orderDetails");
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(0);
       var ordersCount = odCount = 0;
       r.forEach(function (cust) {
         expect(cust).to.have.property("Orders");
         var orders = cust.Orders;
         ordersCount = ordersCount + orders.length;
-        orders.forEach(function(order) {
+        orders.forEach(function (order) {
           expect(order).to.have.property("OrderDetails");
           odCount = odCount + order.OrderDetails.length;
         });
@@ -344,18 +348,33 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
       });
       expect(ordersCount).to.be.greaterThan(0);
       expect(odCount).to.be.greaterThan(0);
+      return toSequelizeQuery(q).execute(_sm);
+    }).then(function(r2) {
+      r2.forEach(function(cust) {
+        expect(cust).to.have.property("Orders");
+        var orders = cust.Orders;
+        expect(orders[0]).to.have.property("OrderDetails");
+      });
     }).then(done, done);
   });
 
   it("should be able to expand scalar properties", function (done) {
     var q = EntityQuery.from("Orders").take(5)
         .expand("customer");
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(0);
       r.forEach(function (order) {
         expect(order).to.have.property("Customer");
         var cust = order.Customer;
         expect(cust).to.have.property("CompanyName");
+      });
+      return toSequelizeQuery(q).execute(_sm);
+    }).then(function(r2) {
+      expect(r2).to.have.length.greaterThan(0);
+      r2.forEach(function(order) {
+        expect(order).to.have.property("Customer");
+        expect(order).not.to.have.property("Employee");
+        expect(order).not.to.have.property("dataValues");
       });
     }).then(done, done);
   });
@@ -363,7 +382,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to expand nested scalar and nonscalar properties", function (done) {
     var q = EntityQuery.from("Orders").take(5)
         .expand("customer, orderDetails");
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(0);
       r.forEach(function (order) {
         expect(order).to.have.property("Customer");
@@ -379,7 +398,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to expand recursively", function (done) {
     var q = EntityQuery.from("Orders").take(5)
         .expand("customer, customer.orders");
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(0);
       r.forEach(function (order) {
         expect(order).to.have.property("Customer");
@@ -394,7 +413,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query with embedded quotes", function (done) {
     var q = EntityQuery.from("Customers")
         .where("companyName", 'contains', "'");
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.greaterThan(0);
     }).then(done, done);
   });
@@ -402,7 +421,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query with 'startsWith'", function (done) {
     var q0 = new EntityQuery("Customers").where("companyName", "startsWith", "S");
     var sq = toSequelizeQuery(q0);
-    sq.execute(_sm).then(function (r) {
+    sq.executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.above(1);
       r.forEach(function (cust) {
         expect(cust).to.have.property("CompanyName");
@@ -414,7 +433,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query with 'endsWith'", function (done) {
     var q0 = new EntityQuery("Customers").where("companyName", "endsWith", "en");
     var sq = toSequelizeQuery(q0);
-    sq.execute(_sm).then(function (r) {
+    sq.executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.above(1);
       r.forEach(function (cust) {
         expect(cust).to.have.property("CompanyName");
@@ -426,7 +445,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query with dates", function (done) {
     var q0 = new EntityQuery("Employees").where("hireDate", ">", new Date(1994, 0, 1));
     var sq = toSequelizeQuery(q0);
-    sq.execute(_sm).then(function (r) {
+    sq.executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.above(1);
       r.forEach(function (emp) {
         expect(emp).to.have.property("HireDate");
@@ -438,7 +457,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query with 'contains'", function (done) {
     var q0 = new EntityQuery("Customers").where("companyName", "contains", "er");
     var sq = toSequelizeQuery(q0);
-    sq.execute(_sm).then(function (r) {
+    sq.executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.above(1);
       r.forEach(function (cust) {
         expect(cust).to.have.property("CompanyName");
@@ -451,11 +470,11 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query with contains and two field names", function (done) {
     var q0 = new EntityQuery("Employees").where("firstName", "contains", "lastName");
     var sq = toSequelizeQuery(q0);
-    sq.execute(_sm).then(function (r) {
+    sq.executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(0);
       var q1 = new EntityQuery("Employees").where("firstName", "contains", "firstName");
       var sq = toSequelizeQuery(q1);
-      return sq.execute(_sm);
+      return sq.executeRaw(_sm);
     }).then(function (r1) {
       expect(r1).to.have.length.above(5);
     }).then(done, done);
@@ -464,11 +483,11 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query using startsWith with two field names", function (done) {
     var q0 = new EntityQuery("Employees").where("firstName", "startsWith", "lastName");
     var sq = toSequelizeQuery(q0);
-    sq.execute(_sm).then(function (r) {
+    sq.executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(0);
       var q1 = new EntityQuery("Employees").where("lastName", "endsWith", "lastName");
       var sq = toSequelizeQuery(q1)
-      return sq.execute(_sm);
+      return sq.executeRaw(_sm);
     }).then(function (r1) {
       expect(r1).to.have.length.above(5);
     }).then(done, done);
@@ -477,7 +496,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query with two date field names", function (done) {
     var q0 = new EntityQuery("Employees").where("hireDate", ">", "birthDate");
     var sq = toSequelizeQuery(q0);
-    sq.execute(_sm).then(function (r) {
+    sq.executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.above(1);
       r.forEach(function (emp) {
         expect(emp).to.have.property("HireDate");
@@ -485,7 +504,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
       });
       var q1 = new EntityQuery("Employees").where("hireDate", "<", "birthDate");
       var sq = toSequelizeQuery(q1);
-      return sq.execute(_sm);
+      return sq.executeRaw(_sm);
     }).then(function (r) {
       expect(r).to.have.length(0);
     }).then(done, done);
@@ -496,7 +515,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q0 = new EntityQuery("Customers").where(p);
     var sq = toSequelizeQuery(q0);
     
-    sq.execute(_sm).then(function (r) {
+    sq.executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.above(0);
       r.forEach(function (cust) {
         expect(cust).to.have.property("CompanyName");
@@ -513,7 +532,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q0 = new EntityQuery("Customers").where(p);
     var sq = toSequelizeQuery(q0);
     
-    sq.execute(_sm).then(function (r) {
+    sq.executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.above(0);
       r.forEach(function (cust) {
         expect(cust).to.have.property("CompanyName");
@@ -527,7 +546,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query with 'and'", function (done) {
     var p = Predicate("companyName", "startsWith", "B").and("city", "startsWith", "L");
     var q0 = new EntityQuery("Customers").where(p);
-    toSequelizeQuery(q0).execute(_sm).then(function (r) {
+    toSequelizeQuery(q0).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.above(0);
       r.forEach(function (cust) {
         expect(cust).to.have.property("CompanyName");
@@ -541,7 +560,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query with 'and' and 'not'", function (done) {
     var p = Predicate("companyName", "startsWith", "B").and("city", "startsWith", "L").not();
     var q0 = new EntityQuery("Customers").where(p);
-    toSequelizeQuery(q0).execute(_sm).then(function (r) {
+    toSequelizeQuery(q0).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.above(0);
       r.forEach(function (cust) {
         expect(cust).to.have.property("CompanyName");
@@ -553,7 +572,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   
   it("should be able to use take", function (done) {
     var q0 = new EntityQuery("Customers").take(2);
-    toSequelizeQuery(q0).execute(_sm).then(function (r) {
+    toSequelizeQuery(q0).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(2);
       r.every(function (cust) {
         expect(cust).to.have.property("CompanyName");
@@ -566,10 +585,10 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
     var q0 = new EntityQuery("Customers").take(2);
     var q1 = new EntityQuery("Customers").skip(2).take(3);
     var cust;
-    toSequelizeQuery(q0).execute(_sm).then(function (r) {
+    toSequelizeQuery(q0).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length(2);
       cust = r[0];
-      return toSequelizeQuery(q1).execute(_sm);
+      return toSequelizeQuery(q1).executeRaw(_sm);
     }).then(function (r1) {
       expect(r1).to.have.length(3);
       expect(cust.CompanyName).to.not.eql(r1[0].CompanyName);
@@ -579,7 +598,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to select specific simple properties", function (done) {
     
     var q = new EntityQuery("Customers").where("companyName", "startsWith", "C").select("companyName, city");
-    toSequelizeQuery(q).execute(_sm).then(function (r) {
+    toSequelizeQuery(q).executeRaw(_sm).then(function (r) {
       expect(r).to.have.length.above(3);
       r.every(function (cust) {
         expect(Object.keys(cust.values)).to.have.length(2);

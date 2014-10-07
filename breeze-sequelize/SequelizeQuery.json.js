@@ -1,4 +1,5 @@
 var Sequelize = require('sequelize');
+var Promise = require("bluebird");
 var breeze = require('breeze-client');
 var url = require("url");
 
@@ -23,27 +24,160 @@ function SequelizeQuery(jsonUrl, sequelizeManager) {
   var parsedUrl = url.parse(jsonUrl, true);
   this.pathname = parsedUrl.pathname;
 
-  // this is because everything after the '?' is turned into a query object with a single key that
-  // is the value of the string after the '?" and has a 'value' that is an empty strings e value of the string
+  // this is because everything after the '?' is turned into a query object with a single key
+  // where the key is the value of the string after the '?" and with a 'value' that is an empty string.
+  // So we want the key and not the value.
   var jsonQueryString = Object.keys(parsedUrl.query)[0];
   this.jsonQuery = JSON.parse(jsonQueryString);
   var entityQuery = new EntityQuery(this.jsonQuery);
   this.metadataStore.onServer = true;
-  this.entityQuery = entityQuery.from(this.pathname);
-  this.entityType = this.entityQuery._getFromEntityType(this.metadataStore, true);
-  this.sqQuery = this._process();
-  this.metadataStore.onServer = false;
+  try {
+    this.entityQuery = entityQuery.from(this.pathname);
+    this.entityType = this.entityQuery._getFromEntityType(this.metadataStore, true);
+    this.sqQuery = this._processQuery();
+  } finally {
+    this.metadataStore.onServer = false;
+  }
 }
 
 SequelizeQuery.prototype.execute = function() {
+  var that = this;
+
+  return this.executeRaw().then(function(r) {
+    that.metadataStore.onServer = true;
+    var result = that._reshapeResults(r);
+    that.metadataStore.onServer = false;
+    return Promise.resolve(result);
+  })
+}
+
+SequelizeQuery.prototype.executeRaw = function() {
   var model = this.sequelizeManager.resourceNameSqModelMap[this.pathname];
   var methodName = this.entityQuery.inlineCountEnabled ? "findAndCountAll" : "findAll";
-  return model[methodName].call(model, this.sqQuery);
+  var r = model[methodName].call(model, this.sqQuery);
+  return r;
+}
+
+SequelizeQuery.prototype._reshapeResults = function(sqResults) {
+  // -) nested projections need to be promoted up to the top level
+  //    because sequelize will have them appearing on nested objects.
+  // -) Sequelize nested projections need to be removed from final results if not part of select
+  // -) need to support nested select aliasing
+  // -) inlineCount handling
+  if (this.entityQuery.selectClause) {
+    return this._reshapeSelectResults(sqResults);
+  }
+
+  var expandClause = this.entityQuery.expandClause;
+  var expandPaths = [];
+  if (expandClause) {
+    // each expand path consist of an array of expand props.
+    expandPaths = expandClause.propertyPaths.map(function (pp) {
+      return this.entityType.getPropertiesOnPath(pp, true);
+    }, this);
+  }
+
+  var nps = this.entityType.navigationProperties;
+  var results = sqResults.map(function (sqResult) {
+    var result = createResult(sqResult, nps);
+    // each expandPath is a collection of expandProps
+    expandPaths.forEach(function(expandProps) {
+      populateExpand(result, sqResult, expandProps);
+    });
+    return result;
+  });
+  return results;
+}
+
+
+function createResult(sqResult, nps) {
+  var result = sqResult.dataValues;
+  // first remove all nav props
+  nps.forEach(function (np) {
+    var navValue = sqResult[np.nameOnServer];
+    if (navValue) {
+      result[np.nameOnServer] = undefined;
+    }
+  });
+  return result;
+}
+
+function populateExpand(result, sqResult, expandProps) {
+  if (expandProps == null || expandProps.length == 0) return;
+  // now blow out all of the expands
+  // each expand path consist of an array of expand props.
+  var npName = expandProps[0].nameOnServer;
+  var nextNps = expandProps[0].entityType.navigationProperties;
+  var nextSqResult = sqResult[npName];
+  var nextResult = result[npName];
+  // if it doesn't already exist then create it
+  if (nextResult == null) {
+    if (_.isArray(nextSqResult)) {
+      nextResult = nextSqResult.map(function(nextSqr) {
+        return createResult(nextSqr, nextNps);
+      });
+    } else {
+      nextResult = createResult(nextSqResult, nextNps);
+    }
+    result[npName] = nextResult;
+  }
+  if (_.isArray(nextSqResult)) {
+    nextSqResult.forEach(function(nextSqr, ix) {
+      populateExpand(nextResult[ix], nextSqr, expandProps.slice(1));
+    })
+  } else {
+    populateExpand(nextResult, nextSqResult, expandProps.slice(1));
+  }
+
+}
+
+
+
+// make list of np's to remove - i.e. any that are not specified in an expand
+SequelizeQuery.prototype._getExcludedNavProps = function() {
+  var nps = this.entityType.navigationProperties;
+  var expandClause = this.entityQuery.expandClause;
+  if (!expandClause) return nps;
+  var propertyPaths = expandClause.propertyPaths;
+  return nps.filter(function(np) {
+    var isSerializeableNp = propertyPaths.some(function (pp) {
+      var props = this.entityType.getPropertiesOnPath(pp, true);
+      return props[0] == np;
+    });
+    return !isSerializeableNp;
+  });
+}
+
+SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
+  var results = sqResults.map(function(sqResult) {
+    // start with the sqResult and then promote nested properties up to the top level
+    // while removing nested path.
+    var result = sqResult.dataValues;
+    var parent = sqResult;
+    selectClause.propertyPaths.forEach(function (pp) {
+      var props = this.entityType.getPropertiesOnPath(pp, true);
+      var lastProp = props[0];
+
+      while (props.length > 0 && props[0].isNavigationProperty) {
+        lastProp = props[0];
+        var oldParent = parent;
+        parent = parent[prop[0].nameOnServer];
+        // remove node from parent
+        oldParent[prop[0].nameOnServer] = undefined;
+        props = props.slice(0);
+      }
+      var val = parent[lastProp.nameOnServer];
+      val = val.dataValues || val;
+      result[pp] = val;
+    }, this);
+    return result;
+  });
+  return results;
 }
 
 // pass in either a query string or a urlQuery object
 //    a urlQuery object is what is returned by node's url.parse(aUrl, true).query;
-SequelizeQuery.prototype._process = function() {
+SequelizeQuery.prototype._processQuery = function() {
   var section;
   var entityQuery = this.entityQuery;
   var sqQuery = this.sqQuery = {};
@@ -153,7 +287,7 @@ SequelizeQuery.prototype._addInclude = function(parent, props) {
   var include = this._getIncludeFor(parent, props[0]);
   // $disallowAttributes code is used to insure two things
   // 1) if a navigation property is declared as the last prop of a select or expand expression
-  //    that it is not 'trimmed'
+  //    that it is not 'trimmed' i.e. has further 'attributes' added that would narrow the projection.
   // 2) that we support restricted projections on expanded nodes as long as we don't
   //    violate #1 above.
   props = props.slice(1);
