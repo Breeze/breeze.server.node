@@ -5,3 +5,7 @@ function log(s) {
   if (!log.enabled) return;
   console.log('[Breeze] ' + s + '\n');
 }
+
+function toJsonCircular(json) {
+
+}

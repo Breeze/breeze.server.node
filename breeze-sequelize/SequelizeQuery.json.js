@@ -29,24 +29,21 @@ function SequelizeQuery(jsonUrl, sequelizeManager) {
   // So we want the key and not the value.
   var jsonQueryString = Object.keys(parsedUrl.query)[0];
   this.jsonQuery = JSON.parse(jsonQueryString);
+  this.metadataStore.onClient = true;
   var entityQuery = new EntityQuery(this.jsonQuery);
   this.metadataStore.onServer = true;
-  try {
-    this.entityQuery = entityQuery.from(this.pathname);
-    this.entityType = this.entityQuery._getFromEntityType(this.metadataStore, true);
-    this.sqQuery = this._processQuery();
-  } finally {
-    this.metadataStore.onServer = false;
-  }
+
+  this.entityQuery = entityQuery.from(this.pathname);
+  this.entityType = this.entityQuery._getFromEntityType(this.metadataStore, true);
+  this.sqQuery = this._processQuery();
+
 }
 
 SequelizeQuery.prototype.execute = function() {
   var that = this;
-
+  this.onServer = true;
   return this.executeRaw().then(function(r) {
-    that.metadataStore.onServer = true;
     var result = that._reshapeResults(r);
-    that.metadataStore.onServer = false;
     return Promise.resolve(result);
   })
 }
@@ -58,122 +55,7 @@ SequelizeQuery.prototype.executeRaw = function() {
   return r;
 }
 
-SequelizeQuery.prototype._reshapeResults = function(sqResults) {
-  // -) nested projections need to be promoted up to the top level
-  //    because sequelize will have them appearing on nested objects.
-  // -) Sequelize nested projections need to be removed from final results if not part of select
-  // -) need to support nested select aliasing
-  // -) inlineCount handling
-  if (this.entityQuery.selectClause) {
-    return this._reshapeSelectResults(sqResults);
-  }
 
-  var expandClause = this.entityQuery.expandClause;
-  var expandPaths = [];
-  if (expandClause) {
-    // each expand path consist of an array of expand props.
-    expandPaths = expandClause.propertyPaths.map(function (pp) {
-      return this.entityType.getPropertiesOnPath(pp, true);
-    }, this);
-  }
-
-  var nps = this.entityType.navigationProperties;
-  var results = sqResults.map(function (sqResult) {
-    var result = createResult(sqResult, nps);
-    // each expandPath is a collection of expandProps
-    expandPaths.forEach(function(expandProps) {
-      populateExpand(result, sqResult, expandProps);
-    });
-    return result;
-  });
-  return results;
-}
-
-
-function createResult(sqResult, nps) {
-  var result = sqResult.dataValues;
-  // first remove all nav props
-  nps.forEach(function (np) {
-    var navValue = sqResult[np.nameOnServer];
-    if (navValue) {
-      result[np.nameOnServer] = undefined;
-    }
-  });
-  return result;
-}
-
-function populateExpand(result, sqResult, expandProps) {
-  if (expandProps == null || expandProps.length == 0) return;
-  // now blow out all of the expands
-  // each expand path consist of an array of expand props.
-  var npName = expandProps[0].nameOnServer;
-  var nextNps = expandProps[0].entityType.navigationProperties;
-  var nextSqResult = sqResult[npName];
-  var nextResult = result[npName];
-  // if it doesn't already exist then create it
-  if (nextResult == null) {
-    if (_.isArray(nextSqResult)) {
-      nextResult = nextSqResult.map(function(nextSqr) {
-        return createResult(nextSqr, nextNps);
-      });
-    } else {
-      nextResult = createResult(nextSqResult, nextNps);
-    }
-    result[npName] = nextResult;
-  }
-  if (_.isArray(nextSqResult)) {
-    nextSqResult.forEach(function(nextSqr, ix) {
-      populateExpand(nextResult[ix], nextSqr, expandProps.slice(1));
-    })
-  } else {
-    populateExpand(nextResult, nextSqResult, expandProps.slice(1));
-  }
-
-}
-
-
-
-// make list of np's to remove - i.e. any that are not specified in an expand
-SequelizeQuery.prototype._getExcludedNavProps = function() {
-  var nps = this.entityType.navigationProperties;
-  var expandClause = this.entityQuery.expandClause;
-  if (!expandClause) return nps;
-  var propertyPaths = expandClause.propertyPaths;
-  return nps.filter(function(np) {
-    var isSerializeableNp = propertyPaths.some(function (pp) {
-      var props = this.entityType.getPropertiesOnPath(pp, true);
-      return props[0] == np;
-    });
-    return !isSerializeableNp;
-  });
-}
-
-SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
-  var results = sqResults.map(function(sqResult) {
-    // start with the sqResult and then promote nested properties up to the top level
-    // while removing nested path.
-    var result = sqResult.dataValues;
-    var parent = sqResult;
-    selectClause.propertyPaths.forEach(function (pp) {
-      var props = this.entityType.getPropertiesOnPath(pp, true);
-      var lastProp = props[0];
-
-      while (props.length > 0 && props[0].isNavigationProperty) {
-        lastProp = props[0];
-        var oldParent = parent;
-        parent = parent[prop[0].nameOnServer];
-        // remove node from parent
-        oldParent[prop[0].nameOnServer] = undefined;
-        props = props.slice(0);
-      }
-      var val = parent[lastProp.nameOnServer];
-      val = val.dataValues || val;
-      result[pp] = val;
-    }, this);
-    return result;
-  });
-  return results;
-}
 
 // pass in either a query string or a urlQuery object
 //    a urlQuery object is what is returned by node's url.parse(aUrl, true).query;
@@ -277,8 +159,152 @@ SequelizeQuery.prototype._processExpand = function() {
     var props = this.entityType.getPropertiesOnPath(pp, true);
     this._addInclude(null, props);
   }, this);
-
 };
+
+SequelizeQuery.prototype._reshapeResults = function(sqResults) {
+  // -) nested projections need to be promoted up to the top level
+  //    because sequelize will have them appearing on nested objects.
+  // -) Sequelize nested projections need to be removed from final results if not part of select
+  // -) need to support nested select aliasing
+  // -) inlineCount handling
+  this.onServer = true;
+  this._nextId = 1;
+  this._map = {};
+  if (this.entityQuery.selectClause) {
+    return this._reshapeSelectResults(sqResults);
+  }
+  var inlineCount;
+  if (this.entityQuery.inlineCountEnabled) {
+    inlineCount = sqResults.count;
+    sqResults = sqResults.rows;
+  }
+  var expandClause = this.entityQuery.expandClause;
+  var expandPaths = [];
+  if (expandClause) {
+    // each expand path consist of an array of expand props.
+    expandPaths = expandClause.propertyPaths.map(function (pp) {
+      return this.entityType.getPropertiesOnPath(pp, true);
+    }, this);
+  }
+
+  var results = sqResults.map(function (sqResult) {
+    var result = this._createResult(sqResult, this.entityType, expandClause != null);
+    // each expandPath is a collection of expandProps
+    if (!result.$ref) {
+      expandPaths.forEach(function (expandProps) {
+        this._populateExpand(result, sqResult, expandProps);
+      }, this);
+    }
+    return result;
+  }, this);
+  if (inlineCount != undefined) {
+    return { results: results, inlineCount: inlineCount };
+  } else {
+    return results;
+  }
+}
+
+SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
+  var results = sqResults.map(function(sqResult) {
+    // start with the sqResult and then promote nested properties up to the top level
+    // while removing nested path.
+    var result = sqResult.dataValues;
+    var parent = sqResult;
+    selectClause.propertyPaths.forEach(function (pp) {
+      var props = this.entityType.getPropertiesOnPath(pp, true);
+      var lastProp = props[0];
+
+      while (props.length > 0 && props[0].isNavigationProperty) {
+        lastProp = props[0];
+        var oldParent = parent;
+        parent = parent[prop[0].nameOnServer];
+        // remove node from parent
+        oldParent[prop[0].nameOnServer] = undefined;
+        props = props.slice(0);
+      }
+      var val = parent[lastProp.nameOnServer];
+      val = val.dataValues || val;
+      result[pp] = val;
+    }, this);
+    return result;
+  });
+  return results;
+}
+
+SequelizeQuery.prototype._createResult = function(sqResult, entityType, checkCache) {
+  if (checkCache) {
+    var key = getKey(sqResult, entityType);
+    var cachedItem = this._map[key];
+    if (cachedItem) {
+      return { $ref: cachedItem.$id };
+    } else {
+      sqResult.$id = this._nextId;
+      this._nextId += 1;
+      this._map[key] = sqResult;
+    }
+  }
+  var result = sqResult.dataValues;
+  if (checkCache) {
+    result.$id = sqResult.$id;
+  }
+  result.$type = entityType.name;
+  var nps = entityType.navigationProperties;
+  // first remove all nav props
+  nps.forEach(function (np) {
+    var navValue = sqResult[np.nameOnServer];
+    if (navValue) {
+      result[np.nameOnServer] = undefined;
+    }
+  });
+  return result;
+}
+
+function getKey(sqResult, entityType) {
+  var key = entityType.keyProperties.map(function(kp) {
+    return sqResult[kp.nameOnServer];
+  }).join("::") + "^" + entityType.name;
+  return key;
+}
+
+SequelizeQuery.prototype._populateExpand = function(result, sqResult, expandProps) {
+
+  if (expandProps == null || expandProps.length == 0) return;
+  // now blow out all of the expands
+  // each expand path consist of an array of expand props.
+  var npName = expandProps[0].nameOnServer;
+  var nextResult = result[npName];
+
+  var nextEntityType = expandProps[0].entityType;
+  var nextSqResult = sqResult[npName];
+
+  // if it doesn't already exist then create it
+  if (nextResult == null) {
+    if (_.isArray(nextSqResult)) {
+      nextResult = nextSqResult.map(function(nextSqr) {
+        return this._createResult(nextSqr, nextEntityType, true);
+      }, this);
+    } else {
+      nextResult = this._createResult(nextSqResult, nextEntityType, true);
+    }
+    result[npName] = nextResult;
+  }
+
+  if (_.isArray(nextSqResult)) {
+    nextSqResult.forEach(function(nextSqr, ix) {
+      if (!nextResult[ix].$ref) {
+        this._populateExpand(nextResult[ix], nextSqr, expandProps.slice(1));
+      }
+    }, this)
+  } else {
+    if (!nextResult.$ref) {
+      this._populateExpand(nextResult, nextSqResult, expandProps.slice(1));
+    }
+  }
+
+}
+
+
+
 
 SequelizeQuery.prototype._addInclude = function(parent, props) {
   // returns 'last' include in props chain
