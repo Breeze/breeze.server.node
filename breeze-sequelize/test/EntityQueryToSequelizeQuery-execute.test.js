@@ -1,28 +1,21 @@
 var fs = require('fs');
 var expect = require('chai').expect;
 var Sequelize = require('sequelize');
-var uuid = require('node-uuid');
 var Promise = require('bluebird');
 var breeze = require('breeze-client');
-
-var utils = require('./../utils.js');
-var SequelizeManager = require('./../SequelizeManager');
-
+var breezeSequelize = require("breeze-sequelize");
 var testFns          = require('./testFns.js');
-var SequelizeQuery = testFns.getSequelizeQuery();
 
-
+var SequelizeManager = breezeSequelize.SequelizeManager;
+var SequelizeQuery = breezeSequelize.SequelizeQuery;
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
 var DataService = breeze.DataService;
-
 var _ = Sequelize.Utils._;
+var log = testFns.log;
 
-var log = utils.log;
-// log.enabled = false;
-
-describe.only("EntityQuery to SequelizeQuery - execute", function () {
+describe("EntityQuery to SequelizeQuery - execute", function () {
   
   this.enableTimeouts(false);
 
@@ -40,7 +33,7 @@ describe.only("EntityQuery to SequelizeQuery - execute", function () {
   function toSequelizeQuery(breezeQuery) {
     var uri = breezeQuery._toUri(_em);
     console.log(uri);
-    var sq = new SequelizeQuery(uri, _sm);
+    var sq = new SequelizeQuery(_sm, { url: uri });
     return sq;
   }
 

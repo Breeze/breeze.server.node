@@ -2,18 +2,14 @@
 var fs               = require('fs');
 var expect           = require('chai').expect;
 var Sequelize        = require('sequelize');
-var uuid             = require('node-uuid');
 var Promise          = require('bluebird');
-
-var utils            = require('./../utils.js');
-var dbUtils          = require('./../dbUtils.js');
-var SequelizeManager = require('./../SequelizeManager');
-
+var breezeSequelize  = require("breeze-sequelize");
 var testFns          = require('./testFns.js');
 
+var SequelizeManager = breezeSequelize.SequelizeManager;
+var SequelizeQuery = breezeSequelize.SequelizeQuery;
+var log = testFns.log;
 var _ = Sequelize.Utils._;
-var log = utils.log;
-// log.enabled = false;
 
 describe("SequelizeQuery", function() {
 

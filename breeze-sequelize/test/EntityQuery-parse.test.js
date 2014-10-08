@@ -2,7 +2,7 @@ var fs               = require('fs');
 var expect           = require('chai').expect;
 var breeze           = require('breeze-client');
 var Sequelize        = require('sequelize');
-var utils            = require('./../utils.js');
+
 
 var testFns          = require('./testFns.js');
 
@@ -14,7 +14,7 @@ var OrderByClause = breeze.OrderByClause;
 var FetchStrategy = breeze.FetchStrategy;
 
 var _ = Sequelize.Utils._;
-var log = utils.log;
+var log = testFns.log;
 // log.enabled = false;
 
 describe("EntityQuery - parse", function() {

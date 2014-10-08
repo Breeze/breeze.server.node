@@ -1,7 +1,7 @@
 var Sequelize = require('sequelize');
 var Promise = require("bluebird");
-var breeze = require('breeze-client');
 var url = require("url");
+var breeze = require('breeze-client');
 
 var _ = Sequelize.Utils._;
 
@@ -14,26 +14,28 @@ module.exports = SequelizeQuery;
 // TODO: still need to add support for OData fns like toUpper, length etc.
 // TODO: still need to add support for OData any/all
 
-function SequelizeQuery(jsonUrl, sequelizeManager) {
+function SequelizeQuery(sequelizeManager, config) {
 
-//  var ds = new DataService( { serviceName: "Foo", uriBuilderName: "json"})
-//  this.entityManager = new EntityManager( {dataService: ds});
   this.sequelizeManager = sequelizeManager;
   this.metadataStore = sequelizeManager.metadataStore;
 
-  var parsedUrl = url.parse(jsonUrl, true);
-  this.pathname = parsedUrl.pathname;
+  if (config.url) {
+    var parsedUrl = url.parse(config.url, true);
+    this.pathname = parsedUrl.pathname;
 
-  // this is because everything after the '?' is turned into a query object with a single key
-  // where the key is the value of the string after the '?" and with a 'value' that is an empty string.
-  // So we want the key and not the value.
-  var jsonQueryString = Object.keys(parsedUrl.query)[0];
-  this.jsonQuery = JSON.parse(jsonQueryString);
-  this.metadataStore.onClient = true;
-  var entityQuery = new EntityQuery(this.jsonQuery);
-  this.metadataStore.onServer = true;
+    // this is because everything after the '?' is turned into a query object with a single key
+    // where the key is the value of the string after the '?" and with a 'value' that is an empty string.
+    // So we want the key and not the value.
+    var jsonQueryString = Object.keys(parsedUrl.query)[0];
+    this.jsonQuery = JSON.parse(jsonQueryString);
+    this.metadataStore.onServer = config.isUsingServerNames;
+    var entityQuery = new EntityQuery(this.jsonQuery);
+    this.entityQuery = entityQuery.from(this.pathname);
+    this.metadataStore.onServer = true;
+  } else if (config.entityQuery) {
+    this.entityQuery = config.entityQuery;
+  }
 
-  this.entityQuery = entityQuery.from(this.pathname);
   this.entityType = this.entityQuery._getFromEntityType(this.metadataStore, true);
   this.sqQuery = this._processQuery();
 
@@ -41,7 +43,7 @@ function SequelizeQuery(jsonUrl, sequelizeManager) {
 
 SequelizeQuery.prototype.execute = function() {
   var that = this;
-  this.onServer = true;
+  this.metadataStore.onServer = true;
   return this.executeRaw().then(function(r) {
     var result = that._reshapeResults(r);
     return Promise.resolve(result);
@@ -85,6 +87,10 @@ SequelizeQuery.prototype._processQuery = function() {
     sqQuery.offset = entityQuery.skipCount;
   }
 
+//  // Empty include is ok with Sequelize.
+//  if (_.isEmpty(this.sqQuery.include)) {
+//    delete this.sqQuery.include;
+//  }
   return this.sqQuery;
 
 }
@@ -167,7 +173,7 @@ SequelizeQuery.prototype._reshapeResults = function(sqResults) {
   // -) Sequelize nested projections need to be removed from final results if not part of select
   // -) need to support nested select aliasing
   // -) inlineCount handling
-  this.onServer = true;
+  this.metadataStore.onServer = true;
   this._nextId = 1;
   this._map = {};
   if (this.entityQuery.selectClause) {

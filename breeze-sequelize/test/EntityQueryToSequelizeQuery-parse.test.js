@@ -1,24 +1,19 @@
 var fs               = require('fs');
 var expect           = require('chai').expect;
 var Sequelize        = require('sequelize');
-var uuid             = require('node-uuid');
 var Promise          = require("bluebird");
 var breeze           = require("breeze-client");
-
-var utils            = require('./../utils.js');
+var breezeSequelize  = require("breeze-sequelize");
 var testFns          = require('./testFns.js');
 
-var SequelizeQuery   = testFns.getSequelizeQuery();
-var SequelizeManager = require('./../SequelizeManager');
-
+var SequelizeManager = breezeSequelize.SequelizeManager;
+var SequelizeQuery = breezeSequelize.SequelizeQuery;
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
 var DataService = breeze.DataService;
-
 var _ = Sequelize.Utils._;
-var log = utils.log;
-// log.enabled = false;
+var log = testFns.log;
 
 describe("EntityQuery to SequelizeQuery - parse", function() {
   this.enableTimeouts(false);
@@ -34,10 +29,14 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
 
   function check(entityQuery, expectedResult) {
     // _em is client side entityManager;
+    _em.metadataStore.onServer = false;
     var uri = entityQuery._toUri(_em);
-    var sq = new SequelizeQuery(uri, _sm );
+    var sq = new SequelizeQuery(_sm, { url: uri });
     log(JSON.stringify(sq.jsonQuery));
-    expect(sq.queryObj).to.be.eql(expectedResult);
+    if (_.isEmpty(sq.sqQuery.include)) {
+      delete sq.sqQuery.include;
+    }
+    expect(sq.sqQuery).to.be.eql(expectedResult);
   }
 
 

@@ -2,11 +2,11 @@
 var fs               = require('fs');
 var expect           = require('chai').expect;
 var _                = require('lodash');
-var utils            = require('./../utils.js');
-var dbUtils          = require('./../dbUtils.js')
+var breezeSequelize = require("breeze-sequelize");
+var testFns          = require('./testFns.js');
 
-var log = utils.log;
-// log.enabled = false;
+var dbUtils = breezeSequelize.dbUtils;
+var log = testFns.log;
 
 var dbConfig = {
   host: "localhost",

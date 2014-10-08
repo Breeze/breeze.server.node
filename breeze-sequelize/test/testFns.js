@@ -2,8 +2,7 @@ var breeze           = require("breeze-client");
 var fs               = require('fs');
 var expect           = require('chai').expect;
 var _                = require('lodash');
-var utils            = require('./../utils.js');
-var log = utils.log;
+
 
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
@@ -112,6 +111,11 @@ exports.isSorted = function(array, props, isDesc) {
     return ok;
   });
 };
+
+exports.log = log = function(s) {
+  if (!log.enabled) return;
+  console.log('[Breeze] ' + s + '\n');
+}
 
 function compare(v1, v2) {
   if (v1 == null && v2 == null) return 0;

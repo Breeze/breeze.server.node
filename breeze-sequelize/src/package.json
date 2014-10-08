@@ -1,10 +1,10 @@
 {
   "name": "breeze-sequelize",
-  "version": "0.0.1",
+  "version": "0.0.12",
   "description": "Breeze Sequelize server implementation",
-  "main": "index.js",
+  "main": "main.js",
   "directories": {
-    "test": "test"
+
   },
   "dependencies": {
     "bluebird": "^2.3.2",
@@ -12,8 +12,7 @@
     "mysql": "^2.4.3",
     "node-uuid": "^1.4.1",
     "sequelize": "^2.0.0-dev13",
-    "breeze-client":  "*",
-    "breeze-odataparser":  "*"
+    "breeze-client":  "*"
   },
   "devDependencies": {
     "gulp": "^3.8.7",

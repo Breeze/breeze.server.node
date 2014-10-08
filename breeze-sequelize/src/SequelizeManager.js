@@ -9,15 +9,16 @@ var utils          = require('./utils.js');
 var _             = Sequelize.Utils._;
 var log = utils.log;
 
-module.exports = SequelizeManager = function(dbConfig) {
+module.exports = SequelizeManager;
+
+function SequelizeManager(dbConfig) {
   this.dbConfig = dbConfig;
   this.sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, {
     dialect: "mysql", // or 'sqlite', 'postgres', 'mariadb'
-    port:    3306, // or 5432 (for postgres)
+    port: 3306, // or 5432 (for postgres)
     omitNull: true
   });
-
-};
+}
 
 // returns Promise(null);
 SequelizeManager.prototype.authenticate = function() {

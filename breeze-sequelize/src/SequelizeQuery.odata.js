@@ -4,7 +4,7 @@ var url = require("url");
 
 var _ = Sequelize.Utils._;
 
-module.exports = SequelizeQuery;
+module.exports.SequelizeQuery = SequelizeQuery;
 
 // TODO: still need to add support for OData fns like toUpper, length etc.
 // TODO: still need to add support for OData any/all

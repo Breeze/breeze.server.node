@@ -2,17 +2,14 @@ var fs               = require('fs');
 var expect           = require('chai').expect;
 var breeze           = require('breeze-client');
 var Sequelize        = require('sequelize');
-var utils            = require('./../utils.js');
 var testFns          = require('./testFns.js');
 
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
 var FilterQueryOp = breeze.FilterQueryOp;
-
 var _ = Sequelize.Utils._;
-var log = utils.log;
-// log.enabled = false;
+var log = testFns.log;
 
 describe("Predicate - parse", function() {
   this.enableTimeouts(false);
@@ -21,8 +18,6 @@ describe("Predicate - parse", function() {
   before(function() {
     _em = testFns.newEm();
     _ms = _em.metadataStore;
-
-
   });
 
   function test(predicate, entityType, expected) {
