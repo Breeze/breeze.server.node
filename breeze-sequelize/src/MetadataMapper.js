@@ -18,7 +18,7 @@ module.exports = MetadataMapper = function(breezeMetadata, sequelize) {
     var ms = new breeze.MetadataStore();
     ms.importMetadata(breezeMetadata);
   }
-  // ms.onServer = true;
+
   this.metadataStore = ms;
   this._createMaps();
 }

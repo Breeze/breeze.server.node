@@ -29,7 +29,6 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
 
   function check(entityQuery, expectedResult) {
     // _em is client side entityManager;
-    _em.metadataStore.onServer = false;
     var uri = entityQuery._toUri(_em);
     var sq = new SequelizeQuery(_sm, { url: uri });
     log(JSON.stringify(sq.jsonQuery));

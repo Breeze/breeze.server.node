@@ -28,10 +28,11 @@ function SequelizeQuery(sequelizeManager, config) {
     // So we want the key and not the value.
     var jsonQueryString = Object.keys(parsedUrl.query)[0];
     this.jsonQuery = JSON.parse(jsonQueryString);
-    this.metadataStore.onServer = config.isUsingServerNames;
+
     var entityQuery = new EntityQuery(this.jsonQuery);
+
     this.entityQuery = entityQuery.from(this.pathname);
-    this.metadataStore.onServer = true;
+    this.entityQuery.useNameOnServer = true;
   } else if (config.entityQuery) {
     this.entityQuery = config.entityQuery;
   }
@@ -43,7 +44,6 @@ function SequelizeQuery(sequelizeManager, config) {
 
 SequelizeQuery.prototype.execute = function() {
   var that = this;
-  this.metadataStore.onServer = true;
   return this.executeRaw().then(function(r) {
     var result = that._reshapeResults(r);
     return Promise.resolve(result);
@@ -100,6 +100,7 @@ SequelizeQuery.prototype._processWhere = function() {
   if (wherePredicate == null) return;
   var where = wherePredicate.visit(toSQVisitor, {
     entityType: this.entityType,
+    useNameOnServer: true,
     sequelizeQuery: this,
     metadataStore: this.metadataStore
   });
@@ -118,7 +119,7 @@ SequelizeQuery.prototype._processSelect = function() {
   // extract any nest paths and move them onto the include
   var navPropertyPaths = [];
   this.sqQuery.attributes = selectClause.propertyPaths.filter(function(pp) {
-    var props = this.entityType.getPropertiesOnPath(pp, true);
+    var props = this.entityType.getPropertiesOnPath(pp, true, true);
     var isNavPropertyPath = props[0].isNavigationProperty;
     if (isNavPropertyPath) {
       this._addInclude(null, props);
@@ -133,7 +134,7 @@ SequelizeQuery.prototype._processOrderBy = function() {
   var orders = this.sqQuery.order = [];
   orderByClause.items.forEach(function(item) {
     var pp = item.propertyPath;
-    var props = this.entityType.getPropertiesOnPath(pp, true);
+    var props = this.entityType.getPropertiesOnPath(pp, true, true);
     var isNavPropertyPath = props[0].isNavigationProperty;
     if (isNavPropertyPath) {
       this._addInclude(this.sqQuery, props);
@@ -162,7 +163,7 @@ SequelizeQuery.prototype._processExpand = function() {
   var expandClause = this.entityQuery.expandClause;
   if (expandClause == null) return;
   expandClause.propertyPaths.forEach(function(pp) {
-    var props = this.entityType.getPropertiesOnPath(pp, true);
+    var props = this.entityType.getPropertiesOnPath(pp, true, true);
     this._addInclude(null, props);
   }, this);
 };
@@ -173,7 +174,7 @@ SequelizeQuery.prototype._reshapeResults = function(sqResults) {
   // -) Sequelize nested projections need to be removed from final results if not part of select
   // -) need to support nested select aliasing
   // -) inlineCount handling
-  this.metadataStore.onServer = true;
+
   this._nextId = 1;
   this._map = {};
   if (this.entityQuery.selectClause) {
@@ -189,7 +190,7 @@ SequelizeQuery.prototype._reshapeResults = function(sqResults) {
   if (expandClause) {
     // each expand path consist of an array of expand props.
     expandPaths = expandClause.propertyPaths.map(function (pp) {
-      return this.entityType.getPropertiesOnPath(pp, true);
+      return this.entityType.getPropertiesOnPath(pp, true, true);
     }, this);
   }
 
@@ -217,7 +218,7 @@ SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
     var result = sqResult.dataValues;
     var parent = sqResult;
     selectClause.propertyPaths.forEach(function (pp) {
-      var props = this.entityType.getPropertiesOnPath(pp, true);
+      var props = this.entityType.getPropertiesOnPath(pp, true, true);
       var lastProp = props[0];
 
       while (props.length > 0 && props[0].isNavigationProperty) {
@@ -377,7 +378,7 @@ var toSQVisitor = (function () {
       var p1Value, p2Value;
       if (this.expr1.visitorMethodName === "propExpr") {
         p1Value = this.expr1.propertyPath;
-        var props = context.entityType.getPropertiesOnPath(p1Value, true);
+        var props = context.entityType.getPropertiesOnPath(p1Value, true, true);
         if (props.length > 1) {
           // handle a nested property path on the LHS - query gets moved into the include
           var include = context.sequelizeQuery._addInclude(null, props);

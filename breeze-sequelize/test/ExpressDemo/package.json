@@ -4,6 +4,8 @@
     "version": "0.0.1",
     "private": true,
     "dependencies": {
+		"breeze-client":  "*",
+		"breeze-sequelize": "*",
         "express": "3.x"        
     }
 }
