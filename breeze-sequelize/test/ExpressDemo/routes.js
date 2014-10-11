@@ -1,10 +1,11 @@
 
 var fs = require('fs');
 var breezeSequelize = require('breeze-sequelize');
+var breeze = require('breeze-client');
 
 var SequelizeManager =breezeSequelize.SequelizeManager;
 var SequelizeQuery = breezeSequelize.SequelizeQuery;
-
+var EntityQuery = breeze.EntityQuery;
 
 var _dbConfigNw = {
   host: "localhost",
@@ -13,10 +14,21 @@ var _dbConfigNw = {
   dbName: 'northwindib'
 }
 
-var _sequelizeManager = new SequelizeManager(_dbConfigNw);
+var _sequelizeManager = createSequelizeManager();
+
+function createSequelizeManager() {
+  var filename = "NorthwindIBMetadata.json";
+  if (!fs.existsSync(filename)) {
+    next(new Error("Unable to locate file: " + filename));
+  }
+  var metadata = fs.readFileSync(filename, 'utf8');
+  var sm = new SequelizeManager(_dbConfigNw);
+  sm.importMetadata(metadata);
+  return sm;
+}
 
 exports.getMetadata = function(req, res, next) {
-    var filename = "../sampleMetadata.json";
+    var filename = "NorthwindIBMetadata.json";
     if (!fs.existsSync(filename)) {
       next(new Error("Unable to locate file: " + filename));
     }
@@ -25,11 +37,12 @@ exports.getMetadata = function(req, res, next) {
 }
 
 exports.get = function (req, res, next) {
-  var slug = req.params.slug;
-  if (namedQuery[slug]) {
-    namedQuery[slug](req, res, next);
+  var resourceName = req.params.slug;
+  if (namedQuery[resourceName]) {
+    namedQuery[resourceName](req, res, next);
   } else {
-    var query = new SequelizeQuery(req.query, _sequelizeManager);
+    var entityQuery = EntityQuery.fromUrl(req.url, resourceName);
+    var query = new SequelizeQuery(_sequelizeManager, entityQuery);
     query.execute().then(function(r){
       processResults(res, r);
     }).catch(next)
@@ -43,30 +56,50 @@ exports.get = function (req, res, next) {
 //    query.execute(db, "Products", processResults(res, next));
 //}
 
+function executeEntityQuery(entityQuery, res, next) {
+  var query = new SequelizeQuery(_sequelizeManager, { entityQuery: entityQuery });
+  query.execute().then(function (r) {
+    processResults(res, r);
+  }).catch(next)
+}
+
 var namedQuery = {};
 
 namedQuery.EmployeesMultipleParams = function(req, res, next) {
-    var query = new SequelizeQuery(req.query);
-    var empId = req.query.employeeId;
-    var city = req.query.city;
-    query.filter = { "$or": [{ "_id": empId }, { "city": city }] };
-    query.execute(db, "Employees", processResults(res, next));
+  var empId = req.query.employeeID;
+  var city = req.query.city;
+  var where = { or: [{ employeeID: empId }, { city: city }] }
+  var entityQuery = EntityQuery.from("Employees").where(where);
+  var  query = new SequelizeQuery(_sequelizeManager, entityQuery);
+  query.execute().then(function(r){
+    processResults(res, r);
+  }).catch(next)
 };
 
 namedQuery.CompanyNames = function(req, res, next) {
-    executeQuery(db, "Customers", { select: { "CompanyName": 1, "_id": 0 }}, processResults(res, next));
+  var entityQuery = EntityQuery.from("Customers").select("companyName");
+  var  query = new SequelizeQuery(_sequelizeManager, entityQuery);
+  query.execute().then(function(r){
+    processResults(res, r);
+  }).catch(next)
 };
 
 namedQuery.CompanyNamesAndIds = function(req, res, next) {
-    var query = new breezeMongo.MongoQuery(req.query);
-    query.select = { "CompanyName": 1, "_id": 1 };
-    query.execute(db, "Customers", processResults(res, next));
+  var entityQuery = EntityQuery.from("Customers").select("companyName, id");
+  var  query = new SequelizeQuery(_sequelizeManager, entityQuery);
+  query.execute().then(function(r){
+    processResults(res, r);
+  }).catch(next)
 };
 
 namedQuery.CustomersStartingWithA = function(req, res, next) {
-    var query = new breezeMongo.MongoQuery(req.query);
-    query.filter["CompanyName"] = new RegExp("^A",'i' ) ;
-    query.execute(db, "Customers", processResults(res, next));
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers");
+  var whereClause = entityQuery.whereClause.and("companyName", "startsWith", "A");
+  entityQuery = entityQuery.where(whereClause);
+  var  query = new SequelizeQuery(_sequelizeManager, entityQuery);
+  query.execute().then(function(r){
+    processResults(res, r);
+  }).catch(next)
 };
 
 namedQuery.CustomersStartingWith = function(req, res, next) {
@@ -103,6 +136,26 @@ namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req, res, next) {
     query.filter["Country"] = country ;
     query.execute(db, "Employees", processResults(res, next));
 };
+
+// not yet implemented
+//public Object CustomerCountsByCountry() {
+//    return ContextProvider.Context.Customers.GroupBy(c => c.Country).Select(g => new { g.Key, Count = g.Count() });
+
+// need expand support for these.
+//public IQueryable<Object> CustomersWithBigOrders() {
+//    var stuff = ContextProvider.Context.Customers.Select(c => new { Customer = c, BigOrders = c.Orders.Where(o => o.Freight > 100) });
+
+//public IQueryable<Object> CompanyInfoAndOrders() {
+//    var stuff = ContextProvider.Context.Customers.Select(c => new { c.CompanyName, c.CustomerID, c.Orders });
+
+//public Object CustomersAndProducts() {
+//    var stuff = new { Customers = ContextProvider.Context.Customers.ToList(), Products = ContextProvider.Context.Products.ToList() };
+
+//public IQueryable<Customer> CustomersAndOrders() {
+//    var custs = ContextProvider.Context.Customers.Include("Orders");
+
+//public IQueryable<Order> OrdersAndCustomers() {
+//    var orders = ContextProvider.Context.Orders.Include("Customer");
 
 //exports.saveChanges = function(req, res, next) {
 //    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, processResults(res, next));
@@ -269,4 +322,16 @@ function processResults(res, results) {
   res.send(results);
 }
 
-
+//
+//
+//function processResultsFn(res, next) {
+//
+//  return function(err, results) {
+//    if (err) {
+//      next(err);
+//    } else {
+//      res.setHeader("Content-Type:", "application/json");
+//      res.send(results);
+//    }
+//  }
+//}

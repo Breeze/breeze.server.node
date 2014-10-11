@@ -16,7 +16,8 @@ function SequelizeManager(dbConfig) {
   this.sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, {
     dialect: "mysql", // or 'sqlite', 'postgres', 'mariadb'
     port: 3306, // or 5432 (for postgres)
-    omitNull: true
+    omitNull: true,
+    logging: console.log
   });
 }
 

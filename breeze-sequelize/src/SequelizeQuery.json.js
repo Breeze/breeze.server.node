@@ -1,43 +1,45 @@
 var Sequelize = require('sequelize');
 var Promise = require("bluebird");
-var url = require("url");
+var urlUtils = require("url");
 var breeze = require('breeze-client');
 
 var _ = Sequelize.Utils._;
-
-var DataService = breeze.DataService;
-var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
+
+EntityQuery.fromUrl = function(url, resourceName ) {
+  var parsedUrl = urlUtils.parse(url, true);
+  var resourceName =  resourceName || parsedUrl.pathname;
+
+  // this is because everything after the '?' is turned into a query object with a single key
+  // where the key is the value of the string after the '?" and with a 'value' that is an empty string.
+  // So we want the key and not the value.
+  var jsonQueryString = Object.keys(parsedUrl.query)[0];
+  var jsonQuery = JSON.parse(jsonQueryString);
+
+  entityQuery = new EntityQuery(jsonQuery);
+  entityQuery = entityQuery.from(resourceName);
+  entityQuery.useNameOnServer = true;
+  // for debugging
+  entityQuery.jsonQuery = jsonQuery;
+  return entityQuery;
+}
 
 module.exports = SequelizeQuery;
 
 // TODO: still need to add support for OData fns like toUpper, length etc.
 // TODO: still need to add support for OData any/all
 
-function SequelizeQuery(sequelizeManager, config) {
+// config.url:
+// config.pathName: if null - url
+// config.entityQuery:
+// config.entityQueryFn: a fn(entityQuery) -> entityQuery
+function SequelizeQuery(sequelizeManager, entityQuery) {
 
   this.sequelizeManager = sequelizeManager;
   this.metadataStore = sequelizeManager.metadataStore;
 
-  if (config.url) {
-    var parsedUrl = url.parse(config.url, true);
-    this.pathname = parsedUrl.pathname;
-
-    // this is because everything after the '?' is turned into a query object with a single key
-    // where the key is the value of the string after the '?" and with a 'value' that is an empty string.
-    // So we want the key and not the value.
-    var jsonQueryString = Object.keys(parsedUrl.query)[0];
-    this.jsonQuery = JSON.parse(jsonQueryString);
-
-    var entityQuery = new EntityQuery(this.jsonQuery);
-
-    this.entityQuery = entityQuery.from(this.pathname);
-    this.entityQuery.useNameOnServer = true;
-  } else if (config.entityQuery) {
-    this.entityQuery = config.entityQuery;
-  }
-
-  this.entityType = this.entityQuery._getFromEntityType(this.metadataStore, true);
+  this.entityType = entityQuery._getFromEntityType(this.metadataStore, true);
+  this.entityQuery = entityQuery;
   this.sqQuery = this._processQuery();
 
 }
@@ -51,13 +53,11 @@ SequelizeQuery.prototype.execute = function() {
 }
 
 SequelizeQuery.prototype.executeRaw = function() {
-  var model = this.sequelizeManager.resourceNameSqModelMap[this.pathname];
+  var model = this.sequelizeManager.resourceNameSqModelMap[this.entityQuery.resourceName];
   var methodName = this.entityQuery.inlineCountEnabled ? "findAndCountAll" : "findAll";
   var r = model[methodName].call(model, this.sqQuery);
   return r;
 }
-
-
 
 // pass in either a query string or a urlQuery object
 //    a urlQuery object is what is returned by node's url.parse(aUrl, true).query;
@@ -78,7 +78,9 @@ SequelizeQuery.prototype._processQuery = function() {
   var section = entityQuery.takeCount;
   // not ok to ignore top: 0
   if (section !== undefined) {
-    sqQuery.limit = entityQuery.takeCount;
+    // HACK: sequelize limit ignores limit(0) so we need to turn it into a limit(1)
+    // and then 'ignore' the result later.
+    sqQuery.limit = entityQuery.takeCount || 1;
   }
 
   section = entityQuery.skipCount
@@ -194,6 +196,10 @@ SequelizeQuery.prototype._reshapeResults = function(sqResults) {
     }, this);
   }
 
+  // needed because we had to turn take(0) into limit(1)
+  if (this.entityQuery.takeCount == 0) {
+    sqResults = [];
+  }
   var results = sqResults.map(function (sqResult) {
     var result = this._createResult(sqResult, this.entityType, expandClause != null);
     // each expandPath is a collection of expandProps
@@ -212,12 +218,17 @@ SequelizeQuery.prototype._reshapeResults = function(sqResults) {
 }
 
 SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
+  if (this.entityQuery.inlineCountEnabled) {
+    inlineCount = sqResults.count;
+    sqResults = sqResults.rows;
+  }
+  var propertyPaths = this.entityQuery.selectClause.propertyPaths;
   var results = sqResults.map(function(sqResult) {
     // start with the sqResult and then promote nested properties up to the top level
     // while removing nested path.
     var result = sqResult.dataValues;
     var parent = sqResult;
-    selectClause.propertyPaths.forEach(function (pp) {
+    propertyPaths.forEach(function (pp) {
       var props = this.entityType.getPropertiesOnPath(pp, true, true);
       var lastProp = props[0];
 
@@ -230,15 +241,22 @@ SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
         props = props.slice(0);
       }
       var val = parent[lastProp.nameOnServer];
-      val = val.dataValues || val;
+      val = val && (val.dataValues || val);
       result[pp] = val;
     }, this);
     return result;
-  });
+  }, this);
+
+  if (inlineCount != undefined) {
+    return { results: results, inlineCount: inlineCount };
+  } else {
+    return results;
+  }
   return results;
 }
 
 SequelizeQuery.prototype._createResult = function(sqResult, entityType, checkCache) {
+  if (!sqResult) return null;
   if (checkCache) {
     var key = getKey(sqResult, entityType);
     var cachedItem = this._map[key];
@@ -289,7 +307,9 @@ SequelizeQuery.prototype._populateExpand = function(result, sqResult, expandProp
     if (_.isArray(nextSqResult)) {
       nextResult = nextSqResult.map(function(nextSqr) {
         return this._createResult(nextSqr, nextEntityType, true);
-      }, this);
+      }, this).filter(function(r) {
+        return r != null;
+      });
     } else {
       nextResult = this._createResult(nextSqResult, nextEntityType, true);
     }
@@ -303,7 +323,7 @@ SequelizeQuery.prototype._populateExpand = function(result, sqResult, expandProp
       }
     }, this)
   } else {
-    if (!nextResult.$ref) {
+    if (nextResult && !nextResult.$ref) {
       this._populateExpand(nextResult, nextSqResult, expandProps.slice(1));
     }
   }

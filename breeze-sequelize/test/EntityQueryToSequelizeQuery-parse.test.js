@@ -30,7 +30,8 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
   function check(entityQuery, expectedResult) {
     // _em is client side entityManager;
     var uri = entityQuery._toUri(_em);
-    var sq = new SequelizeQuery(_sm, { url: uri });
+    entityQuery = EntityQuery.fromUrl(uri);
+    var sq = new SequelizeQuery(_sm, entityQuery );
     log(JSON.stringify(sq.jsonQuery));
     if (_.isEmpty(sq.sqQuery.include)) {
       delete sq.sqQuery.include;

@@ -33,7 +33,8 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
   function toSequelizeQuery(breezeQuery) {
     var uri = breezeQuery._toUri(_em);
     console.log(uri);
-    var sq = new SequelizeQuery(_sm, { url: uri });
+    var entityQuery = EntityQuery.fromUrl(uri);
+    var sq = new SequelizeQuery(_sm, entityQuery);
     return sq;
   }
 

@@ -7,11 +7,11 @@ var breezeSequelize  = require("breeze-sequelize");
 var testFns          = require('./testFns.js');
 
 var SequelizeManager = breezeSequelize.SequelizeManager;
-var SequelizeQuery = breezeSequelize.SequelizeQuery;
+
 var log = testFns.log;
 var _ = Sequelize.Utils._;
 
-describe("SequelizeQuery", function() {
+describe("SequelizeQuery 2", function() {
 
   this.enableTimeouts(false);
   var _nwSm;
@@ -24,10 +24,15 @@ describe("SequelizeQuery", function() {
   });
 
   it("should be able to use functions", function(done) {
-    var where = {};
-    var fn = Sequelize.fn("upper", Sequelize.col("CompanyName"));
-    where[ fn] = { like: 'B%'} ;
-    _nwSm.models.Customers.findAll( { where: where }).then(function(r) {
+
+   var q = {
+      where: Sequelize.where(
+          Sequelize.fn("UPPER", Sequelize.col("CompanyName")),
+          { like: 'B%' }
+      )
+    };
+
+    _nwSm.models.Customers.findAll( q ).then(function(r) {
       expect(r).to.have.length.above(5);
       r.forEach(function(cust) {
         expect(cust.CompanyName).to.match(/B.*/);

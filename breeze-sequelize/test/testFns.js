@@ -40,14 +40,14 @@ exports.newEm = function() {
   var em = new EntityManager({dataService: ds});
   // _em = new EntityManager("Foo");
   var ms = em.metadataStore;
-  var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
+  var breezeMetadata = fs.readFileSync('./NorthwindIBMetadata.json', { encoding: 'utf8' });
   ms.importMetadata(breezeMetadata);
   return em;
 }
 
 
 exports.getMetadata = function() {
-  var breezeMetadata = fs.readFileSync('./sampleMetadata.json', { encoding: 'utf8' });
+  var breezeMetadata = fs.readFileSync('./NorthwindIBMetadata.json', { encoding: 'utf8' });
   var json = JSON.parse(breezeMetadata);
   // removing naming convention so that we don't camel case the data.
   // json.namingConvention = null;

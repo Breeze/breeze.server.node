@@ -48,6 +48,14 @@ describe("Predicate - parse", function() {
 
   });
 
+  it("mixed null predicates", function() {
+    var entityType = _ms.getEntityType("Employee");
+    var predicate1 = Predicate.create("lastName", "startsWith", "D");
+    var predicate2 = Predicate.create("firstName", "startsWith", "A");
+    var predicates = Predicate.or([undefined, predicate1, null, predicate2, null]);
+    test(predicates, entityType, "(startswith(LastName,'D') eq true) or (startswith(FirstName,'A') eq true)" );
+  });
+
   it("simple binary predicate - json", function() {
     var orderType = _ms.getEntityType("Order");
     var p = new Predicate( { freight: 100});
