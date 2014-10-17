@@ -30,13 +30,31 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
 
   });
 
-  function toSequelizeQuery(breezeQuery) {
-    var uri = breezeQuery._toUri(_em);
+  function toSequelizeQuery(entityQuery) {
+    // comment next 3 line out to test client side queries implemented on the server.
+    var uri = entityQuery._toUri(_em);
     console.log(uri);
     var entityQuery = EntityQuery.fromUrl(uri);
     var sq = new SequelizeQuery(_sm, entityQuery);
     return sq;
   }
+
+  it("should be able to use 'in'", function (done) {
+    // needs to turn the query into one with an include with a where condition.
+    var countries = ['Austria', 'Italy', 'Norway']
+    var q = EntityQuery.from("Customers")
+        .where("country", 'in', countries);
+
+
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(5);
+      ok = r.every(function(cust) {
+        return countries.indexOf(cust.Country) >= 0;
+      })
+      expect(ok).true;
+    }).then(done, done);
+  });
 
 
 

@@ -82,6 +82,12 @@ describe("EntityQuery - parse", function() {
     testPropCount(q, 2);
   });
 
+  it("query where 'in'- toJSON", function() {
+    var p = new Predicate( { freight: { in: [100, 200, 300]}});
+    var q = new EntityQuery("Customers").where(p);
+    testPropCount(q, 2);
+  });
+
   it("query where 2 - toJSON", function() {
     var p = Predicate.create("freight", ">", 100).and("freight", "<", 200);
     var q = new EntityQuery()

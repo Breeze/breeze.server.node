@@ -42,84 +42,73 @@ exports.get = function (req, res, next) {
     namedQuery[resourceName](req, res, next);
   } else {
     var entityQuery = EntityQuery.fromUrl(req.url, resourceName);
-    var query = new SequelizeQuery(_sequelizeManager, entityQuery);
-    query.execute().then(function(r){
-      processResults(res, r);
-    }).catch(next)
+    executeEntityQuery(entityQuery, null, res, next);
   }
 };
 
-//exports.getProducts = function(req, res, next) {
-//    var query = new SequelizeQuery(req.query, _sequelizeManager);
-//    query.entityQuery =
-//    // add your own filters here
-//    query.execute(db, "Products", processResults(res, next));
-//}
 
-function executeEntityQuery(entityQuery, res, next) {
-  var query = new SequelizeQuery(_sequelizeManager, { entityQuery: entityQuery });
+function executeEntityQuery(entityQuery, returnResultsFn, res, next) {
+  var returnResultsFn = returnResultsFn || returnResults;
+  var query = new SequelizeQuery(_sequelizeManager, entityQuery);
   query.execute().then(function (r) {
-    processResults(res, r);
+    returnResultsFn(r, res);
   }).catch(next)
+}
+
+function returnResults(results, res) {
+  res.setHeader("Content-Type:", "application/json");
+  res.send(results);
 }
 
 var namedQuery = {};
 
-namedQuery.EmployeesMultipleParams = function(req, res, next) {
-  var empId = req.query.employeeID;
-  var city = req.query.city;
-  var where = { or: [{ employeeID: empId }, { city: city }] }
-  var entityQuery = EntityQuery.from("Employees").where(where);
-  var  query = new SequelizeQuery(_sequelizeManager, entityQuery);
-  query.execute().then(function(r){
-    processResults(res, r);
-  }).catch(next)
-};
 
-namedQuery.CompanyNames = function(req, res, next) {
-  var entityQuery = EntityQuery.from("Customers").select("companyName");
-  var  query = new SequelizeQuery(_sequelizeManager, entityQuery);
-  query.execute().then(function(r){
-    processResults(res, r);
-  }).catch(next)
-};
+namedQuery.CustomerFirstOrDefault = function(req, res, next) {
+  // should return empty array
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").where("CompanyName", "StartsWith", "blah").take(1);
+  executeEntityQuery(entityQuery, null, res, next);
+}
 
-namedQuery.CompanyNamesAndIds = function(req, res, next) {
-  var entityQuery = EntityQuery.from("Customers").select("companyName, id");
-  var  query = new SequelizeQuery(_sequelizeManager, entityQuery);
-  query.execute().then(function(r){
-    processResults(res, r);
-  }).catch(next)
-};
 
 namedQuery.CustomersStartingWithA = function(req, res, next) {
-  var entityQuery = EntityQuery.fromUrl(req.url, "Customers");
-  var whereClause = entityQuery.whereClause.and("companyName", "startsWith", "A");
-  entityQuery = entityQuery.where(whereClause);
-  var  query = new SequelizeQuery(_sequelizeManager, entityQuery);
-  query.execute().then(function(r){
-    processResults(res, r);
-  }).catch(next)
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers")
+    .andWhere("CompanyName", "startsWith", "A");
+  executeEntityQuery(entityQuery, null, res, next);
+
 };
 
 namedQuery.CustomersStartingWith = function(req, res, next) {
     // start with client query and add an additional filter.
-    var query = new breezeMongo.MongoQuery(req.query);
-    var companyName = req.query.companyName;
-    if (companyName === undefined) {
-       next(new Error("Unable to find 'companyName' parameter"));
-       return;
-    }
-    query.filter["CompanyName"] =  new RegExp("^"+companyName,'i' );
-    query.execute(db, "Customers", processResults(res, next));
+  var companyName = req.query.companyName;
+  if (companyName == undefined) {
+    var err = { statusCode: 404, message: "'companyName must be provided'" };
+    next(err);
+  }
+  // need to use upper case because base query came from server
+  var pred = new breeze.Predicate("CompanyName", "startsWith", companyName);
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").andWhere(pred);
+  executeEntityQuery(entityQuery, null, res, next);
 };
 
 
+namedQuery.CustomersOrderedStartingWith =    function(req, res, next) {
+    // start with client query and add an additional filter.
+    var companyName = req.query.companyName;
+  // need to use upper case because base query came from server
+    var entityQuery = EntityQuery.fromUrl(req.url, "Customers")
+        .andWhere("CompanyName", "startsWith", companyName)
+        .orderBy("CompanyName");
+    executeEntityQuery(entityQuery, null, res, next);
+}
+
+namedQuery.CustomersAndOrders = function(req, res, next) {
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").expand("Orders");
+  executeEntityQuery(entityQuery, null,  res, next);
+}
+
 namedQuery.CustomerWithScalarResult = function(req, res, next) {
-    var query = new breezeMongo.MongoQuery(req.query);
-    query.options.limit = 1;
-    query.resultEntityType = "Customer";
-    query.execute(db, "Customers", processResults(res, next));
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").take(1);
+  executeEntityQuery(entityQuery, null,  res, next);
 };
 
 
@@ -128,16 +117,160 @@ namedQuery.CustomersWithHttpError = function(req, res, next) {
     next(err);
 };
 
+// HRM is HttpResponseMessage ( just for
+namedQuery.CustomersAsHRM = function(req, res, next) {
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers");
+  executeEntityQuery(entityQuery, null,  res, next);
+}
+
+namedQuery.CustomersWithBigOrders = function(req, res, next) {
+  var entityQuery = EntityQuery.from("Customers").where("orders", "any", "freight", ">", 100).expand("orders");
+  var processResults = function(results, res) {
+    var newResults = results.map(function(r) {
+      return {
+        Customer: r,
+        BigOrders:  r.Orders.filter(function (order) {
+          return order.Freight > 100;
+        })
+      }
+    })
+    returnResults(newResults, res);
+  };
+  executeEntityQuery(entityQuery, processResults,  res, next);
+
+}
+
+namedQuery.CustomersAndProducts = function(req, res, next) {
+  // var stuff = new { Customers = ContextProvider.Context.Customers.ToList(), Products = ContextProvider.Context.Products.ToList() };
+//  var q1 = new SequelizeQuery(_sequelizeManager, entityQuery);
+//    query.execute().then(function (r) {
+//    returnResults(r, res);
+//  }).catch(next)
+  throw new Error("Not yet written")
+}
+
+
+//// AltCustomers will not be in the resourceName/entityType map;
+namedQuery.AltCustomers = function(req, res, next) {
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers");
+  executeEntityQuery(entityQuery, null, res, next);
+}
+
+namedQuery.SearchCustomers = function(req, res, next) {
+  var qbe = req.query;
+  var ok = qbe != null && qbe.CompanyName != null & qbe.ContactNames.length > 0 && qbe.City.length > 1;
+  if (!ok) {
+    throw new Exception("qbe error");
+  }
+  // var entityQuery = EntityQuery.from("Customers").where("companyName", "startsWith", qbe.companyName);
+  // just testing that qbe actually made it in not attempted to write qbe logic here
+  // so just return first 3 customers.
+  var entityQuery = EntityQuery.from("Customers").take(3);
+  executeEntityQuery(entityQuery, null, res, next);
+}
+
+
+namedQuery.SearchCustomers2 = function(req, res, next) {
+  var qbeList = req.query.qbeList;
+  if (qbeList.Length < 2) {
+    throw new Exception("all least two items must be passed in");
+  }
+  qbeList.forEach(function(qbe) {
+    var ok = qbe != null && qbe.CompanyName != null & qbe.ContactNames.length > 0 && qbe.City.length > 1;
+    if (!ok) {
+      throw new Exception("qbe error");
+    }
+  });
+  // just testing that qbe actually made it in not attempted to write qbe logic here
+  // so just return first 3 customers.
+  var entityQuery = EntityQuery.from("Customers").take(3);
+  executeEntityQuery(entityQuery, null, res, next);
+}
+
+namedQuery.OrdersCountForCustomer = function(req, res, next) {
+  var companyName = req.query.companyName;
+  var entityQuery = EntityQuery.from("Customers")
+      .where("companyName", "startsWith", companyName)
+      .expand("orders")
+      .take(1);
+  var processResults = function(results, res) {
+    var r;
+    if (results.length > 0) {
+      r = r.Orders.length;
+    } else {
+      r = 0;
+    }
+    returnResults(r, res)
+  };
+  executeEntityQuery(entityQuery, processResults, res, next);
+}
+
+namedQuery.EnumerableEmployees = function(req, res, next) {
+  var entityQuery = EntityQuery.fromUrl(req.url, "Employees");
+  executeEntityQuery(entityQuery, null, res, next);
+}
+
+namedQuery.EmployeesMultipleParams = function(req, res, next) {
+  var empId = req.query.employeeID;
+  var city = req.query.city;
+  var where = { or: [{ employeeID: empId }, { city: city }] }
+  var entityQuery = EntityQuery.from("Employees").where(where);
+  executeEntityQuery(entityQuery, null, res, next);
+};
+
+namedQuery.CompanyNames = function(req, res, next) {
+  var entityQuery = EntityQuery.from("Customers").select("companyName");
+  executeEntityQuery(entityQuery, null, res, next);
+};
+
+namedQuery.CompanyNamesAndIds = function(req, res, next) {
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").select("CompanyName, CustomerID");
+  executeEntityQuery(entityQuery, null, res, next);
+};
+
+namedQuery.CompanyNamesAndIdsAsDTO = function(req, res, next) {
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").select("CompanyName, CustomerID");
+  var projectResults = function(results, res) {
+    var newResults = results.map(function(r) {
+      return { CompanyName: r.CompanyName, CustomerID: r.CustomerID };
+    })
+    returnResults(newResults, res);
+  };
+  executeEntityQuery(entityQuery, projectResults , res, next);
+}
+
+
+namedQuery.CompanyInfoAndOrders = function(req, res, next) {
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").select("CompanyName, CustomerID, Orders");
+  executeEntityQuery(entityQuery, null, res, next);
+}
+
+namedQuery.OrdersAndCustomers = function(req, res, next) {
+  var entityQuery = EntityQuery.fromUrl(req.url, "Orders").expand("Customer");
+  executeEntityQuery(entityQuery, null, res, next);
+}
+
+namedQuery.SearchEmployees = function(req, res, next) {
+
+  var employeeIds = req.query.employeeIds;
+  var pred = { EmployeeID: { in: employeeIds }};
+  var entityQuery = EntityQuery.fromUrl(req.url, "Employees").andWhere(pred);
+
+  executeEntityQuery(entityQuery, null, res, next);
+}
+
 namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req, res, next) {
-    var query = new breezeMongo.MongoQuery(req.query);
-    var birthDate = new Date(Date.parse(req.query.birthDate));
-    var country = req.query.country;
-    query.filter["BirthDate"] = { "$gte": birthDate };
-    query.filter["Country"] = country ;
-    query.execute(db, "Employees", processResults(res, next));
+  var birthDate = new Date(Date.parse(req.query.birthDate));
+  var country = req.query.country;
+  var pred = { BirthDate: { ge: birthDate}, Country: country };
+  var entityQuery = EntityQuery.fromUrl(req.url, "Employees").andWhere(pred);
+  executeEntityQuery(entityQuery, null, res, next);
 };
 
 // not yet implemented
+
+
+
 //public Object CustomerCountsByCountry() {
 //    return ContextProvider.Context.Customers.GroupBy(c => c.Country).Select(g => new { g.Key, Count = g.Count() });
 
@@ -145,20 +278,11 @@ namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req, res, next) {
 //public IQueryable<Object> CustomersWithBigOrders() {
 //    var stuff = ContextProvider.Context.Customers.Select(c => new { Customer = c, BigOrders = c.Orders.Where(o => o.Freight > 100) });
 
-//public IQueryable<Object> CompanyInfoAndOrders() {
-//    var stuff = ContextProvider.Context.Customers.Select(c => new { c.CompanyName, c.CustomerID, c.Orders });
-
 //public Object CustomersAndProducts() {
 //    var stuff = new { Customers = ContextProvider.Context.Customers.ToList(), Products = ContextProvider.Context.Products.ToList() };
 
-//public IQueryable<Customer> CustomersAndOrders() {
-//    var custs = ContextProvider.Context.Customers.Include("Orders");
-
-//public IQueryable<Order> OrdersAndCustomers() {
-//    var orders = ContextProvider.Context.Orders.Include("Customer");
-
 //exports.saveChanges = function(req, res, next) {
-//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, processResults(res, next));
+//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, returnResults(res, next));
 //    saveHandler.beforeSaveEntity = beforeSaveEntity;
 //    saveHandler.beforeSaveEntities = beforeSaveEntities;
 //    saveHandler.save();
@@ -225,15 +349,15 @@ function beforeSaveEntities(callback) {
 //
 //
 //exports.saveWithFreight = function(req, res, next) {
-//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, processResults(res, next));
+//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, returnResults(res, next));
 //    saveHandler.beforeSaveEntity = checkFreightOnOrder;
-//    saveHandler.save(db, req.body, processResults(res,next));
+//    saveHandler.save(db, req.body, returnResults(res,next));
 //}
 //
 //exports.saveWithFreight2 = function(req, res, next) {
-//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, processResults(res, next));
+//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, returnResults(res, next));
 //    saveHandler.beforeSaveEntities = checkFreightOnOrders;
-//    saveHandler.save(db, req.body, processResults(res,next));
+//    saveHandler.save(db, req.body, returnResults(res,next));
 //}
 //
 //exports.saveWithExit = function(req, res, next) {
@@ -273,7 +397,7 @@ function beforeSaveEntities(callback) {
 //}
 //
 //exports.saveWithComment = function(req, res, next) {
-//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, processResults(res, next));
+//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, returnResults(res, next));
 //    var dataProperties = [ {
 //        name: "_id",
 //        dataType: "MongoObjectId"
@@ -290,48 +414,10 @@ function beforeSaveEntities(callback) {
 //        this.addToSaveMap(entity, "Comment");
 //        callback();
 //    }
-//    saveHandler.save(db, req.body, processResults(res,next));
+//    saveHandler.save(db, req.body, returnResults(res,next));
 //
 //}
 //
 
 
-// not yet implemented
-//public Object CustomerCountsByCountry() {
-//    return ContextProvider.Context.Customers.GroupBy(c => c.Country).Select(g => new { g.Key, Count = g.Count() });
 
-// need expand support for these.
-//public IQueryable<Object> CustomersWithBigOrders() {
-//    var stuff = ContextProvider.Context.Customers.Select(c => new { Customer = c, BigOrders = c.Orders.Where(o => o.Freight > 100) });
-
-//public IQueryable<Object> CompanyInfoAndOrders() {
-//    var stuff = ContextProvider.Context.Customers.Select(c => new { c.CompanyName, c.CustomerID, c.Orders });
-
-//public Object CustomersAndProducts() {
-//    var stuff = new { Customers = ContextProvider.Context.Customers.ToList(), Products = ContextProvider.Context.Products.ToList() };
-
-//public IQueryable<Customer> CustomersAndOrders() {
-//    var custs = ContextProvider.Context.Customers.Include("Orders");
-
-//public IQueryable<Order> OrdersAndCustomers() {
-//    var orders = ContextProvider.Context.Orders.Include("Customer");
-
-
-function processResults(res, results) {
-  res.setHeader("Content-Type:", "application/json");
-  res.send(results);
-}
-
-//
-//
-//function processResultsFn(res, next) {
-//
-//  return function(err, results) {
-//    if (err) {
-//      next(err);
-//    } else {
-//      res.setHeader("Content-Type:", "application/json");
-//      res.send(results);
-//    }
-//  }
-//}

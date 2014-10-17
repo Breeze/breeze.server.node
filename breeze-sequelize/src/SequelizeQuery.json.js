@@ -17,8 +17,8 @@ EntityQuery.fromUrl = function(url, resourceName ) {
   var jsonQuery = JSON.parse(jsonQueryString);
 
   entityQuery = new EntityQuery(jsonQuery);
-  entityQuery = entityQuery.from(resourceName);
-  entityQuery.useNameOnServer = true;
+  entityQuery = entityQuery.from(resourceName).useNameOnServer(true);
+
   // for debugging
   entityQuery.jsonQuery = jsonQuery;
   return entityQuery;
@@ -77,7 +77,7 @@ SequelizeQuery.prototype._processQuery = function() {
 
   var section = entityQuery.takeCount;
   // not ok to ignore top: 0
-  if (section !== undefined) {
+  if (section != null) {
     // HACK: sequelize limit ignores limit(0) so we need to turn it into a limit(1)
     // and then 'ignore' the result later.
     sqQuery.limit = entityQuery.takeCount || 1;
@@ -100,12 +100,12 @@ SequelizeQuery.prototype._processQuery = function() {
 SequelizeQuery.prototype._processWhere = function() {
   var wherePredicate = this.entityQuery.wherePredicate;
   if (wherePredicate == null) return;
-  var where = wherePredicate.visit(toSQVisitor, {
+  var where = wherePredicate.visit({
     entityType: this.entityType,
-    useNameOnServer: true,
+    usesNameOnServer: this.entityQuery.usesNameOnServer,
     sequelizeQuery: this,
     metadataStore: this.metadataStore
-  });
+  }, toSQVisitor);
   // this can happen if all predicates are nested
   // in which case the top level where becomes null, and includes hold
   // the where clauses.
@@ -117,26 +117,31 @@ SequelizeQuery.prototype._processWhere = function() {
 
 SequelizeQuery.prototype._processSelect = function() {
   var selectClause = this.entityQuery.selectClause;
+  var usesNameOnServer = this.entityQuery.usesNameOnServer;
   if (selectClause == null) return;
   // extract any nest paths and move them onto the include
   var navPropertyPaths = [];
-  this.sqQuery.attributes = selectClause.propertyPaths.filter(function(pp) {
-    var props = this.entityType.getPropertiesOnPath(pp, true, true);
+  this.sqQuery.attributes = selectClause.propertyPaths.map(function(pp) {
+    var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
     var isNavPropertyPath = props[0].isNavigationProperty;
     if (isNavPropertyPath) {
       this._addInclude(null, props);
     }
-    return !isNavPropertyPath;
-  }, this);
+    if (isNavPropertyPath) return null;
+    return usesNameOnServer ?  pp : _.pluck(props, "nameOnServer").join(".");
+  }, this).filter(function(pp) {
+    return pp != null;
+  });
 }
 
 SequelizeQuery.prototype._processOrderBy = function() {
   var orderByClause = this.entityQuery.orderByClause;
+  var usesNameOnServer = this.entityQuery.usesNameOnServer;
   if (orderByClause == null) return;
   var orders = this.sqQuery.order = [];
   orderByClause.items.forEach(function(item) {
     var pp = item.propertyPath;
-    var props = this.entityType.getPropertiesOnPath(pp, true, true);
+    var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
     var isNavPropertyPath = props[0].isNavigationProperty;
     if (isNavPropertyPath) {
       this._addInclude(this.sqQuery, props);
@@ -163,9 +168,10 @@ SequelizeQuery.prototype._processOrderBy = function() {
 
 SequelizeQuery.prototype._processExpand = function() {
   var expandClause = this.entityQuery.expandClause;
+  var usesNameOnServer = this.entityQuery.usesNameOnServer;
   if (expandClause == null) return;
   expandClause.propertyPaths.forEach(function(pp) {
-    var props = this.entityType.getPropertiesOnPath(pp, true, true);
+    var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
     this._addInclude(null, props);
   }, this);
 };
@@ -188,11 +194,12 @@ SequelizeQuery.prototype._reshapeResults = function(sqResults) {
     sqResults = sqResults.rows;
   }
   var expandClause = this.entityQuery.expandClause;
+  var usesNameOnServer = this.entityQuery.usesNameOnServer;
   var expandPaths = [];
   if (expandClause) {
     // each expand path consist of an array of expand props.
     expandPaths = expandClause.propertyPaths.map(function (pp) {
-      return this.entityType.getPropertiesOnPath(pp, true, true);
+      return this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
     }, this);
   }
 
@@ -218,30 +225,45 @@ SequelizeQuery.prototype._reshapeResults = function(sqResults) {
 }
 
 SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
+  var inlineCount;
   if (this.entityQuery.inlineCountEnabled) {
     inlineCount = sqResults.count;
     sqResults = sqResults.rows;
   }
   var propertyPaths = this.entityQuery.selectClause.propertyPaths;
+  var usesNameOnServer = this.entityQuery.usesNameOnServer;
   var results = sqResults.map(function(sqResult) {
     // start with the sqResult and then promote nested properties up to the top level
     // while removing nested path.
     var result = sqResult.dataValues;
     var parent = sqResult;
     propertyPaths.forEach(function (pp) {
-      var props = this.entityType.getPropertiesOnPath(pp, true, true);
-      var lastProp = props[0];
-
-      while (props.length > 0 && props[0].isNavigationProperty) {
-        lastProp = props[0];
-        var oldParent = parent;
-        parent = parent[prop[0].nameOnServer];
+      var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
+      var nextProp = props[0];
+      remainingProps = props.slice(0);
+      while (remainingProps.length > 1 && nextProp.isNavigationProperty) {
         // remove node from parent
-        oldParent[prop[0].nameOnServer] = undefined;
-        props = props.slice(0);
+        var oldParent = parent;
+        oldParent[nextProp.nameOnServer] = undefined;
+        parent = parent[nextProp.nameOnServer];
+        remainingProps = remainingProps.slice(1);
+        nextProp = remainingProps[0];
       }
-      var val = parent[lastProp.nameOnServer];
-      val = val && (val.dataValues || val);
+      var val = parent[nextProp.nameOnServer];
+      // if last property in path is a nav prop then we need to wrap the results
+      // as either an entity or entities.
+      if (nextProp.isNavigationProperty) {
+        if (nextProp.isScalar) {
+          val = this._createResult(val, nextProp.entityType, true);
+        } else {
+          val = val.map(function(v) {
+            return this._createResult(v, nextProp.entityType, true);
+          }, this);
+        }
+      } else {
+        val = val && (val.dataValues || val);
+      }
+      pp = usesNameOnServer ? pp : _.pluck(props, "nameOnServer").join(".");
       result[pp] = val;
     }, this);
     return result;
@@ -330,9 +352,6 @@ SequelizeQuery.prototype._populateExpand = function(result, sqResult, expandProp
 
 }
 
-
-
-
 SequelizeQuery.prototype._addInclude = function(parent, props) {
   // returns 'last' include in props chain
   var prop = props[0];
@@ -382,7 +401,8 @@ var toSQVisitor = (function () {
       return this.value;
     },
 
-    unaryPredicate: function (context, predSQ) {
+    unaryPredicate: function (context ) {
+      var predSQ = this.pred.visit(context);
       if (this.op.key !== "not") {
         throw new Error("Not yet implemented: Unary operation: " + this.op.key + " pred: " + JSON.stringify(this.pred));
       }
@@ -390,21 +410,27 @@ var toSQVisitor = (function () {
     },
 
     binaryPredicate: function (context) {
-      var q = {};
+      var origQ = (context.include && context.include.where) || {};
       var op = this.op.key;
       // TODO: right now only handling case where e1 : PropExpr and e2 : LitExpr | PropExpr
       // not yet handled: e1: FnExpr | e2: FnExpr
 
-      var p1Value, p2Value;
+      var p1Value, p2Value, q;
       if (this.expr1.visitorMethodName === "propExpr") {
         p1Value = this.expr1.propertyPath;
-        var props = context.entityType.getPropertiesOnPath(p1Value, true, true);
+        var props = context.entityType.getPropertiesOnPath(p1Value, context.usesNameOnServer, true);
         if (props.length > 1) {
           // handle a nested property path on the LHS - query gets moved into the include
-          var include = context.sequelizeQuery._addInclude(null, props);
+          // context.include starts out null at top level
+          var include = context.sequelizeQuery._addInclude(context.include, props);
+
           // after this line the logic below will apply to the include instead of the top level where.
-          var q = include.where = include.where || {};
+          q = include.where = include.where || {};
         }
+        p1Value = props.map(function(p) {
+          return p.nameOnServer;
+        }).join(".");
+        q = q || origQ;
         if (this.expr2.visitorMethodName === "litExpr") {
           p2Value = this.expr2.value;
           if (op === "eq") {
@@ -423,6 +449,10 @@ var toSQVisitor = (function () {
           }
         } else if (this.expr2.visitorMethodName == "propExpr") {
           var p2Value = this.expr2.propertyPath;
+          var props = context.entityType.getPropertiesOnPath(p2Value, context.usesNameOnServer, true);
+          p2Value = props.map(function(p) {
+            return p.nameOnServer;
+          }).join(".");
           var colVal = Sequelize.col(p2Value);
           if (op === "eq") {
             q[p1Value] = colVal;
@@ -446,10 +476,13 @@ var toSQVisitor = (function () {
       } else {
         throw new Error("Not yet implemented: binary predicate with a expr1 type of: " + this.expr1.visitorMethodName + " - " + this.expr1.toString());
       }
-      return q;
+      return origQ;
     },
 
-    andOrPredicate: function (context, predSQs) {
+    andOrPredicate: function (context) {
+      var predSQs = this.preds.map(function(pred) {
+        return pred.visit(context);
+      });
       // compacting is needed because preds involving nested property paths
       // will have been removed ( moved onto an include).
       var preds = _.compact(predSQs);
@@ -474,7 +507,16 @@ var toSQVisitor = (function () {
     },
 
     anyAllPredicate: function (context) {
-      throw new Error("any/all processing not yet implemented");
+      if (this.op.key === "all") {
+        throw new Error("The 'all' predicate is not currently supported for Sequelize");
+      }
+      var props = context.entityType.getPropertiesOnPath(this.expr.propertyPath, context.usesNameOnServer, true);
+
+      var include = context.sequelizeQuery._addInclude(null, props);
+        // after this line the logic below will apply to the include instead of the top level where.
+      var q = include.where = include.where || {};
+
+
     },
 
     litExpr: function () {
@@ -554,12 +596,14 @@ function processAndOr( where) {
 }
 
 var _boolOpMap = {
-  eq: { jsOp: "===", not: "ne"},
-  gt: { sequelizeOp: "gt",  jsOp: ">", not: "le" },
-  ge: { sequelizeOp: "gte", jsOp: ">=", not: "lt"  },
-  lt: { sequelizeOp: "lt",  jsOp: "<" , not: "ge"},
-  le: { sequelizeOp: "lte", jsOp: "<=", not: "gt" },
-  ne: { sequelizeOp: "ne",  jsOp: "!=", not: "eq" }
+  eq: { not: "ne"},
+  gt: { sequelizeOp: "gt",  not: "le" },
+  ge: { sequelizeOp: "gte", not: "lt"  },
+  lt: { sequelizeOp: "lt",  not: "ge"},
+  le: { sequelizeOp: "lte", not: "gt" },
+  ne: { sequelizeOp: "ne",  not: "eq" },
+  in: { sequelizeOp: "in" },
+  like: { sequelizeOp: "like"}
 };
 
 var _notOps = {
