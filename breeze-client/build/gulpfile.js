@@ -1,3 +1,5 @@
+// Build for breeze.server.node-breeze-client
+
 var gulp    = require('gulp');
 var changed = require('gulp-changed');
 var shell   = require('gulp-shell')

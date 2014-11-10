@@ -100,19 +100,18 @@ SequelizeQuery.prototype._processQuery = function() {
 SequelizeQuery.prototype._processWhere = function() {
   var wherePredicate = this.entityQuery.wherePredicate;
   if (wherePredicate == null) return;
-  var where = wherePredicate.visit({
+  var sqQuery = wherePredicate.visit({
     entityType: this.entityType,
     usesNameOnServer: this.entityQuery.usesNameOnServer,
     sequelizeQuery: this,
     metadataStore: this.metadataStore
   }, toSQVisitor);
-  // this can happen if all predicates are nested
-  // in which case the top level where becomes null, and includes hold
-  // the where clauses.
-  if ( where != null) {
-    var where2 = processAndOr(where);
-    this.sqQuery.where = where2;
-  }
+
+
+  this.sqQuery.where = sqQuery.where;
+  this.sqQuery.include = sqQuery.includes;
+
+  processAndOr(this.sqQuery);
 }
 
 SequelizeQuery.prototype._processSelect = function() {
@@ -125,7 +124,7 @@ SequelizeQuery.prototype._processSelect = function() {
     var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
     var isNavPropertyPath = props[0].isNavigationProperty;
     if (isNavPropertyPath) {
-      this._addInclude(null, props);
+      this._addInclude(this.sqQuery, props);
     }
     if (isNavPropertyPath) return null;
     return usesNameOnServer ?  pp : _.pluck(props, "nameOnServer").join(".");
@@ -134,6 +133,38 @@ SequelizeQuery.prototype._processSelect = function() {
   });
 }
 
+SequelizeQuery.prototype._processOrderBy = function() {
+  var orderByClause = this.entityQuery.orderByClause;
+  var usesNameOnServer = this.entityQuery.usesNameOnServer;
+  if (orderByClause == null) return;
+  var orders = this.sqQuery.order = [];
+  orderByClause.items.forEach(function(item) {
+    var pp = item.propertyPath;
+    var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
+    var isNavPropertyPath = props[0].isNavigationProperty;
+    if (isNavPropertyPath) {
+      this._addInclude(this.sqQuery, props);
+    }
+
+    var r = [];
+    orders.push(r);
+
+    props.forEach(function(prop) {
+      if (prop.isNavigationProperty) {
+        var modelAs = this._getModelAs(prop)
+        r.push(modelAs);
+      } else {
+        r.push(prop.nameOnServer);
+        if (item.isDesc) {
+          r.push("DESC");
+        }
+      }
+    }, this);
+  }, this);
+
+};
+
+/*
 SequelizeQuery.prototype._processOrderBy = function() {
   var orderByClause = this.entityQuery.orderByClause;
   var usesNameOnServer = this.entityQuery.usesNameOnServer;
@@ -165,6 +196,7 @@ SequelizeQuery.prototype._processOrderBy = function() {
   }, this);
 
 };
+*/
 
 SequelizeQuery.prototype._processExpand = function() {
   var expandClause = this.entityQuery.expandClause;
@@ -172,7 +204,7 @@ SequelizeQuery.prototype._processExpand = function() {
   if (expandClause == null) return;
   expandClause.propertyPaths.forEach(function(pp) {
     var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
-    this._addInclude(null, props);
+    this._addInclude(this.sqQuery, props);
   }, this);
 };
 
@@ -355,7 +387,7 @@ SequelizeQuery.prototype._populateExpand = function(result, sqResult, expandProp
 SequelizeQuery.prototype._addInclude = function(parent, props) {
   // returns 'last' include in props chain
   var prop = props[0];
-  if (!parent) parent = this.sqQuery;
+  // if (!parent) parent = this.sqQuery;
   var include = this._getIncludeFor(parent, props[0]);
   // $disallowAttributes code is used to insure two things
   // 1) if a navigation property is declared as the last prop of a select or expand expression
@@ -393,6 +425,11 @@ SequelizeQuery.prototype._getIncludeFor = function(parent, prop) {
   return include;
 }
 
+SequelizeQuery.prototype._getModelAs = function(prop) {
+  var sqModel = this.sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
+  return {model: sqModel, as: prop.nameOnServer }
+}
+
 
 var toSQVisitor = (function () {
   var visitor = {
@@ -402,15 +439,19 @@ var toSQVisitor = (function () {
     },
 
     unaryPredicate: function (context ) {
-      var predSQ = this.pred.visit(context);
+      var predSq = this.pred.visit(context);
       if (this.op.key !== "not") {
         throw new Error("Not yet implemented: Unary operation: " + this.op.key + " pred: " + JSON.stringify(this.pred));
       }
-      return applyNot(predSQ);
+      if (!_.isEmpty(predSq.includes)) {
+        throw new Error("Unable to negate an expression that requires a Sequelize 'include'");
+      }
+      predSq.where =  applyNot(predSq.where);
+      return predSq;
     },
 
     binaryPredicate: function (context) {
-      var origQ = (context.include && context.include.where) || {};
+      var result = {}; // { includes: [], where: null }
       var op = this.op.key;
       // TODO: right now only handling case where e1 : PropExpr and e2 : LitExpr | PropExpr
       // not yet handled: e1: FnExpr | e2: FnExpr
@@ -422,30 +463,33 @@ var toSQVisitor = (function () {
         if (props.length > 1) {
           // handle a nested property path on the LHS - query gets moved into the include
           // context.include starts out null at top level
-          var include = context.sequelizeQuery._addInclude(context.include, props);
-
-          // after this line the logic below will apply to the include instead of the top level where.
-          q = include.where = include.where || {};
+          var include = context.sequelizeQuery._addInclude( {}, props);
+          result.includes = [ include ];
+          where = include.where = {}
+          p1Value = props[props.length-1].nameOnServer;
+        } else {
+          where = result.where = {};
+          p1Value = props[0].nameOnServer;
         }
-        p1Value = props.map(function(p) {
-          return p.nameOnServer;
-        }).join(".");
-        q = q || origQ;
+//        p1Value = props.map(function(p) {
+//          return p.nameOnServer;
+//        }).join(".");
+
         if (this.expr2.visitorMethodName === "litExpr") {
           p2Value = this.expr2.value;
           if (op === "eq") {
-            q[p1Value] = p2Value;
+            where[p1Value] = p2Value;
           } else if (op == "startswith") {
-            q[p1Value] = { like: p2Value + "%" };
+            where[p1Value] = { like: p2Value + "%" };
           } else if (op === "endswith") {
-            q[p1Value] = { like: "%" + p2Value };
+            where[p1Value] = { like: "%" + p2Value };
           } else if (op === "contains") {
-            q[p1Value] = { like: "%" + p2Value + "%" };
+            where[p1Value] = { like: "%" + p2Value + "%" };
           } else {
             var mop = _boolOpMap[op].sequelizeOp;
             var crit = {};
             crit[mop] = p2Value;
-            q[p1Value] = crit;
+            where[p1Value] = crit;
           }
         } else if (this.expr2.visitorMethodName == "propExpr") {
           var p2Value = this.expr2.propertyPath;
@@ -455,67 +499,105 @@ var toSQVisitor = (function () {
           }).join(".");
           var colVal = Sequelize.col(p2Value);
           if (op === "eq") {
-            q[p1Value] = colVal;
+            where[p1Value] = colVal;
           } else if (op === "startswith") {
-            q[p1Value] = { like: Sequelize.literal("concat(" + p2Value + ",'%')") };
+            where[p1Value] = { like: Sequelize.literal("concat(" + p2Value + ",'%')") };
           } else if (op === "endswith") {
-            q[p1Value] = { like: Sequelize.literal("concat('%'," + p2Value + ")") };
+            where[p1Value] = { like: Sequelize.literal("concat('%'," + p2Value + ")") };
           } else if (op === "contains") {
-            q[p1Value] = { like: Sequelize.literal("concat('%'," + p2Value + ",'%')") };
+            where[p1Value] = { like: Sequelize.literal("concat('%'," + p2Value + ",'%')") };
           } else {
             var mop = _boolOpMap[op].sequelizeOp;
             var crit = {};
             crit[mop] = colVal;
-            q[p1Value] = crit;
+            where[p1Value] = crit;
           }
         }
-        // check if query got moved into the include.
-        if (include != null) {
-          return null;
-        }
+
       } else {
         throw new Error("Not yet implemented: binary predicate with a expr1 type of: " + this.expr1.visitorMethodName + " - " + this.expr1.toString());
       }
-      return origQ;
+      return result;
     },
 
     andOrPredicate: function (context) {
-      var predSQs = this.preds.map(function(pred) {
+      var result = {}; // { includes: [], where: {} }
+      var predSqs = this.preds.map(function(pred) {
         return pred.visit(context);
       });
-      // compacting is needed because preds involving nested property paths
-      // will have been removed ( moved onto an include).
-      var preds = _.compact(predSQs);
 
-      if (this.op.key === "and") {
-        if (preds.length == 0) {
-          q = null;
-        } else if (preds.length == 1) {
-          q = preds[0];
-        } else {
-          q = { and: preds };
-          // q = Sequelize.and(q1, q2);
-        }
+      if (predSqs.length == 0) {
+        return null;
+      } else if (predSqs.length == 1) {
+        return predSqs[0];
       } else {
-        if (preds.length != predSQs.length) {
+        var wheres = [];
+        var includes = [];
+        var that = this;
+        predSqs.forEach(function(predSq) {
+          if (!_.isEmpty(predSq.where)) {
+            wheres.push(predSq.where);
+          }
+          if (!_.isEmpty(predSq.includes)) {
+            predSq.includes.forEach(function(inc) {
+              var include = _.find(includes, { model: inc.model });
+              if (!include) {
+                includes.push(inc);
+              } else {
+                if (include.where == null) {
+                  include.where = inc.where;
+                } else if (inc.where != null) {
+                  var where = {};
+                  where[that.op.key] = [ include.where, inc.where ] ;
+                  include.where = where;
+                }
+                if ( include.attributes == null || include.attributes.length == 0) {
+                  include.attributes = inc.attributes;
+                } else if (inc.attributes != null) {
+                  include.attributes = _.uniq(include.attributes.concat(inc.attributes));
+                }
+              }
+            });
+          }
+        });
+      }
+      if (this.op.key === "and") {
+        if (wheres.length > 0) {
+          result.where = wheres.length == 1 ? wheres[0] : { and: wheres };
+        }
+        // q = Sequelize.and(q1, q2);
+      } else {
+        if (includes.length > 1 || (includes.length == 1 && wheres.length != 0)) {
           throw new Error("Cannot translate a query with nested property paths and 'OR' conditions to Sequelize. (Sorry).")
         }
-        q = { or: preds };
+        if (wheres.length > 0) {
+          result.where = wheres.length == 1 ? wheres[0] : { or: wheres };
+        }
         // q = Sequelize.or(q1, q2);
       }
-      return q;
+      result.includes = includes;
+      return result;
     },
+
+
 
     anyAllPredicate: function (context) {
       if (this.op.key === "all") {
         throw new Error("The 'all' predicate is not currently supported for Sequelize");
       }
+
       var props = context.entityType.getPropertiesOnPath(this.expr.propertyPath, context.usesNameOnServer, true);
+      var include = context.sequelizeQuery._addInclude( {}, props);
+      var newContext = _.clone(context);
+      newContext.entityType = this.expr.dataType;
 
-      var include = context.sequelizeQuery._addInclude(null, props);
-        // after this line the logic below will apply to the include instead of the top level where.
-      var q = include.where = include.where || {};
+      // after this line the logic below will apply to the include instead of the top level where.
+      // predicate is applied to inner context
 
+      var r = this.pred.visit(newContext);
+      include.where = r.where;
+      include.includes = r.includes;
+      return { includes: [ include] }
 
     },
 
@@ -577,17 +659,26 @@ function applyNot(q1) {
 }
 
 // needed to convert 'or:' and 'and:' clauses into Sequelize.and/or clauses
-function processAndOr( where) {
-  var clauses;
-  if ( where.and) {
-    clauses = where.and.map(function(clause) {
-      return processAndOr(clause);
+function processAndOr( parent) {
+  if (parent == null) return;
+  if (parent.where) {
+    parent.where = processAndOrClause(parent.where);
+  }
+  parent.include && parent.include.forEach(function(inc) {
+    processAndOr(inc);
+  });
+}
+
+function processAndOrClause(where) {
+  if (where.and) {
+    clauses = where.and.map(function (clause) {
+      return processAndOrClause(clause);
     })
     return Sequelize.and.apply(null, clauses)
     // return Sequelize.and(clauses[0], clauses[1]);
   } else if (where.or) {
-    clauses = where.or.map(function(clause) {
-      return processAndOr(clause);
+    clauses = where.or.map(function (clause) {
+      return processAndOrClause(clause);
     })
     return Sequelize.or.apply(null, clauses);
   } else {

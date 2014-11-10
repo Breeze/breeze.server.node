@@ -1,13 +1,13 @@
 // These tests assume access to a mySql installation
 var fs               = require('fs');
 var expect           = require('chai').expect;
-var Sequelize        = require('sequelize');
+// var Sequelize        = require('sequelize');
 var Promise          = require('bluebird');
 var breezeSequelize  = require("breeze-sequelize");
 var testFns          = require('./testFns.js');
 
+var Sequelize        = breezeSequelize.Sequelize;
 var SequelizeManager = breezeSequelize.SequelizeManager;
-
 var log = testFns.log;
 var _ = Sequelize.Utils._;
 
@@ -20,7 +20,7 @@ describe("SequelizeQuery 2", function() {
     _nwSm = new SequelizeManager(testFns.dbConfigNw);
     var breezeMetadata = testFns.getMetadata();
     _nwSm.importMetadata(breezeMetadata);
-
+    // Sequelize = _nwSm.sequelize;
   });
 
   it("should be able to use functions", function(done) {
@@ -32,6 +32,14 @@ describe("SequelizeQuery 2", function() {
       )
     };
 
+
+   var q = {
+     where: Sequelize.where(
+         Sequelize.fn("UPPER", Sequelize.col("CompanyName")),
+         { like: 'B%' }
+     )
+   };
+
     _nwSm.models.Customers.findAll( q ).then(function(r) {
       expect(r).to.have.length.above(5);
       r.forEach(function(cust) {
@@ -39,6 +47,25 @@ describe("SequelizeQuery 2", function() {
       });
     }).then(done, done);
   });
+
+  it("should be able to perform subselect and still expand", function(done) {
+    var Order = _nwSm.models.Orders;
+    var Employee = _nwSm.models.Employees;
+    var q = {
+      include: [
+        { model: Order, as: "Orders", where: { Freight: { gt: 1000 } } }
+        // { model: Order, as: "Orders" }
+      ]
+    };
+    _nwSm.models.Employees.findAll(q).then(function (r) {
+      expect(r).to.have.length.above(5);
+      r.forEach(function (emp) {
+        var orders = emp.Orders;
+        var ordersR = emp.OrdersRestricted;
+      });
+    }).then(done, done);
+  });
+
 
   it("should be able to project and include nonscalar props in same query", function(done) {
     var Order = _nwSm.models.Orders;
@@ -163,8 +190,8 @@ describe("SequelizeQuery 2", function() {
 
 
   var buildOrQuery = function() {
-    var c1= { CompanyName: { like: 'B%'} };
-    var c2 = { City: { like: 'L%' } };
+    var c1= { "CompanyName": { like: 'B%'} };
+    var c2 = { "City": { like: 'L%' } };
     var q = {
       where: Sequelize.or( c1, c2 )
     };
@@ -181,6 +208,19 @@ describe("SequelizeQuery 2", function() {
     }).then(done, done);
   });
 
+  it("should be able to use Sequelize.or 2 ", function(done) {
+
+    var q = {
+      where:  Sequelize.or( { City: { like: "L%"} }, { CompanyName: { like: "B%" } })
+      // where:   { City: { like: 'L%'}, CompanyName: { like: 'B%' } }
+    };
+
+
+    _nwSm.models.Customers.findAll( q).then(function(r) {
+      expect(r).to.have.length.above(10);
+    }).then(done, done);
+  });
+
   it("should be able to use Sequelize.and ", function(done) {
     var Order = _nwSm.models.Orders;
     var q = {
@@ -190,4 +230,18 @@ describe("SequelizeQuery 2", function() {
       expect(r).to.have.length.above(1);
     }).then(done, done);
   });
+
+  it("should be able to use 'like' with empty include", function(done) {
+    var q = {
+      where: { CompanyName: { like: 'B%'} },
+      include: []
+    };
+    _nwSm.models.Customers.findAll( q).then(function(r) {
+      expect(r).to.have.length.above(5);
+      r.forEach(function(cust) {
+        expect(cust.CompanyName).to.match(/B.*/);
+      });
+    }).then(done, done);
+  });
+
 });

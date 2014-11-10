@@ -39,6 +39,26 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     return sq;
   }
 
+  it("should be able to use 'any'", function (done) {
+    // problem here is that the query works fine EXCEPT
+    // that the expand only returns orders.freight > 950
+    // not all orders that match the parent;
+    var q = EntityQuery.from("Employees")
+        .where("orders", "any", "freight", ">", 950)
+        .expand("orders");
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(1);
+      r.forEach(function (emp) {
+        ok = emp.Orders.some(function (order) {
+          return order.Freight > 950;
+        });
+        expect(ok).true;
+      });
+
+    }).then(done, done);
+  });
+
   it("should be able to use 'in'", function (done) {
     // needs to turn the query into one with an include with a where condition.
     var countries = ['Austria', 'Italy', 'Norway']
@@ -202,6 +222,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
         .take(2);
     toSequelizeQuery(q).executeRaw().then(function (r) {
       expect(r).to.have.length(2);
+
       r.forEach(function(order) {
         expect(order).to.have.property("Customer");
         var cust = order.Customer;
@@ -253,9 +274,29 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     }).then(done, done);
   });
 
+  it("should succeed when or'ing on data properties of the same navigation property", function (done) {
+    var p =  { or: [
+      { "product.productID": { '>':  76} },
+      { "product.productName": {startsWith:  'Z'} }
+    ]};
+    var q = EntityQuery.from("OrderDetails")
+        .where(p);
+    toSequelizeQuery(q).executeRaw().then(function (r) {
+      expect(r).to.have.length.gt(1);
+      r.forEach(function(od) {
+        expect(od).to.have.property("Product");
+        var product = od.Product;
+        expect(product).to.have.property("ProductID");
+        expect(product).to.have.property("ProductName");
+        var ok = product.ProductID > 76 || product.ProductName.indexOf("Z") == 0;
+        expect(ok).true;
+      });
+    }).then(done, done);
+  });
+
   it("should fail on a nested query with an 'or' condition", function () {
     var p =  { or: [
-      { "product.productID": { '>':  11} },
+      { "quantity": { '>':  11} },
       { "product.productName": {startsWith:  'Q'} }
     ]};
     var q = EntityQuery.from("OrderDetails")
@@ -267,7 +308,6 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
       expect(e.message).to.contain('nested property paths');
     }
   });
-
 
 
   it("should be able to select from table with bool/tinyint cols", function (done) {

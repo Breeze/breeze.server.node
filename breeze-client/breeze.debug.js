@@ -275,13 +275,18 @@ function __toArray(item) {
 }
 
 // a version of Array.map that doesn't require an array, i.e. works on arrays and scalars.
-function __map(items, fn) {
+function __map(items, fn, includeNull) {
+  // whether to return nulls in array of results; default = true;
+  includeNull = includeNull == null ? true : includeNull;
   if (items == null) return items;
   var result;
   if (Array.isArray(items)) {
     result = [];
-    items.map(function (v, ix) {
-      result[ix] = fn(v, ix);
+    items.forEach(function (v, ix) {
+      var r = fn(v, ix);
+      if (r != null || includeNull) {
+        result[ix] = r;
+      }
     });
   } else {
     result = fn(items);
@@ -3233,7 +3238,7 @@ breeze.ValidationOptions = ValidationOptions;
   };
   //
 
-  complexArrayMixin._rejectChanges = function () {
+  complexArrayMixin._rejectChanges = function() {
     if (!this._origValues) return;
     var that = this;
     this.forEach(function (co) {
@@ -3243,7 +3248,6 @@ breeze.ValidationOptions = ValidationOptions;
     this._origValues.forEach(function (co) {
       that.push(co);
     });
-    Array.prototype.push.apply(this, this._origValues);
   };
 
   complexArrayMixin._acceptChanges = function () {
@@ -6235,7 +6239,7 @@ var MetadataStore = (function () {
   used when performing "local queries" in order to match the semantics of queries against a remote service.
   @param [config.serializerFn] A function that is used to mediate the serialization of instances of this type.
   **/
-  var ctor = function (config) {
+  var ctor = function MetadataStore(config) {
     config = config || { };
     assertConfig(config)
         .whereParam("namingConvention").isOptional().isInstanceOf(NamingConvention).withDefault(NamingConvention.defaultInstance)
@@ -7360,7 +7364,7 @@ var EntityType = (function () {
   @param [config.serializerFn] A function that is used to mediate the serialization of instances of this type.
   @param [config.custom] {Object}
   **/
-  var ctor = function (config) {
+  var ctor = function EntityType(config) {
     if (arguments.length > 1) {
       throw new Error("The EntityType ctor has a single argument that is either a 'MetadataStore' or a configuration object.");
     }
@@ -8288,7 +8292,7 @@ var ComplexType = (function () {
   @param [config.dataProperties] {Array of DataProperties}
   @param [config.custom] {Object}
   **/
-  var ctor = function (config) {
+  var ctor = function ComplexType(config) {
     if (arguments.length > 1) {
       throw new Error("The ComplexType ctor has a single argument that is a configuration object.");
     }
@@ -8517,7 +8521,7 @@ var DataProperty = (function () {
   @param [config.validators] {Array of Validator}
   @param [config.custom] {Object}
   **/
-  var ctor = function (config) {
+  var ctor = function DataProperty(config) {
     assertConfig(config)
         .whereParam("name").isString().isOptional()
         .whereParam("nameOnServer").isString().isOptional()
@@ -8863,7 +8867,7 @@ var NavigationProperty = (function () {
   the NamingConvention on the MetadataStore associated with the EntityType to which this will be added.
   @param [config.validators] {Array of Validator}
   **/
-  var ctor = function (config) {
+  var ctor = function NavigationProperty(config) {
     assertConfig(config)
         .whereParam("name").isString().isOptional()
         .whereParam("nameOnServer").isString().isOptional()
@@ -11111,6 +11115,7 @@ breeze.Predicate = Predicate;
 
   /**
   Returns a new query that orders the results of the query by property name.  By default sorting occurs is ascending order, but sorting in descending order is supported as well.
+  OrderBy clauses may be chained.
   @example
       var query = new EntityQuery("Customers")
         .orderBy("CompanyName");
@@ -11144,7 +11149,11 @@ breeze.Predicate = Predicate;
   proto.orderBy = function (propertyPaths, isDescending) {
     // propertyPaths: can pass in create("A.X,B") or create("A.X desc, B") or create("A.X desc,B", true])
     // isDesc parameter trumps isDesc in propertyName.
+
     var orderByClause = propertyPaths == null ? null : new OrderByClause(normalizePropertyPaths(propertyPaths), isDescending);
+    if (this.orderByClause && orderByClause) {
+      orderByClause = new OrderByClause([this.orderByClause, orderByClause]);
+    }
     return clone(this, "orderByClause", orderByClause);
   }
   
@@ -11990,7 +11999,13 @@ var BooleanQueryOp = (function () {
 var OrderByClause = (function () {
   
   var ctor = function (propertyPaths, isDesc) {
+
     if (propertyPaths.length > 1) {
+      // you can also pass in an array of orderByClauses
+      if (propertyPaths[0] instanceof OrderByClause) {
+        this.items = Array.prototype.concat.apply(propertyPaths[0].items, propertyPaths.slice(1).map(__pluck("items")) );
+        return;
+      }
       var items = propertyPaths.map(function (pp) {
         return new OrderByItem(pp, isDesc);
       });
@@ -12007,6 +12022,8 @@ var OrderByClause = (function () {
       item.validate(entityType)
     });
   };
+
+
   
   proto.getComparer = function (entityType) {
     var orderByFuncs = this.items.map(function (obc) {
@@ -14015,21 +14032,11 @@ var EntityManager = (function () {
 
   // protected methods
 
-  //proto._checkStateChange = function (entity, oldEntityState, newEntityState) {
-  //    if (oldEntityState == newEntityState) return;
-  //    var isUnchanged = newEntityState == EntityState.Unchanged;
-  //    this._notifyStateChange(entity, !isUnchanged);
-  //};
-
-
   proto._notifyStateChange = function (entity, needsSave) {
     var ecArgs = { entityAction: EntityAction.EntityStateChange, entity: entity };
 
     if (needsSave) {
-      if (!this._hasChanges) {
-        this._setHasChanges(true);
-        this.entityChanged.publish(ecArgs);
-      }
+      if (!this._hasChanges) this._setHasChanges(true);
     } else {
       // called when rejecting a change or merging an unchanged record.
       // NOTE: this can be slow with lots of entities in the cache.
@@ -14040,12 +14047,13 @@ var EntityManager = (function () {
             this._setHasChanges(null);
             this.entityChanged.publish(ecArgs);
           }.bind(this);
+          return;
         } else {
           this._setHasChanges(null);
-          this.entityChanged.publish(ecArgs);
         }
       }
     }
+    this.entityChanged.publish(ecArgs);
   };
 
   proto._setHasChanges = function (hasChanges) {
@@ -14576,7 +14584,8 @@ var EntityManager = (function () {
         dataService: dataService,
         mergeOptions: {
           mergeStrategy: queryOptions.mergeStrategy,
-          noTracking: !!query.noTrackingEnabled
+          noTracking: !!query.noTrackingEnabled,
+          includeDeleted: queryOptions.includeDeleted
         }
       });
 
@@ -14981,7 +14990,7 @@ var MappingContext = (function () {
         meta.entityType = query._getToEntityType && query._getToEntityType(that.metadataStore);
       }
       return processMeta(that, node, meta);
-    });
+    }, this.mergeOptions.includeDeleted);
   };
 
   proto.processDeferred = function () {
@@ -15113,6 +15122,7 @@ var MappingContext = (function () {
     }
   }
 
+  // can return null for a deleted entity if includeDeleted == false
   function mergeEntity(mc, node, meta) {
     node._$meta = meta;
     var em = mc.entityManager;
@@ -15157,6 +15167,9 @@ var MappingContext = (function () {
             em._notifyStateChange(targetEntity, false);
           }
         } else {
+          if (targetEntityState == EntityState.Deleted && !mc.mergeOptions.includeDeleted) {
+            return null;
+          }
           updateEntityNoMerge(mc, targetEntity, node);
         }
       }

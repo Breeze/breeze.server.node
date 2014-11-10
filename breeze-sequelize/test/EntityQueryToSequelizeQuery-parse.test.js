@@ -16,6 +16,7 @@ var _ = Sequelize.Utils._;
 var log = testFns.log;
 
 describe("EntityQuery to SequelizeQuery - parse", function() {
+
   this.enableTimeouts(false);
 
   var _ms, _em, _sm;

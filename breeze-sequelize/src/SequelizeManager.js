@@ -21,6 +21,9 @@ function SequelizeManager(dbConfig) {
   });
 }
 
+// Expose Sequelize from outside
+SequelizeManager.Sequelize = Sequelize;
+
 // returns Promise(null);
 SequelizeManager.prototype.authenticate = function() {
   // check database connection
