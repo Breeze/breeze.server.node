@@ -26,8 +26,8 @@ EntityQuery.fromUrl = function(url, resourceName ) {
 
 module.exports = SequelizeQuery;
 
-// TODO: still need to add support for OData fns like toUpper, length etc.
-// TODO: still need to add support for OData any/all
+// TODO: still need to add support for fns like toUpper, length etc.
+// TODO: still need to add support for any/all
 
 // config.url:
 // config.pathName: if null - url
@@ -163,40 +163,6 @@ SequelizeQuery.prototype._processOrderBy = function() {
   }, this);
 
 };
-
-/*
-SequelizeQuery.prototype._processOrderBy = function() {
-  var orderByClause = this.entityQuery.orderByClause;
-  var usesNameOnServer = this.entityQuery.usesNameOnServer;
-  if (orderByClause == null) return;
-  var orders = this.sqQuery.order = [];
-  orderByClause.items.forEach(function(item) {
-    var pp = item.propertyPath;
-    var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
-    var isNavPropertyPath = props[0].isNavigationProperty;
-    if (isNavPropertyPath) {
-      this._addInclude(this.sqQuery, props);
-    }
-    var nextParent = this.sqQuery;
-    var r = [];
-    orders.push(r);
-
-    props.forEach(function(prop) {
-      if (prop.isNavigationProperty) {
-        nextParent = this._getIncludeFor(nextParent, prop)
-        r.push(nextParent);
-      } else {
-        if (item.isDesc) {
-          r.push([ prop.nameOnServer, "DESC"]);
-        } else {
-          r.push(prop.nameOnServer);
-        }
-      }
-    }, this);
-  }, this);
-
-};
-*/
 
 SequelizeQuery.prototype._processExpand = function() {
   var expandClause = this.entityQuery.expandClause;
@@ -456,66 +422,66 @@ var toSQVisitor = (function () {
       // TODO: right now only handling case where e1 : PropExpr and e2 : LitExpr | PropExpr
       // not yet handled: e1: FnExpr | e2: FnExpr
 
-      var p1Value, p2Value, q;
+      var where, p1Value, p2Value, q;
       if (this.expr1.visitorMethodName === "propExpr") {
-        p1Value = this.expr1.propertyPath;
-        var props = context.entityType.getPropertiesOnPath(p1Value, context.usesNameOnServer, true);
-        if (props.length > 1) {
-          // handle a nested property path on the LHS - query gets moved into the include
-          // context.include starts out null at top level
-          var include = context.sequelizeQuery._addInclude( {}, props);
-          result.includes = [ include ];
-          where = include.where = {}
-          p1Value = props[props.length-1].nameOnServer;
-        } else {
-          where = result.where = {};
-          p1Value = props[0].nameOnServer;
-        }
-//        p1Value = props.map(function(p) {
-//          return p.nameOnServer;
-//        }).join(".");
-
-        if (this.expr2.visitorMethodName === "litExpr") {
-          p2Value = this.expr2.value;
-          if (op === "eq") {
-            where[p1Value] = p2Value;
-          } else if (op == "startswith") {
-            where[p1Value] = { like: p2Value + "%" };
-          } else if (op === "endswith") {
-            where[p1Value] = { like: "%" + p2Value };
-          } else if (op === "contains") {
-            where[p1Value] = { like: "%" + p2Value + "%" };
-          } else {
-            var mop = _boolOpMap[op].sequelizeOp;
-            var crit = {};
-            crit[mop] = p2Value;
-            where[p1Value] = crit;
-          }
-        } else if (this.expr2.visitorMethodName == "propExpr") {
-          var p2Value = this.expr2.propertyPath;
-          var props = context.entityType.getPropertiesOnPath(p2Value, context.usesNameOnServer, true);
-          p2Value = props.map(function(p) {
-            return p.nameOnServer;
-          }).join(".");
-          var colVal = Sequelize.col(p2Value);
-          if (op === "eq") {
-            where[p1Value] = colVal;
-          } else if (op === "startswith") {
-            where[p1Value] = { like: Sequelize.literal("concat(" + p2Value + ",'%')") };
-          } else if (op === "endswith") {
-            where[p1Value] = { like: Sequelize.literal("concat('%'," + p2Value + ")") };
-          } else if (op === "contains") {
-            where[p1Value] = { like: Sequelize.literal("concat('%'," + p2Value + ",'%')") };
-          } else {
-            var mop = _boolOpMap[op].sequelizeOp;
-            var crit = {};
-            crit[mop] = colVal;
-            where[p1Value] = crit;
-          }
-        }
-
+        p1Value = processPropExpr(this.expr1, context, result);
+      } else if (this.expr1.visitorMethodName == "fnExpr") {
+        p1Value = processFnExpr(this.expr1, context, result);
       } else {
+        // also note that literal exprs are not allowed for expr1 ( i.e. only allowed on expr2)
         throw new Error("Not yet implemented: binary predicate with a expr1 type of: " + this.expr1.visitorMethodName + " - " + this.expr1.toString());
+      }
+
+
+
+      var crit;
+      if (this.expr2.visitorMethodName === "litExpr") {
+        p2Value = this.expr2.value;
+        if (op === "eq") {
+          crit = p2Value;
+          // where[p1Value] = p2Value;
+
+        } else if (op == "startswith") {
+          crit = { like: p2Value + "%" };
+        } else if (op === "endswith") {
+          crit = { like: "%" + p2Value };
+        } else if (op === "contains") {
+          crit =  { like: "%" + p2Value + "%" };
+        } else {
+          crit = {};
+          var mop = _boolOpMap[op].sequelizeOp;
+          crit[mop] = p2Value;
+        }
+
+      } else if (this.expr2.visitorMethodName == "propExpr") {
+        var p2Value = this.expr2.propertyPath;
+        var props = context.entityType.getPropertiesOnPath(p2Value, context.usesNameOnServer, true);
+        p2Value = props.map(function(p) {
+          return p.nameOnServer;
+        }).join(".");
+        var colVal = Sequelize.col(p2Value);
+        if (op === "eq") {
+          crit =  colVal;
+        } else if (op === "startswith") {
+          crit =  { like: Sequelize.literal("concat(" + p2Value + ",'%')") };
+        } else if (op === "endswith") {
+          crit =  { like: Sequelize.literal("concat('%'," + p2Value + ")") };
+        } else if (op === "contains") {
+          crit = { like: Sequelize.literal("concat('%'," + p2Value + ",'%')") };
+        } else {
+          var crit = {};
+          var mop = _boolOpMap[op].sequelizeOp;
+          crit[mop] = colVal;
+        }
+      } else {
+        throw new Error("Not yet implemented: binary predicate with a expr2 type of: " + this.expr2.visitorMethodName + " - " + this.expr2.toString());
+      }
+      where = makeWhere(p1Value, crit);
+      // the 'where' clause may be on a nested include
+      if (result.includes && result.includes.length > 0) {
+        result.includes[0].where = where;
+      } else {
+        result.where = where;
       }
       return result;
     },
@@ -611,9 +577,94 @@ var toSQVisitor = (function () {
 
     fnExpr: function (context) {
     }
+
+
   };
 
+  function makeWhere(p1Value, crit) {
+    if (typeof(p1Value) == 'string') {
+      where = {};
+      where[p1Value] = crit;
+    } else {
+      where = Sequelize.where(p1Value, crit);
+    }
+    return where;
+  }
 
+
+  function processPropExpr(expr, context, result) {
+    var exprVal;
+    var pp = expr.propertyPath;
+    var props = context.entityType.getPropertiesOnPath(pp, context.usesNameOnServer, true);
+    if (props.length > 1) {
+      // handle a nested property path on the LHS - query gets moved into the include
+      // context.include starts out null at top level
+      var include = context.sequelizeQuery._addInclude({}, props);
+      include.where = {}
+      result.includes = [ include ];
+      exprVal = props[props.length - 1].nameOnServer;
+    } else {
+      result.where = {};
+      exprVal = props[0].nameOnServer;
+    }
+    return exprVal;
+  }
+
+  function processFnExpr(expr, context, result) {
+    var fnName = expr.fnName;
+    var methodInfo = translateMap[fnName];
+    if (methodInfo == null) {
+      throw new Error('Unable to locate fn: ' + fnName);
+    }
+    var exprs = expr.exprs.map(function (ex) {
+      return processNestedExpr(ex, context, result);
+    })
+    exprVal = methodInfo.fn(exprs);
+    return exprVal;
+  }
+
+  function processNestedExpr(expr, context, result) {
+    var exprVal;
+    if (expr.visitorMethodName === 'propExpr') {
+      exprVal = processPropExpr(expr, context, result);
+      return Sequelize.col(exprVal);
+    } else if (expr.vistorMethodName == 'fnExpr') {
+      var exprVal = processFnExpr(expr, context, result);
+      return exprVal;
+    } else if (expr.visitorMethodName = 'litExpr') {
+      return expr.value;
+    } else {
+      throw new Error("Unable to understand expr for: " + this.expr.visitorMethodName + " - " + this.expr.toString());
+    }
+  }
+
+  var translateMap = {
+    toupper: {
+      fn: function(sqArgs) {
+        return Sequelize.fn("UPPER", sqArgs[0] );
+      }
+    },
+    tolower: {
+      fn: function(sqArgs) {
+        return Sequelize.fn("LOWER", sqArgs[0] );
+      }
+    },
+    substring: {
+      fn: function (sqArgs) {
+        // MySQL's substring is 1 origin - javascript ( and breeze's ) is O origin.
+        return Sequelize.fn("SUBSTRING", sqArgs[0], 1+parseInt(sqArgs[1],10), parseInt(sqArgs[2], 10));
+      }
+    }
+  }
+
+  var simpleFnNames = ['length', 'trim', 'ceiling', 'floor', 'round', 'second', 'minute', 'hour', 'day', 'month', 'year'];
+  simpleFnNames.forEach(function(fnName) {
+    translateMap[fnName] = {
+      fn: function (sqArgs) {
+        return Sequelize.fn(fnName.toUpperCase(), sqArgs[0]);
+      }
+    }
+  });
 
 
   return visitor;

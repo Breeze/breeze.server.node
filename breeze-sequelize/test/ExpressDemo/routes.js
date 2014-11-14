@@ -5,6 +5,7 @@ var breeze = require('breeze-client');
 
 var SequelizeManager =breezeSequelize.SequelizeManager;
 var SequelizeQuery = breezeSequelize.SequelizeQuery;
+var SequelizeSaveHandler = breezeSequelize.SequelizeSaveHandler;
 var EntityQuery = breeze.EntityQuery;
 
 var _dbConfigNw = {
@@ -46,6 +47,16 @@ exports.get = function (req, res, next) {
   }
 };
 
+exports.saveChanges = function(req, res, next) {
+  var saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
+  saveHandler.beforeSaveEntity = beforeSaveEntity;
+  saveHandler.beforeSaveEntities = beforeSaveEntities;
+  saveHandler.save().then(function(r) {
+    returnResults(r, res);
+  }).catch(function(e) {
+    next(e);
+  });
+};
 
 function executeEntityQuery(entityQuery, returnResultsFn, res, next) {
   var returnResultsFn = returnResultsFn || returnResults;
@@ -54,6 +65,21 @@ function executeEntityQuery(entityQuery, returnResultsFn, res, next) {
     returnResultsFn(r, res);
   }).catch(next)
 }
+
+
+
+function processResults(res, next) {
+
+  return function(err, results) {
+    if (err) {
+      next(err);
+    } else {
+      res.setHeader("Content-Type:", "application/json");
+      res.send(results);
+    }
+  }
+}
+
 
 function returnResults(results, res) {
   res.setHeader("Content-Type:", "application/json");
@@ -72,7 +98,7 @@ namedQuery.CustomerFirstOrDefault = function(req, res, next) {
 
 namedQuery.CustomersStartingWithA = function(req, res, next) {
   var entityQuery = EntityQuery.fromUrl(req.url, "Customers")
-    .andWhere("CompanyName", "startsWith", "A");
+    .where("CompanyName", "startsWith", "A");
   executeEntityQuery(entityQuery, null, res, next);
 
 };
@@ -86,7 +112,7 @@ namedQuery.CustomersStartingWith = function(req, res, next) {
   }
   // need to use upper case because base query came from server
   var pred = new breeze.Predicate("CompanyName", "startsWith", companyName);
-  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").andWhere(pred);
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").where(pred);
   executeEntityQuery(entityQuery, null, res, next);
 };
 
@@ -96,7 +122,7 @@ namedQuery.CustomersOrderedStartingWith =    function(req, res, next) {
     var companyName = req.query.companyName;
   // need to use upper case because base query came from server
     var entityQuery = EntityQuery.fromUrl(req.url, "Customers")
-        .andWhere("CompanyName", "startsWith", companyName)
+        .where("CompanyName", "startsWith", companyName)
         .orderBy("CompanyName");
     executeEntityQuery(entityQuery, null, res, next);
 }
@@ -254,7 +280,7 @@ namedQuery.SearchEmployees = function(req, res, next) {
 
   var employeeIds = req.query.employeeIds;
   var pred = { EmployeeID: { in: employeeIds }};
-  var entityQuery = EntityQuery.fromUrl(req.url, "Employees").andWhere(pred);
+  var entityQuery = EntityQuery.fromUrl(req.url, "Employees").where(pred);
 
   executeEntityQuery(entityQuery, null, res, next);
 }
@@ -263,7 +289,7 @@ namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req, res, next) {
   var birthDate = new Date(Date.parse(req.query.birthDate));
   var country = req.query.country;
   var pred = { BirthDate: { ge: birthDate}, Country: country };
-  var entityQuery = EntityQuery.fromUrl(req.url, "Employees").andWhere(pred);
+  var entityQuery = EntityQuery.fromUrl(req.url, "Employees").where(pred);
   executeEntityQuery(entityQuery, null, res, next);
 };
 

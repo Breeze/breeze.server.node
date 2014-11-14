@@ -15,7 +15,7 @@ var DataService = breeze.DataService;
 var _ = Sequelize.Utils._;
 var log = testFns.log;
 
-describe("EntityQuery to SequelizeQuery - execute", function () {
+describe.only("EntityQuery to SequelizeQuery - execute", function () {
   
   this.enableTimeouts(false);
 
@@ -38,6 +38,139 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     var sq = new SequelizeQuery(_sm, entityQuery);
     return sq;
   }
+
+  it("should be able to use fn 'toupper'", function (done) {
+//    var query = new EntityQuery()
+//        .from("Customers")
+//        .where("toUpper(substring(companyName, 1, 2))", "startsWith", "OM");
+    var q = EntityQuery.from("Customers")
+        .where("toUpper(CompanyName)", "startsWith", "C")
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(1);
+      r.forEach(function (cust) {
+        ok = cust.CompanyName.indexOf("C") == 0;
+        expect(ok).true;
+      });
+
+    }).then(done, done);
+  });
+
+
+  it("should be able to use fn 'tolower'", function (done) {
+    var q = EntityQuery.from("Customers")
+        .where("toLower(CompanyName)", "startsWith", "c")
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(1);
+      r.forEach(function (cust) {
+        ok = cust.CompanyName.indexOf("C") == 0;
+        expect(ok).true;
+      });
+
+    }).then(done, done);
+  });
+
+  it("should be able to use fn 'substring'", function (done) {
+    var q = EntityQuery.from("Customers")
+        .where("substring(CompanyName,0,2)", "==", "Co");
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(1);
+      r.forEach(function (cust) {
+        ok = cust.CompanyName.indexOf("Co") == 0;
+        expect(ok).true;
+      });
+
+    }).then(done, done);
+  });
+
+  it("should be able to use fn 'substring' and 'tolower'", function (done) {
+    var q = EntityQuery.from("Customers")
+        .where("substring(toLower(CompanyName),0,2)", "==", "om");
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+      r.forEach(function (cust) {
+        ok = cust.CompanyName.substring(0,2).toLowerCase() == 'om';
+        expect(ok).true;
+      });
+
+    }).then(done, done);
+  });
+
+  it("should be able to use fn 'length'", function (done) {
+    var minLength = 26;
+    var q = EntityQuery.from("Customers")
+        .where("length(Address)", ">", minLength)
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(5);
+      expect(r).to.have.length.lessThan(20);
+      r.forEach(function (cust) {
+        expect(cust.Address).to.have.length.greaterThan(minLength);
+      });
+
+    }).then(done, done);
+  });
+
+  it("should be able to use fn 'month'", function (done) {
+    var q = EntityQuery.from("Employees")
+        .where("month(BirthDate)", "==", 12)
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+
+      r.forEach(function (emp) {
+        expect(emp.BirthDate.getMonth()).to.eql(11);
+      });
+
+    }).then(done, done);
+  });
+
+  it("should be able to use fn 'day'", function (done) {
+    var q = EntityQuery.from("Employees")
+        .where("day(BirthDate)", ">", 20)
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+
+      r.forEach(function (emp) {
+        expect(emp.BirthDate.getDate()).to.be.greaterThan(20);
+      });
+
+    }).then(done, done);
+  });
+
+
+
+  it("should be able to use fn 'floor'", function (done) {
+    var q = EntityQuery.from("Orders")
+        .where("floor(freight)", "==", 10)
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+      expect(r).to.have.length.lessThan(15);
+      r.forEach(function (order) {
+        expect(Math.floor(order.Freight)).to.eql(10);
+      });
+
+    }).then(done, done);
+  });
+
+  it("should be able to use fn 'round'", function (done) {
+    var q = EntityQuery.from("Orders")
+        .where("round(freight)", "==", 10)
+    var sq = toSequelizeQuery(q)
+    sq.executeRaw().then(function (r) {
+      expect(r).to.have.length.greaterThan(0);
+      expect(r).to.have.length.lessThan(15);
+      r.forEach(function (order) {
+        expect(Math.round(order.Freight)).to.eql(10);
+      });
+
+    }).then(done, done);
+  });
 
   it("should be able to use 'any'", function (done) {
     // problem here is that the query works fine EXCEPT

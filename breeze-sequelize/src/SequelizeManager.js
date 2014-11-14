@@ -49,10 +49,6 @@ SequelizeManager.prototype.importMetadata = function(breezeMetadata) {
 
 };
 
-SequelizeManager.prototype.executeQuery = function(odataQueryString) {
-
-}
-
 // returns Promise(sequelize);
 SequelizeManager.prototype.sync = function(shouldCreateDb) {
   if (shouldCreateDb) {

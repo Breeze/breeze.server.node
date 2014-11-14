@@ -88,8 +88,11 @@ describe("SequelizeQuery 2", function() {
 
   it("should be able to project and include scalar props in same query", function(done) {
     var CustomerModel = _nwSm.models.Customers;
+    var where = Sequelize.where(Sequelize.col("Freight"), { gt: 100} );
+
     var q = {
-      where: { Freight: { gt: 100} },
+      // where: { Freight: { gt: 100} },
+      where: where,
       attributes: [ "OrderID", "Freight" ],
       include: [ { model: CustomerModel, as: "Customer", attributes: [ "CompanyName" , "City"] }]
     };
