@@ -66,18 +66,12 @@ function executeEntityQuery(entityQuery, returnResultsFn, res, next) {
   }).catch(next)
 }
 
-
-
-function processResults(res, next) {
-
-  return function(err, results) {
-    if (err) {
-      next(err);
-    } else {
-      res.setHeader("Content-Type:", "application/json");
-      res.send(results);
-    }
-  }
+function saveUsingCallback(saveHandler, res, next) {
+  saveHandler.save().then(function(r) {
+    returnResults(r, res);
+  }).catch(function(e) {
+    next(e);
+  });
 }
 
 
@@ -87,7 +81,6 @@ function returnResults(results, res) {
 }
 
 var namedQuery = {};
-
 
 namedQuery.CustomerFirstOrDefault = function(req, res, next) {
   // should return empty array
@@ -307,12 +300,6 @@ namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req, res, next) {
 //public Object CustomersAndProducts() {
 //    var stuff = new { Customers = ContextProvider.Context.Customers.ToList(), Products = ContextProvider.Context.Products.ToList() };
 
-//exports.saveChanges = function(req, res, next) {
-//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, returnResults(res, next));
-//    saveHandler.beforeSaveEntity = beforeSaveEntity;
-//    saveHandler.beforeSaveEntities = beforeSaveEntities;
-//    saveHandler.save();
-//};
 
 function beforeSaveEntity(entity) {
   if ( entity.entityAspect.entityTypeName.indexOf("Region") >= 0 && entity.entityAspect.entityState == "Added") {
@@ -321,18 +308,88 @@ function beforeSaveEntity(entity) {
   return true;
 }
 
-function beforeSaveEntities(callback) {
+function beforeSaveEntities(saveMap) {
   var tag = this.saveOptions.tag;
   if (tag === "increaseProductPrice") {
     this.registerEntityType("Product", "Products", "Identity");
   }
-  var categories = this.saveMap["Category"] || [];
+  var categories = saveMap["Category"] || [];
   categories.forEach(function(cat) {
     // NOT YET IMPLEMENTED
 
   });
-  callback();
 }
+//
+//
+exports.saveWithFreight = function(req, res, next) {
+    var saveHandler = new SequelizeSaveHandler(db, req);
+    saveHandler.beforeSaveEntity = checkFreightOnOrder;
+    saveUsingCallback(saveHandler, res, next);
+}
+
+
+exports.saveWithFreight2 = function(req, res, next) {
+  var saveHandler = new SequelizeSaveHandler(db, req);
+  saveHandler.beforeSaveEntities = checkFreightOnOrders;
+  saveUsingCallback(saveHandler, res, next);
+}
+
+exports.saveWithExit = function(req, res, next) {
+    res.setHeader("Content-Type:", "application/json");
+    results = {
+        entities: [],
+        keyMappings: []
+    }
+    res.send(results);
+}
+
+
+function checkFreightOnOrder(order) {
+    if (this.saveOptions.tag === "freight update") {
+        order.Freight = order.Freight + 1;
+    } else if (this.saveOptions.tag === "freight update-ov") {
+        order.Freight = order.Freight + 1;
+        order.entityAspect.originalValuesMap["Freight"] = null;
+    } else if (this.saveOptions.tag === "freight update-force") {
+        order.Freight = order.Freight + 1;
+        order.entityAspect.forceUpdate = true;
+    }
+    return true;
+}
+
+function checkFreightOnOrders(saveMap) {
+    var orderTypeName = this.qualifyTypeName("Order");
+    var orders = saveMap[orderTypeName] || [];
+    var fn = checkFreightOnOrder.bind(this);
+    orders.forEach(function(order) {
+        fn(order);
+    });
+    callback();
+}
+
+//exports.saveWithComment = function(req, res, next) {
+//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, returnResults(res, next));
+//    var dataProperties = [ {
+//        name: "_id",
+//        dataType: "MongoObjectId"
+//    }];
+//
+//    saveHandler.registerEntityType("Comment", "Comments", "Identity", dataProperties);
+//    saveHandler.beforeSaveEntities = function(callback) {
+//        var tag = this.saveOptions.tag;
+//        var entity = {
+//            Comment1: (tag == null) ? "Generic comment" : tag,
+//            CreatedOn: new Date(),
+//            SeqNum: 1
+//        };
+//        this.addToSaveMap(entity, "Comment");
+//        callback();
+//    }
+//    saveHandler.save(db, req.body, returnResults(res,next));
+//
+//}
+
+
 
 // C# version
 //protected override Dictionary<Type, List<EntityInfo>> BeforeSaveEntities(Dictionary<Type, List<EntityInfo>> saveMap) {
@@ -372,78 +429,5 @@ function beforeSaveEntities(callback) {
 //    return base.BeforeSaveEntities(saveMap);
 
 //
-//
-//
-//exports.saveWithFreight = function(req, res, next) {
-//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, returnResults(res, next));
-//    saveHandler.beforeSaveEntity = checkFreightOnOrder;
-//    saveHandler.save(db, req.body, returnResults(res,next));
-//}
-//
-//exports.saveWithFreight2 = function(req, res, next) {
-//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, returnResults(res, next));
-//    saveHandler.beforeSaveEntities = checkFreightOnOrders;
-//    saveHandler.save(db, req.body, returnResults(res,next));
-//}
-//
-//exports.saveWithExit = function(req, res, next) {
-//    res.setHeader("Content-Type:", "application/json");
-//    results = {
-//        insertedKeys: [],
-//        deletedKeys: [],
-//        updatedKeys: [],
-//        keyMappings: [],
-//        entitiesCreatedOnServer: []
-//    }
-//    res.send(results);
-//}
-//
-//
-//function checkFreightOnOrder(order) {
-//    if (this.saveOptions.tag === "freight update") {
-//        order.Freight = order.Freight + 1;
-//    } else if (this.saveOptions.tag === "freight update-ov") {
-//        order.Freight = order.Freight + 1;
-//        order.entityAspect.originalValuesMap["Freight"] = null;
-//    } else if (this.saveOptions.tag === "freight update-force") {
-//        order.Freight = order.Freight + 1;
-//        order.entityAspect.forceUpdate = true;
-//    }
-//    return true;
-//}
-//
-//function checkFreightOnOrders(callback) {
-//    var orderTypeName = this.qualifyTypeName("Order");
-//    var orders = this.saveMap[orderTypeName] || [];
-//    var fn = checkFreightOnOrder.bind(this);
-//    orders.forEach(function(order) {
-//        fn(order);
-//    });
-//    callback();
-//}
-//
-//exports.saveWithComment = function(req, res, next) {
-//    var saveHandler = new breezeMongo.MongoSaveHandler(db, req.body, returnResults(res, next));
-//    var dataProperties = [ {
-//        name: "_id",
-//        dataType: "MongoObjectId"
-//    }];
-//
-//    saveHandler.registerEntityType("Comment", "Comments", "Identity", dataProperties);
-//    saveHandler.beforeSaveEntities = function(callback) {
-//        var tag = this.saveOptions.tag;
-//        var entity = {
-//            Comment1: (tag == null) ? "Generic comment" : tag,
-//            CreatedOn: new Date(),
-//            SeqNum: 1
-//        };
-//        this.addToSaveMap(entity, "Comment");
-//        callback();
-//    }
-//    saveHandler.save(db, req.body, returnResults(res,next));
-//
-//}
-//
-
 
 

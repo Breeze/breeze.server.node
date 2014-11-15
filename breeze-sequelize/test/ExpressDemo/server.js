@@ -17,11 +17,11 @@ app.get('/', function(req,res) {
 app.get('/breeze/NorthwindIBModel/Metadata', routes.getMetadata);
 app.post('/breeze/NorthwindIBModel/SaveChanges', routes.saveChanges);
 
-//app.get('/breeze/NorthwindIBModel/Products', routes.getProducts);
-//app.post('/breeze/NorthwindIBModel/SaveWithFreight', routes.saveWithFreight);
-//app.post('/breeze/NorthwindIBModel/SaveWithFreight2', routes.saveWithFreight2);
-//app.post('/breeze/NorthwindIBModel/SaveWithComment', routes.saveWithComment);
-//app.post('/breeze/NorthwindIBModel/SaveWithExit', routes.saveWithExit);
+// app.get('/breeze/NorthwindIBModel/Products', routes.getProducts);
+app.post('/breeze/NorthwindIBModel/SaveWithFreight', routes.saveWithFreight);
+app.post('/breeze/NorthwindIBModel/SaveWithFreight2', routes.saveWithFreight2);
+// app.post('/breeze/NorthwindIBModel/SaveWithComment', routes.saveWithComment);
+app.post('/breeze/NorthwindIBModel/SaveWithExit', routes.saveWithExit);
 
 app.get('/breeze/NorthwindIBModel/:slug', routes.get);
 // alt other files

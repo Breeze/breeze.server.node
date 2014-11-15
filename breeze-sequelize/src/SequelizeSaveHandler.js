@@ -1,63 +1,77 @@
 var Sequelize = require('sequelize');
 var Promise = require("bluebird");
+var toposort = require("toposort");
 
 var _ = Sequelize.Utils._;
 module.exports = SequelizeSaveHandler;
 
-function SequelizeSaveHandler(sequelizeManager, req, callback) {
+function SequelizeSaveHandler(sequelizeManager, req) {
   var reqBody = req.body;
   this.sequelizeManager = sequelizeManager;
   this.metadataStore = sequelizeManager.metadataStore;
   this.entities = reqBody.entities;
   this.saveOptions = reqBody.saveOptions;
-  this.callback = callback;
+
   // this.saveMap - created later
 
   this._keyMappings = [];
   this._fkFixupMap = {};
   this._savedEntities = [];
   this._entitiesCreatedOnServer = [];
-
-
 };
 
 var ctor = SequelizeSaveHandler;
 
-ctor.save = function(db, req, callback) {
-  var saveHandler = new SequelizeSaveHandler(db, req, callback);
-  saveHandler.save().then(function(r) {
-    return r;
-  }).catch(function(e) {
-    throw e;
-  });
+ctor.save = function(db, req ) {
+  var saveHandler = new SequelizeSaveHandler(db, req);
+  return saveHandler.save();
 };
 
+// virtual method - returns boolean
+//ctor.prototype.beforeSaveEntity = function(entity)
+
+
 // virtual method - returns nothing
-//MongoSaveHandler.prototype.beforeSaveEntity = function(entity)
-
-
-// virtual method - returns saveMap - saveMap is keyed by entityType with each value being an array of entities.
-//MongoSaveHandler.prototype.beforeSaveEntities = function(callback)
-
+//ctor.prototype.beforeSaveEntities = function(saveMap)
 
 ctor.prototype.save = function() {
   var beforeSaveEntity = (this.beforeSaveEntity || noopBeforeSaveEntity).bind(this);
 
   // create the saveMap (entities to be saved) grouped by entityType
-  this.saveMap = groupBy(this.entities, function(entity) {
+  var saveMap = _.groupBy(this.entities, function(entity) {
     if (beforeSaveEntity(entity)) {
       return entity.entityAspect.entityTypeName;
     }
   });
+  // saveMap.addEntity = addEntity;
 
   var beforeSaveEntities = (this.beforeSaveEntities || noopBeforeSaveEntities).bind(this);
-  // beforeSaveEntities(this._saveCore.bind(this));
+  beforeSaveEntities(saveMap);
+
   var that = this;
-  return this._saveCore().then(function(savedEntities) {
+  return this._saveCore(saveMap).then(function(savedEntities) {
     return { entities: savedEntities, keyMappings: that._keyMappings };
   }).catch(function(e) {
     throw e;
   });
+};
+
+function addEntity(entity, entityTypeName, entityState) {
+  var entityTypeName = this.qualifyTypeName(entityTypeName);
+  entity.entityAspect = {
+    entityTypeName: entityTypeName,
+    entityState: entityState || "Added",
+    wasCreatedOnServer: true
+  };
+
+  var entityList = this[entityTypeName];
+  if (entityList) {
+    entityList.push(entity);
+  } else {
+    this[entityTypeName] = [ entity ];
+  }
+
+  return entity;
 };
 
 function noopBeforeSaveEntities(fn) {
@@ -69,34 +83,41 @@ function noopBeforeSaveEntity(entity) {
 }
 
 // will be bound to SequelizeSaveHandler instance at runtime.
-ctor.prototype._saveCore = function() {
+ctor.prototype._saveCore = function(saveMap) {
   var that = this;
-  return Promise.reduce(_.pairs(this.saveMap), function(savedEntities, pair) {
-    // pair[0] will be entityTypeName
-    // pair[1] will be array of entities
-    return that._processEntityGroup(pair[0], pair[1]).then(function(entities) {
+
+  var entityTypes = _.keys(saveMap).map(function(entityTypeName) {
+    var entityType = this.metadataStore.getEntityType(entityTypeName);
+    if (!entityType) {
+      this._raiseError(new Error("Unable to locate server side metadata for an EntityType named: " + entityTypeName));
+    }
+    return entityType;
+  }, this);
+
+  var sortedEntityTypes = toposortEntityTypes(entityTypes);
+  var entityGroups = sortedEntityTypes.map(function(entityType) {
+    return { entityType: entityType, entities: saveMap[entityType.name] };
+  });
+
+  return Promise.reduce(entityGroups, function(savedEntities, entityGroup) {
+    return that._processEntityGroup(entityGroup).then(function(entities) {
       Array.prototype.push.apply(savedEntities, entities);
       return savedEntities;
     });
   }, []);
 
-  // need to fixupFks after this
-
 };
-
 
 // Need to handle
 // entityKey._id may be null/undefined for entities created only on the server side - so no need for keyMapping
 
-// returns a promise containing resultEntities array when all entities have been saved.
-// will be bound to this later
-ctor.prototype._processEntityGroup = function(entityTypeName, entities) {
+// returns a promise containing resultEntities array when all entities within the group have been saved.
+ctor.prototype._processEntityGroup = function(entityGroup) {
 
-  var entityType = this.metadataStore.getEntityType(entityTypeName);
-  if (!entityType) {
-    this._raiseError(new Error("Unable to locate server side metadata for an EntityType named: " + entityTypeName));
-  }
-  var sqModel = this.sequelizeManager.entityTypeSqModelMap[entityTypeName];
+  var entityType = entityGroup.entityType;
+  var entities = entityGroup.entities;
+
+  var sqModel = this.sequelizeManager.entityTypeSqModelMap[entityType.name];
 
 //  Promise.reduce(["file1.txt", "file2.txt", "file3.txt"], function(total, fileName) {
 //    return fs.readFileAsync(fileName, "utf8").then(function(contents) {
@@ -125,10 +146,11 @@ ctor.prototype._saveEntityAsync = function(entity, entityType, sqModel) {
   var that = this;
   // not a "real" entityAspect - just the salient pieces sent from the client.
   var entityAspect = entity.entityAspect;
+  var entityTypeName = entityType.name;
+
   // just to be sure that we don't try to send it to the server or return it to the client.
   delete entity.entityAspect;
-  var entityTypeName = entityType.name;
-  // needed because we need to strip the entityAspect off the entity for inserts.
+  // TODO: determine if this is needed because we need to strip the entityAspect off the entity for inserts.
   entityAspect.entity = entity;
 
   // TODO: we really only need to coerce every field on an insert
@@ -139,18 +161,15 @@ ctor.prototype._saveEntityAsync = function(entity, entityType, sqModel) {
 
   var entityState = entityAspect.entityState;
   if (entityState === "Added") {
-
-
     var autoGeneratedKeyType = entityType.autoGeneratedKeyType;
     var keyMapping = null;
     if (autoGeneratedKeyType && autoGeneratedKeyType.name !== "None") {
       var tempKeyValue = entity[firstKeyPropName];
-      var keyDataType = entityType.keyDataType;
-      if (keyDataType === "Guid") {
+      var keyDataTypeName = keyProperties[0].dataType.name;
+      if (keyDataTypeName === "Guid") {
         // handled here instead of one the db server.
         var realKeyValue = createGuid();
-
-        entity[firstKeyPropName] = newKeyValue;
+        entity[firstKeyPropName] = realKeyValue;
         keyMapping = { entityTypeName: entityTypeName, tempValue: tempKeyValue, realValue: realKeyValue };
       } else {
         // realValue will be set during 'create' promise resolution below
@@ -184,12 +203,20 @@ ctor.prototype._saveEntityAsync = function(entity, entityType, sqModel) {
     }
     var setHash;
     if (entityAspect.forceUpdate) {
-      setHash = extend({}, entity);
+      setHash = _.clone(entity);
       // remove fields that we don't want to 'set'
       delete setHash.entityAspect;
+      // TODO: should we also remove keyProps here...
     } else {
       setHash = {};
       Object.keys(entityAspect.originalValuesMap).forEach(function (k) {
+        // if k is one of the entityKeys do no allow this
+        var isKeyPropName = keyProperties.some(function(kp) {
+          return kp.nameOnServer == k;
+        });
+        if (isKeyPropName) {
+          throw new Error("Breeze does not support updating any part of the entity's key insofar as this changes the identity of the entity");
+        }
         setHash[k] = entity[k];
       });
     }
@@ -214,6 +241,71 @@ ctor.prototype._saveEntityAsync = function(entity, entityType, sqModel) {
   }
 };
 
+
+ctor.prototype._addToResults = function(entity, entityTypeName) {
+  entity.$type = entityTypeName;
+  this._savedEntities.push(entity);
+  return entity;
+};
+
+ctor.prototype._coerceData = function(entity, entityType) {
+  var that = this;
+  entityType.dataProperties.forEach(function(dp) {
+
+    var val = entity[dp.nameOnServer];
+    if (val != null) {
+      if (dp.relatedNavigationProperty != null) {
+        // if this is an fk column and it has a value
+        // check if there is a fixed up value.
+        var key = buildKeyString(dp.relatedNavigationProperty.entityType, val);
+        var newVal = that._fkFixupMap[key];
+        if (newVal) {
+          entity[dp.nameOnServer] = newVal;
+        }
+      }
+
+      var dtName = dp.dataType.name;
+      if (dtName === "DateTime" || dtName === "DateTimeOffset") {
+        entity[dp.nameOnServer] = new Date(Date.parse(val));
+      }
+    } else {
+      //      // this allows us to avoid inserting a null.
+      //      // TODO: think about an option to allow this if someone really wants to.
+      //      delete entity[dp.name];
+      //    }
+    }
+  })
+}
+
+function toposortEntityTypes(entityTypes) {
+  var edges = [];
+  entityTypes.forEach(function(et) {
+    et.foreignKeyProperties.forEach(function(fkp) {
+      if (fkp.relatedNavigationProperty) {
+        var dependsOnType = fkp.relatedNavigationProperty.entityType;
+        if (et != dependsOnType) {
+          edges.push( [et, dependsOnType]);
+        }
+      }
+    });
+  });
+  // this should work but toposort.array seems to have a bug ...
+  // var sortedEntityTypes = toposort.array(entityTypes, edges).reverse();
+  // so use this instead.
+  var allSortedTypes = toposort(edges).reverse();
+  allSortedTypes.forEach(function(st, ix) {
+    st.index = ix;
+  });
+  var sortedEntityTypes = entityTypes.sort(function(a, b) {
+    return a.index - b.index;
+  });
+  return sortedEntityTypes;
+}
+
+function buildKeyString(entityType, val) {
+  return entityType.name + "::" + val.toString();
+}
+
 function handleItemSaveError(entity, entityState) {
   return function(err) {
     err = typeof(err) == 'string' ? new Error(err) : err;
@@ -221,155 +313,6 @@ function handleItemSaveError(entity, entityState) {
     err.entityState = entityState;
     throw err;
   }
-}
-
-ctor.prototype._addToResults = function(entity, entityTypeName) {
-  entity.$type = entityTypeName;
-  this._savedEntities.push(entity);
-  // return Promise.resolve(entity);
-  return entity;
-};
-
-ctor.prototype._addToSaveMap = function(entity, entityTypeName, entityState) {
-  var entityTypeName = this.qualifyTypeName(entityTypeName);
-  entity.entityAspect = {
-    entityTypeName: entityTypeName,
-    entityState: entityState || "Added",
-    wasCreatedOnServer: true
-  };
-
-  var entityList = this.saveMap[entityTypeName];
-  if (entityList) {
-    entityList.push(entity);
-  } else {
-    this.saveMap[entityTypeName] = [ entity ];
-  }
-
-  return entity;
-};
-
-
-ctor.prototype._coerceData = function(entity, entityType) {
-  var that = this;
-  entityType.dataProperties.forEach(function(dp) {
-    var dt = dp.dataType;
-
-    var val = entity[dp.nameOnServer];
-    if (val && dp.relatedNavigationProperty != null) {
-      // if this is an fk column and it has a value
-      // check if there is a fixed up value.
-      var key = buildKeyString(dp.relatedNavigationProperty.entityType, val);
-      var newVal = that._fkFixupMap[key];
-      if (newVal) {
-        entity[dp.nameOnServer] = newVal;
-      }
-    }
-
-//    if (val == null) {
-//      // this allows us to avoid inserting a null.
-//      // TODO: think about an option to allow this if someone really wants to.
-//      delete entity[dp.name];
-//      return;
-//    }
-
-    var dtName = dt.name;
-    if (val && dtName === "DateTime" || dtName === "DateTimeOffset") {
-      entity[dp.nameOnServer] = new Date(Date.parse(val));
-    }
-  })
-}
-
-function buildKeyString(entityType, val) {
-  return entityType.name + "::" + val.toString();
-}
-
-//function fixupFks(pcs) {
-//  if (this._keyMappings.length === 0) return;
-//  // pendingMap is a map of _id to pendingDoc
-//  var pendingMap = {};
-//  pcs.forEach(function(pc) {
-//    pc.inserts.concat(pc.updates).forEach(function(doc) {
-//      pendingMap[doc.entityAspect.entityKey._id] = doc;
-//    })
-//  });
-//
-//  // kmMap is a map of tempFkValue -> keyMapping
-//  var kmMap = {};
-//  this._keyMappings.forEach(function(km) {
-//    kmMap[km.tempValue] = km;
-//  });
-//
-//  // _possibleFixupMap is a map of fkValue -> [] of possibleFixups { _id:, fkProp: }
-//  for (fkValue in this._possibleFixupMap) {
-//    var km = kmMap[fkValue];
-//    if (km) {
-//      // if we get to here we know that we have an fk or fks that need updating
-//      var realValue = km.realValue;
-//      var pendingFixups = this._possibleFixupMap[fkValue];
-//      pendingFixups.forEach(function(pendingFixup) {
-//        // update the pendingDoc with the new real fkValue
-//        // next line is for debug purposes
-//        pendingFixup.fkValue = realValue;
-//        var pendingDoc = pendingMap[pendingFixup._id];
-//        if (pendingDoc.criteria) {
-//          pendingDoc.setOps.$set[pendingFixup.fkProp] = realValue;
-//        } else {
-//          pendingDoc.entity[pendingFixup.fkProp] = realValue;
-//        }
-//      });
-//    }
-//  }
-//};
-
-ctor.prototype._raiseError = function(error) {
-  if (this._isAllDone) return;
-  this._isAllDone = true;
-  this.callback(error);
-};
-
-ctor.prototype._checkIfError = function(err) {
-  if (err) {
-    this._raiseError(err);
-  }
-  return err != null;
-};
-
-function extend(target, source) {
-  if (!source) return target;
-  for (var name in source) {
-    if (source.hasOwnProperty(name)) {
-      target[name] = source[name];
-    }
-  }
-  return target;
-}
-
-// returns an array with each item corresponding to the kvFn eval'd against each prop.
-function objectMap(obj, kvFn) {
-  var results = [];
-  for (var key in obj) {
-    if ( obj.hasOwnProperty(key)) {
-      var r = kvFn(key, obj[key]);
-      results.push(r);
-    }
-  }
-  return results;
-}
-
-function groupBy(arr, keyFn) {
-  var groups = {};
-  arr.forEach(function (v) {
-    var key = keyFn(v);
-    if (key !== undefined) {
-      var group = groups[key];
-      if (!group) {
-        group = [];
-        groups[key] = group;
-      }
-      group.push(v);
-    }
-  })
-  return groups;
 }
 
 function createGuid() {
