@@ -9,26 +9,24 @@ function SequelizeSaveHandler(sequelizeManager, req) {
   var reqBody = req.body;
   this.sequelizeManager = sequelizeManager;
   this.metadataStore = sequelizeManager.metadataStore;
-  this.entities = reqBody.entities;
+  this.entitiesFromClient = reqBody.entities;
   this.saveOptions = reqBody.saveOptions;
-
-  // this.saveMap - created later
 
   this._keyMappings = [];
   this._fkFixupMap = {};
   this._savedEntities = [];
-  this._entitiesCreatedOnServer = [];
+  // this._entitiesCreatedOnServer = [];
 };
 
 var ctor = SequelizeSaveHandler;
 
-ctor.save = function(db, req ) {
-  var saveHandler = new SequelizeSaveHandler(db, req);
+ctor.save = function(sequelizeManager, req ) {
+  var saveHandler = new SequelizeSaveHandler(sequelizeManager, req);
   return saveHandler.save();
 };
 
 // virtual method - returns boolean
-//ctor.prototype.beforeSaveEntity = function(entity)
+//ctor.prototype.beforeSaveEntity = function(entityInfo)
 
 
 // virtual method - returns nothing
@@ -37,85 +35,116 @@ ctor.save = function(db, req ) {
 ctor.prototype.save = function() {
   var beforeSaveEntity = (this.beforeSaveEntity || noopBeforeSaveEntity).bind(this);
 
+  var entityInfos = this.entitiesFromClient.map(function(entity) {
+    // transform entities from how they are sent from the client
+    // into entityInfo objects which is how they are exposed
+    // to interception on the server.
+    var entityAspect = entity.entityAspect;
+    var entityTypeName = entityAspect.entityTypeName;
+    var unmapped = entity.__unmapped;
+    var ei = { entity: entity, entityTypeName: entityTypeName, entityAspect: entityAspect, unmapped: unmapped };
+    // just to be sure that we don't try to send it to the db server or return it to the client.
+    delete entity.entityAspect;
+    return ei;
+  });
+
   // create the saveMap (entities to be saved) grouped by entityType
-  var saveMap = _.groupBy(this.entities, function(entity) {
-    if (beforeSaveEntity(entity)) {
-      return entity.entityAspect.entityTypeName;
+  var saveMapData = _.groupBy(entityInfos, function(entityInfo) {
+    // ?? how does _.groupBy handle an 'undefined' return key.
+    if (beforeSaveEntity(entityInfo)) {
+      return entityInfo.entityTypeName;
     }
   });
-  // saveMap.addEntity = addEntity;
+  delete saveMapData["undefined"];
 
-  var beforeSaveEntities = (this.beforeSaveEntities || noopBeforeSaveEntities).bind(this);
-  beforeSaveEntities(saveMap);
+  // want to have SaveMap functions available
+  var saveMap = _.extend(new SaveMap(this), saveMapData);
 
   var that = this;
-  return this._saveCore(saveMap).then(function(savedEntities) {
-    return { entities: savedEntities, keyMappings: that._keyMappings };
-  }).catch(function(e) {
-    throw e;
+  var nextPromise;
+  var beforeSaveEntities = (this.beforeSaveEntities || noopBeforeSaveEntities).bind(this);
+  // beforeSaveEntities will either return nothing or a promise.
+  var possiblePromise = beforeSaveEntities(saveMap);
+
+  if (possiblePromise && possiblePromise.then) {
+    nextPromise = possiblePromise.then(function() {
+      return that._saveCore(saveMap);
+    });
+  } else {
+    nextPromise = this._saveCore(saveMap);
+  }
+
+  // saveCore returns either a list of entities or an object with an errors property.
+  return nextPromise.then(function(r) {
+    if (r.errors) {
+      return r;
+    } else {
+      return { entities: r, keyMappings: that._keyMappings };
+    }
   });
 };
 
-function addEntity(entity, entityTypeName, entityState) {
-  var entityTypeName = this.qualifyTypeName(entityTypeName);
-  entity.entityAspect = {
-    entityTypeName: entityTypeName,
-    entityState: entityState || "Added",
-    wasCreatedOnServer: true
-  };
 
-  var entityList = this[entityTypeName];
-  if (entityList) {
-    entityList.push(entity);
-  } else {
-    this[entityTypeName] = [ entity ];
-  }
-
-  return entity;
-};
-
-function noopBeforeSaveEntities(fn) {
-  fn();
+// will either return nothing or a promise.
+function noopBeforeSaveEntities(saveMap) {
+  return
 }
 
-function noopBeforeSaveEntity(entity) {
+function noopBeforeSaveEntity(entityInfo) {
   return true;
 }
 
 // will be bound to SequelizeSaveHandler instance at runtime.
 ctor.prototype._saveCore = function(saveMap) {
   var that = this;
+  if (saveMap.entityErrors || saveMap.errorMessage) {
+    return Promise.resolve({ errors: saveMap.entityErrors || [], message: saveMap.errorMessage });
+  }
 
-  var entityTypes = _.keys(saveMap).map(function(entityTypeName) {
+  var entityTypes = _.keys(saveMap).map(function (entityTypeName) {
     var entityType = this.metadataStore.getEntityType(entityTypeName);
     if (!entityType) {
-      this._raiseError(new Error("Unable to locate server side metadata for an EntityType named: " + entityTypeName));
+      throw new Error("Unable to locate server side metadata for an EntityType named: " + entityTypeName);
     }
     return entityType;
   }, this);
 
   var sortedEntityTypes = toposortEntityTypes(entityTypes);
-  var entityGroups = sortedEntityTypes.map(function(entityType) {
-    return { entityType: entityType, entities: saveMap[entityType.name] };
+  var entityGroups = sortedEntityTypes.map(function (entityType) {
+    return { entityType: entityType, entityInfos: saveMap[entityType.name] };
   });
 
-  return Promise.reduce(entityGroups, function(savedEntities, entityGroup) {
-    return that._processEntityGroup(entityGroup).then(function(entities) {
+  // do adds/updates first followed by deletes in reverse order.
+  // add/updates come first because we might move children off of a parent before deleting the parent
+  // and we don't want to cause a constraint exception by deleting the parent before all of its
+  // children have been moved somewhere else.
+  return Promise.reduce(entityGroups, function (savedEntities, entityGroup) {
+    return that._processEntityGroup(entityGroup, false).then(function (entities) {
       Array.prototype.push.apply(savedEntities, entities);
       return savedEntities;
     });
-  }, []);
-
-};
+  }, []).then(function (entitiesHandledSoFar) {
+    return Promise.reduce(entityGroups.reverse(), function (savedEntities, entityGroup) {
+      return that._processEntityGroup(entityGroup, true).then(function (entities) {
+        Array.prototype.push.apply(savedEntities, entities);
+        return savedEntities;
+      });
+    }, entitiesHandledSoFar);
+  });
+}
 
 // Need to handle
 // entityKey._id may be null/undefined for entities created only on the server side - so no need for keyMapping
 
 // returns a promise containing resultEntities array when all entities within the group have been saved.
-ctor.prototype._processEntityGroup = function(entityGroup) {
+ctor.prototype._processEntityGroup = function(entityGroup, processDeleted) {
 
   var entityType = entityGroup.entityType;
-  var entities = entityGroup.entities;
+
+  var entityInfos = entityGroup.entityInfos.filter(function(entityInfo) {
+    var isDeleted = entityInfo.entityAspect.entityState == "Deleted"
+    return processDeleted ? isDeleted : !isDeleted;
+  });
 
   var sqModel = this.sequelizeManager.entityTypeSqModelMap[entityType.name];
 
@@ -128,10 +157,10 @@ ctor.prototype._processEntityGroup = function(entityGroup) {
 //  });
 
   var that = this;
-  return Promise.reduce(entities, function(savedEntities, entity) {
+  return Promise.reduce(entityInfos, function(savedEntities, entityInfo) {
     // function returns a promise for this entity
     // and updates the results array.
-    return that._saveEntityAsync(entity, entityType, sqModel).then(function(savedEntity) {
+    return that._saveEntityAsync(entityInfo, entityType, sqModel).then(function(savedEntity) {
       savedEntities.push(savedEntity);
       return savedEntities;
     });
@@ -140,16 +169,15 @@ ctor.prototype._processEntityGroup = function(entityGroup) {
 };
 
 // returns a promise with the saved entity
-ctor.prototype._saveEntityAsync = function(entity, entityType, sqModel) {
+ctor.prototype._saveEntityAsync = function(entityInfo, entityType, sqModel) {
   // function returns a promise for this entity
   // and updates the results array.
   var that = this;
   // not a "real" entityAspect - just the salient pieces sent from the client.
-  var entityAspect = entity.entityAspect;
+  var entity = entityInfo.entity;
+  var entityAspect = entityInfo.entityAspect;
   var entityTypeName = entityType.name;
 
-  // just to be sure that we don't try to send it to the server or return it to the client.
-  delete entity.entityAspect;
   // TODO: determine if this is needed because we need to strip the entityAspect off the entity for inserts.
   entityAspect.entity = entity;
 
@@ -162,20 +190,23 @@ ctor.prototype._saveEntityAsync = function(entity, entityType, sqModel) {
   var entityState = entityAspect.entityState;
   if (entityState === "Added") {
     var autoGeneratedKeyType = entityType.autoGeneratedKeyType;
-    var keyMapping = null;
+    var realKeyValue, keyMapping = null;
     if (autoGeneratedKeyType && autoGeneratedKeyType.name !== "None") {
       var tempKeyValue = entity[firstKeyPropName];
       var keyDataTypeName = keyProperties[0].dataType.name;
       if (keyDataTypeName === "Guid") {
         // handled here instead of one the db server.
-        var realKeyValue = createGuid();
+        realKeyValue = createGuid();
         entity[firstKeyPropName] = realKeyValue;
-        keyMapping = { entityTypeName: entityTypeName, tempValue: tempKeyValue, realValue: realKeyValue };
       } else {
         // realValue will be set during 'create' promise resolution below
-        keyMapping = { entityTypeName: entityTypeName, tempValue: tempKeyValue, realValue: null };
+        realKeyValue = null;
         // value will be set by server's autoincrement logic
         delete entity[firstKeyPropName];
+      }
+      // tempKeyValue will be undefined in entity was created on the server
+      if (tempKeyValue != undefined) {
+        keyMapping = { entityTypeName: entityTypeName, tempValue: tempKeyValue, realValue: realKeyValue };
       }
     }
     return sqModel.create(entity).then(function(savedEntity) {
@@ -183,9 +214,11 @@ ctor.prototype._saveEntityAsync = function(entity, entityType, sqModel) {
         if (keyMapping.realValue === null) {
           keyMapping.realValue = savedEntity[firstKeyPropName];
         }
+
         var tempKeyString = buildKeyString(entityType, tempKeyValue);
         that._fkFixupMap[tempKeyString] = keyMapping.realValue;
         that._keyMappings.push(keyMapping);
+
       }
       return that._addToResults(savedEntity.values, entityTypeName);
     }).catch(handleItemSaveError(entity, entityState));
@@ -202,7 +235,7 @@ ctor.prototype._saveEntityAsync = function(entity, entityType, sqModel) {
       });
     }
     var setHash;
-    if (entityAspect.forceUpdate) {
+    if (entityInfo.forceUpdate) {
       setHash = _.clone(entity);
       // remove fields that we don't want to 'set'
       delete setHash.entityAspect;
@@ -277,6 +310,73 @@ ctor.prototype._coerceData = function(entity, entityType) {
   })
 }
 
+function SaveMap(sequelizeSaveHandler) {
+  // want to make sequelizeSaveHandler non enumerable.
+  Object.defineProperty(this,  "sequelizeSaveHandler", { value: sequelizeSaveHandler });
+}
+
+SaveMap.prototype.getEntityType = function(entityTypeName) {
+  return this.sequelizeSaveHandler.metadataStore.getEntityType(entityTypeName);
+}
+
+SaveMap.prototype.getEntityInfosOfType = function(entityTypeName) {
+  var entityType = this.getEntityType(entityTypeName);
+  // entityType.name is fully qualified.
+  return this[entityType.name] || [];
+}
+
+SaveMap.prototype.addEntity = function(entity, entityTypeName, entityState) {
+  var entityType = this.getEntityType(entityTypeName);
+  entityTypeName = entityType.name; // fully qualified now.
+  var entityInfo = {
+    entity: entity, entityTypeName: entityTypeName, wasAddedOnServer: true
+  };
+  entityInfo.entityAspect = {
+    entityTypeName: entityTypeName,
+    entityState: entityState || "Added"
+  }
+
+  var entityInfoList = this[entityTypeName];
+  if (entityInfoList) {
+    entityInfoList.push(entityInfo);
+  } else {
+    this[entityTypeName] = [ entityInfo ];
+  }
+}
+
+SaveMap.prototype.addEntityError = function(entityInfo, errorName, errorMessage, propertyName) {
+  var entityTypeName = entityInfo.entityTypeName;
+  var entityType = this.getEntityType(entityTypeName);
+  var keyValues = entityType.keyProperties.map(function (kp) {
+    return entityInfo.entity[kp.nameOnServer];
+  });
+  if (!this.entityErrors) {
+    this.entityErrors = [];
+  }
+  this.entityErrors.push({
+    entityTypeName: entityTypeName,
+    errorName: errorName,
+    errorMessage: errorMessage,
+    propertyName: propertyName,
+    keyValues: keyValues
+  });
+
+}
+
+SaveMap.prototype.setErrorMessage = function(errorMessage) {
+  this.errorMessage = errorMessage;
+}
+
+//SaveMap.prototype.getError = function() {
+//  if (this.entityErrors ||  this.errorMessage) {
+//    var err = new Error(this.errorMessage || "see entityErrors");
+//    if (this.entityErrors) {
+//      err.entityErrors = this.entityErrors;
+//    }
+//    return err;
+//  }
+//}
+
 function toposortEntityTypes(entityTypes) {
   var edges = [];
   entityTypes.forEach(function(et) {
@@ -309,6 +409,8 @@ function buildKeyString(entityType, val) {
 function handleItemSaveError(entity, entityState) {
   return function(err) {
     err = typeof(err) == 'string' ? new Error(err) : err;
+    var detailedMsg = (err.name ? "error name: " + err.name : "") + ( err.sql ? " sql: " + err.sql : "");
+    err.message = err.message ? err.message + ". " + detailedMsg : detailedMsg;
     err.entity = entity;
     err.entityState = entityState;
     throw err;
