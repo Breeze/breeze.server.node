@@ -1,7 +1,9 @@
 
 var fs = require('fs');
+var Promise = require("bluebird");
 var breezeSequelize = require('breeze-sequelize');
 var breeze = require('breeze-client');
+
 
 var SequelizeManager =breezeSequelize.SequelizeManager;
 var SequelizeQuery = breezeSequelize.SequelizeQuery;
@@ -25,7 +27,60 @@ function createSequelizeManager() {
   var metadata = fs.readFileSync(filename, 'utf8');
   var sm = new SequelizeManager(_dbConfigNw);
   sm.importMetadata(metadata);
+
+
+  sm.keyGenerator = new KeyGenerator(sm.sequelize);
   return sm;
+}
+
+function KeyGenerator(sequelize, groupSize) {
+  this.nextIdModel = sequelize.define('nextid', {
+    Name: { type: sequelize.Sequelize.STRING, primaryKey: true },
+    NextId: sequelize.Sequelize.INTEGER
+  }, {   freezeTableName: true, timestamps: false });
+  this.nextId = null;
+  this.groupSize = groupSize || 100;
+}
+
+// returns a promise
+KeyGenerator.prototype.getNextId = function(property) {
+  var retId = this.nextId;
+  if (retId != null) {
+    this.nextId++;
+    if (this.nextId > this.maxId) {
+      this.nextId = null;
+    }
+    return Promise.resolve(retId);
+  } else {
+    return this._updateNextId();
+  }
+}
+
+// returns a promise;
+KeyGenerator.prototype._updateNextId = function() {
+
+  var that = this;
+  var nextId;
+  return this.nextIdModel.find("GLOBAL").then(function(nextIdItem) {
+    nextId = nextIdItem["NextId"];
+    var nextIdToSave = nextId + that.groupSize;
+    return that.nextIdModel.update({ NextId: nextIdToSave }, { where: { Name: "GLOBAL", NextId: nextId }});
+  }).then(function(infoArray) {
+    if (infoArray[0] == 1) {
+      retId = nextId;
+      that.nextId = nextId + 1;
+      that.maxId = retId + that.groupSize;
+      that._count = 0;
+      return retId;
+    } else {
+      that._count++;
+      if (that._count > 3) {
+        that._count = 0;
+        throw new Error("Unable to generate a nextId");
+      }
+      return that._updateNextId();
+    }
+  });
 }
 
 exports.getMetadata = function(req, res, next) {
@@ -300,7 +355,8 @@ namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req, res, next) {
 
 
 function beforeSaveEntity(entityInfo) {
-  if ( entityInfo.entityTypeName.indexOf("Region") >= 0 && entityInfo.entityAspect.entityState == "Added") {
+
+  if ( entityInfo.entityType.shortName == "Region" && entityInfo.entityAspect.entityState == "Added") {
     if (entityInfo.entity.RegionDescription.toLowerCase().indexOf("error") === 0) {
       return false;
     }
@@ -312,6 +368,17 @@ function beforeSaveEntity(entityInfo) {
 function beforeSaveEntities(saveMap) {
   var tag = this.saveOptions.tag;
 
+  var customers = saveMap.getEntityInfosOfType("Customer");
+  customers.forEach(function(custInfo) {
+    if (custInfo.entity.CompanyName.toLowerCase().indexOf("error") === 0) {
+      saveMap.addEntityError(custInfo, "Bad customer", "This customer is not valid!", "CompanyName" );
+    }
+    var contactName = custInfo.entity.ContactName;
+    if (custInfo.entityAspect.entityState != "Deleted" && contactName && contactName.toLowerCase().indexOf("error") === 0) {
+      saveMap.addEntityError(custInfo, "Bad ContactName", "This contact name should not contain the word 'Error'", "ContactName" );
+    }
+  });
+
   if (tag == "addProdOnServer") {
     var suppliers = saveMap.getEntityInfosOfType("Supplier");
     suppliers.forEach(function(supplier) {
@@ -319,7 +386,7 @@ function beforeSaveEntities(saveMap) {
         ProductName: "Product added on server",
         SupplierID: supplier.SupplierID
       };
-      saveMap.addEntity(product, "Product");
+      saveMap.addEntity("Product", product);
     });
   }
 
@@ -344,7 +411,7 @@ exports.saveWithComment = function(req, res, next) {
       CreatedOn: new Date(),
       SeqNum: 1
     };
-    saveMap.addEntity(entity, "Comment");
+    saveMap.addEntity("Comment", entity);
   }
   saveUsingCallback(saveHandler, res, next);
 };
@@ -396,7 +463,7 @@ exports.saveCheckInitializer = function(req, res, next) {
     var order = {
       OrderDate: today
     };
-    saveMap.addEntity(order, "Order");
+    saveMap.addEntity("Order", order);
   };
   saveUsingCallback(saveHandler, res, next);
 }

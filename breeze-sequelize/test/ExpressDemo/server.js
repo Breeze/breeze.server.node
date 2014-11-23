@@ -3,7 +3,9 @@ var express = require('express');
 var routes = require('./routes');
 
 var app = express();
-app.use(express.bodyParser());
+//Set Request Size Limit
+
+app.use(express.bodyParser({limit: '50mb'}));
 // app.use(express.methodOverride());
 app.use(app.router);
 app.use(logErrors);
