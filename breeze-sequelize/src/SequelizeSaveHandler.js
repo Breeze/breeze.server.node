@@ -280,7 +280,11 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel) {
       // TODO: should we also remove keyProps here...
     } else {
       setHash = {};
-      Object.keys(entityAspect.originalValuesMap).forEach(function (k) {
+      var ovm = entityAspect.originalValuesMap;
+      if (ovm == null) {
+        throw new Error("Unable to locate an originalValuesMap for one of the 'Modified' entities to be saved");
+      }
+      Object.keys(ovm).forEach(function (k) {
         // if k is one of the entityKeys do no allow this
         var isKeyPropName = keyProperties.some(function(kp) {
           return kp.nameOnServer == k;
@@ -387,6 +391,7 @@ SaveMap.prototype.addEntity = function(entityTypeName, entity, entityState) {
   } else {
     this[entityTypeName] = [ entityInfo ];
   }
+  return entityInfo;
 }
 
 SaveMap.prototype.addEntityError = function(entityInfo, errorName, errorMessage, propertyName) {

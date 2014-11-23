@@ -365,41 +365,55 @@ function beforeSaveEntity(entityInfo) {
   return true;
 }
 
+// returns undefined or a Promise;
 function beforeSaveEntities(saveMap) {
   var tag = this.saveOptions.tag;
 
   var customers = saveMap.getEntityInfosOfType("Customer");
   customers.forEach(function(custInfo) {
-    if (custInfo.entity.CompanyName.toLowerCase().indexOf("error") === 0) {
-      saveMap.addEntityError(custInfo, "Bad customer", "This customer is not valid!", "CompanyName" );
-    }
-    var contactName = custInfo.entity.ContactName;
-    if (custInfo.entityAspect.entityState != "Deleted" && contactName && contactName.toLowerCase().indexOf("error") === 0) {
-      saveMap.addEntityError(custInfo, "Bad ContactName", "This contact name should not contain the word 'Error'", "ContactName" );
+    if (custInfo.entityAspect.entityState != "Deleted") {
+      if (custInfo.entity.CompanyName.toLowerCase().indexOf("error") === 0) {
+        saveMap.addEntityError(custInfo, "Bad customer", "This customer is not valid!", "CompanyName");
+      }
+      var contactName = custInfo.entity.ContactName;
+      if (contactName && contactName.toLowerCase().indexOf("error") === 0) {
+        saveMap.addEntityError(custInfo, "Bad ContactName", "This contact name should not contain the word 'Error'", "ContactName");
+      }
     }
   });
 
   if (tag == "addProdOnServer") {
     var suppliers = saveMap.getEntityInfosOfType("Supplier");
-    suppliers.forEach(function(supplier) {
+    suppliers.forEach(function(supplierInfo) {
       var product = {
-        ProductName: "Product added on server",
-        SupplierID: supplier.SupplierID
+        ProductName: "Test_ Product added on server",
+        SupplierID: supplierInfo.entity.SupplierID
       };
       saveMap.addEntity("Product", product);
     });
   }
 
   if (tag === "increaseProductPrice") {
-    // TODO: can't do this yet because it require an async version of beforeSaveEntities
-    // increaseProductPrice(saveMap);
+    // interesting because it returns a promise
+    // forEach category update the product price for all products in the category
+    var categoryInfos = saveMap.getEntityInfosOfType("Category");
+    var promises = categoryInfos.filter(function (catInfo) {
+      return catInfo.entity.CategoryID != null;
+    }).map(function (catInfo) {
+      var entityQuery = EntityQuery.from("Products").where("categoryID", "==", catInfo.entity.CategoryID);
+      var query = new SequelizeQuery(_sequelizeManager, entityQuery);
+      return query.execute().then(function (r) {
+        var products = r;
+        products.forEach(function (product) {
+          product.UnitPrice = product.UnitPrice + .01;
+          var ei = saveMap.addEntity("Product", product, "Modified");
+          ei.forceUpdate = true;
+        });
+      });
+    });
+    return Promise.all(promises);
   }
 
-  var categories = saveMap.getEntityInfosOfType("Category");
-  categories.forEach(function(cat) {
-    // NOT YET IMPLEMENTED
-
-  });
 }
 
 exports.saveWithComment = function(req, res, next) {
