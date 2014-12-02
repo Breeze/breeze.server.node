@@ -65,56 +65,53 @@ ctor.prototype.save = function() {
 
   // create the saveMap (entities to be saved) grouped by entityType
   var saveMapData = _.groupBy(entityInfos, function(entityInfo) {
-    // ?? how does _.groupBy handle an 'undefined' return key.
-
+    // _.groupBy will bundle all undefined returns together.
     if (beforeSaveEntity(entityInfo)) {
       return entityInfo.entityType.name;
     }
   });
+  // remove the entries where beforeSaveEntity returned false ( they are all grouped under 'undefined'
   delete saveMapData["undefined"];
 
   // want to have SaveMap functions available
   var saveMap = _.extend(new SaveMap(this), saveMapData);
 
+  return this._saveWithTransaction(saveMap);
+
+};
+
+
+ctor.prototype._saveWithTransaction = function(saveMap) {
   var that = this;
-  var nextPromise;
-  var beforeSaveEntities = (this.beforeSaveEntities || noopBeforeSaveEntities).bind(this);
-  // beforeSaveEntities will either return nothing or a promise.
-  nextPromise = Promise.resolve(beforeSaveEntities(saveMap));
+  var sequelize = this.sequelizeManager.sequelize;
+  return sequelize.transaction().then(function(trx)   {
 
-//  var possiblePromise = beforeSaveEntities(saveMap);
-//  if (possiblePromise && possiblePromise.then) {
-//    nextPromise = possiblePromise.then(function() {
-//      return that._saveCore(saveMap);
-//    });
-//  } else {
-//    nextPromise = this._saveCore(saveMap);
-//  }
+    var nextPromise;
+    var beforeSaveEntities = (that.beforeSaveEntities || noopBeforeSaveEntities).bind(that);
+    // beforeSaveEntities will either return nothing or a promise.
+    nextPromise = Promise.resolve(beforeSaveEntities(saveMap, trx));
 
-  // saveCore returns either a list of entities or an object with an errors property.
-  return nextPromise.then(function() {
-    return that._saveCore(saveMap);
-  }).then(function(r) {
-    if (r.errors) {
-      return r;
-    } else {
-      return { entities: r, keyMappings: that._keyMappings };
-    }
+    // saveCore returns either a list of entities or an object with an errors property.
+    return nextPromise.then(function () {
+      return that._saveCore(saveMap, trx);
+    }).then(function (r) {
+      if (r.errors) {
+        trx.rollback();
+        return r;
+      } else {
+        trx.commit();
+        return { entities: r, keyMappings: that._keyMappings };
+      }
+    }).catch(function (e) {
+      trx.rollback();
+      throw e;
+    });
   });
 };
 
 
-// will either return nothing or a promise.
-function noopBeforeSaveEntities(saveMap) {
-  return
-}
-
-function noopBeforeSaveEntity(entityInfo) {
-  return true;
-}
-
 // will be bound to SequelizeSaveHandler instance at runtime.
-ctor.prototype._saveCore = function(saveMap) {
+ctor.prototype._saveCore = function(saveMap, transaction) {
   var that = this;
   if (saveMap.entityErrors || saveMap.errorMessage) {
     return Promise.resolve({ errors: saveMap.entityErrors || [], message: saveMap.errorMessage });
@@ -135,13 +132,13 @@ ctor.prototype._saveCore = function(saveMap) {
   // and we don't want to cause a constraint exception by deleting the parent before all of its
   // children have been moved somewhere else.
   return Promise.reduce(entityGroups, function (savedEntities, entityGroup) {
-    return that._processEntityGroup(entityGroup, false).then(function (entities) {
+    return that._processEntityGroup(entityGroup, transaction, false).then(function (entities) {
       Array.prototype.push.apply(savedEntities, entities);
       return savedEntities;
     });
   }, []).then(function (entitiesHandledSoFar) {
     return Promise.reduce(entityGroups.reverse(), function (savedEntities, entityGroup) {
-      return that._processEntityGroup(entityGroup, true).then(function (entities) {
+      return that._processEntityGroup(entityGroup, transaction, true).then(function (entities) {
         Array.prototype.push.apply(savedEntities, entities);
         return savedEntities;
       });
@@ -153,7 +150,7 @@ ctor.prototype._saveCore = function(saveMap) {
 // entityKey._id may be null/undefined for entities created only on the server side - so no need for keyMapping
 
 // returns a promise containing resultEntities array when all entities within the group have been saved.
-ctor.prototype._processEntityGroup = function(entityGroup, processDeleted) {
+ctor.prototype._processEntityGroup = function(entityGroup, transaction, processDeleted) {
 
   var entityType = entityGroup.entityType;
 
@@ -176,7 +173,7 @@ ctor.prototype._processEntityGroup = function(entityGroup, processDeleted) {
   return Promise.reduce(entityInfos, function(savedEntities, entityInfo) {
     // function returns a promise for this entity
     // and updates the results array.
-    return that._saveEntityAsync(entityInfo, sqModel).then(function(savedEntity) {
+    return that._saveEntityAsync(entityInfo, sqModel, transaction).then(function(savedEntity) {
       savedEntities.push(savedEntity);
       return savedEntities;
     });
@@ -185,7 +182,7 @@ ctor.prototype._processEntityGroup = function(entityGroup, processDeleted) {
 };
 
 // returns a promise with the saved entity
-ctor.prototype._saveEntityAsync = function(entityInfo, sqModel) {
+ctor.prototype._saveEntityAsync = function(entityInfo, sqModel, transaction) {
   // function returns a promise for this entity
   // and updates the results array.
   var that = this;
@@ -205,6 +202,7 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel) {
   var firstKeyPropName = keyProperties[0].nameOnServer;
 
   var entityState = entityAspect.entityState;
+  var trxOptions = { transaction: transaction };
   var promise;
   if (entityState === "Added") {
     var keyMapping = null;
@@ -249,6 +247,7 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel) {
     }
     promise = promise || Promise.resolve(null);
     return promise.then(function() {
+      // return sqModel.create(entity, trxOptions).then(function(savedEntity) {
       return sqModel.create(entity).then(function(savedEntity) {
         if (keyMapping) {
           if (keyMapping.realValue === null) {
@@ -296,6 +295,7 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel) {
       });
     }
     var that = this;
+    // return sqModel.update(setHash, { where: whereHash }, trxOptions).then(function(infoArray) {
     return sqModel.update(setHash, { where: whereHash }).then(function(infoArray) {
       var itemsSaved = infoArray[0];
       if (itemsSaved != 1) {
@@ -315,6 +315,7 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel) {
     });
     // we don't bother with concurrency check on deletes
     // TODO: we may want to add a 'switch' for this later.
+    // return sqModel.destroy({ where: whereHash, limit: 1, transaction: transaction}).then(function() {
     return sqModel.destroy({ where: whereHash, limit: 1}).then(function() {
       // Sequelize 'destroy' does not return the entity; so
       // we are just returning the original entity here.
@@ -416,15 +417,15 @@ SaveMap.prototype.setErrorMessage = function(errorMessage) {
   this.errorMessage = errorMessage;
 }
 
-//SaveMap.prototype.getError = function() {
-//  if (this.entityErrors ||  this.errorMessage) {
-//    var err = new Error(this.errorMessage || "see entityErrors");
-//    if (this.entityErrors) {
-//      err.entityErrors = this.entityErrors;
-//    }
-//    return err;
-//  }
-//}
+// will either return nothing or a promise.
+function noopBeforeSaveEntities(saveMap) {
+  return
+}
+
+function noopBeforeSaveEntity(entityInfo) {
+  return true;
+}
+
 
 function toposortEntityTypes(entityTypes) {
   var edges = [];

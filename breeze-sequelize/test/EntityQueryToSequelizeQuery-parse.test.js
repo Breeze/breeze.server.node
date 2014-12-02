@@ -15,7 +15,7 @@ var DataService = breeze.DataService;
 var _ = Sequelize.Utils._;
 var log = testFns.log;
 
-describe("EntityQuery to SequelizeQuery - parse", function() {
+describe.only("EntityQuery to SequelizeQuery - parse", function() {
 
   this.enableTimeouts(false);
 
@@ -40,6 +40,15 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
     expect(sq.sqQuery).to.be.eql(expectedResult);
   }
 
+  it("should parse where nested any with expand", function() {
+    var q0 = EntityQuery.from("Employees")
+        .where("orders", "any", "customer.companyName", "startsWith", "Lazy")
+        .expand("orders.customer");
+    check(q0,
+        { where: { CompanyName: { like: 'S%' } }
+        }
+    );
+  });
 
   it("should parse where startsWith", function() {
     var q0 = new EntityQuery("Customers").where("companyName", "startsWith", "S");

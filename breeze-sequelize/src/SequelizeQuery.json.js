@@ -109,9 +109,22 @@ SequelizeQuery.prototype._processWhere = function() {
 
 
   this.sqQuery.where = sqQuery.where;
-  this.sqQuery.include = sqQuery.includes;
+  // this.sqQuery.include = sqQuery.includes;
+  this.sqQuery.include = cvtIncludes(sqQuery.includes);
 
   processAndOr(this.sqQuery);
+}
+
+function cvtIncludes(includes) {
+  if (includes) {
+    includes.forEach(function(include) {
+      if (include.includes) {
+        include.include = cvtIncludes(include.includes);
+        delete include.includes;
+      }
+    });
+  }
+  return includes;
 }
 
 SequelizeQuery.prototype._processSelect = function() {
@@ -182,7 +195,8 @@ SequelizeQuery.prototype._reshapeResults = function(sqResults) {
   // -) inlineCount handling
 
   this._nextId = 1;
-  this._map = {};
+  this._keyMap = {};
+  this._refMap = {};
   if (this.entityQuery.selectClause) {
     return this._reshapeSelectResults(sqResults);
   }
@@ -208,13 +222,15 @@ SequelizeQuery.prototype._reshapeResults = function(sqResults) {
   var results = sqResults.map(function (sqResult) {
     var result = this._createResult(sqResult, this.entityType, expandClause != null);
     // each expandPath is a collection of expandProps
-    if (!result.$ref) {
+
+    // if (!result.$ref) {
       expandPaths.forEach(function (expandProps) {
         this._populateExpand(result, sqResult, expandProps);
       }, this);
-    }
+    // }
     return result;
   }, this);
+
   if (inlineCount != undefined) {
     return { results: results, inlineCount: inlineCount };
   } else {
@@ -242,8 +258,9 @@ SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
       while (remainingProps.length > 1 && nextProp.isNavigationProperty) {
         // remove node from parent
         var oldParent = parent;
-        oldParent[nextProp.nameOnServer] = undefined;
+
         parent = parent[nextProp.nameOnServer];
+        oldParent[nextProp.nameOnServer] = undefined;
         remainingProps = remainingProps.slice(1);
         nextProp = remainingProps[0];
       }
@@ -277,21 +294,20 @@ SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
 
 SequelizeQuery.prototype._createResult = function(sqResult, entityType, checkCache) {
   if (!sqResult) return null;
+  var result = sqResult.dataValues;
   if (checkCache) {
     var key = getKey(sqResult, entityType);
-    var cachedItem = this._map[key];
+    var cachedItem = this._keyMap[key];
     if (cachedItem) {
       return { $ref: cachedItem.$id };
     } else {
-      sqResult.$id = this._nextId;
+      result.$id = this._nextId;
       this._nextId += 1;
-      this._map[key] = sqResult;
+      this._keyMap[key] = result;
+      this._refMap[result.$id] = result;
     }
   }
-  var result = sqResult.dataValues;
-  if (checkCache) {
-    result.$id = sqResult.$id;
-  }
+
   result.$type = entityType.name;
   var nps = entityType.navigationProperties;
   // first remove all nav props
@@ -312,7 +328,9 @@ function getKey(sqResult, entityType) {
 }
 
 SequelizeQuery.prototype._populateExpand = function(result, sqResult, expandProps) {
-
+  if (result.$ref) {
+    result = this._refMap[result.$ref];
+  }
   if (expandProps == null || expandProps.length == 0) return;
   // now blow out all of the expands
   // each expand path consist of an array of expand props.
@@ -338,17 +356,15 @@ SequelizeQuery.prototype._populateExpand = function(result, sqResult, expandProp
 
   if (_.isArray(nextSqResult)) {
     nextSqResult.forEach(function(nextSqr, ix) {
-      if (!nextResult[ix].$ref) {
-        this._populateExpand(nextResult[ix], nextSqr, expandProps.slice(1));
-      }
+      this._populateExpand(nextResult[ix], nextSqr, expandProps.slice(1));
     }, this)
   } else {
-    if (nextResult && !nextResult.$ref) {
+    if (nextResult) {
       this._populateExpand(nextResult, nextSqResult, expandProps.slice(1));
     }
   }
-
 }
+
 
 SequelizeQuery.prototype._addInclude = function(parent, props) {
   // returns 'last' include in props chain
@@ -383,10 +399,11 @@ SequelizeQuery.prototype._addInclude = function(parent, props) {
 SequelizeQuery.prototype._getIncludeFor = function(parent, prop) {
   var sqModel = this.sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
   var includes = parent.include = parent.include || [];
-  var include = _.find(includes, { model: sqModel });
+  var findInclude = {model: sqModel, as: prop.nameOnServer };
+  var include = _.find(includes, findInclude);
   if (!include) {
-    var include = {model: sqModel, as: prop.nameOnServer }
-    includes.push(include);
+    includes.push(findInclude);
+    include = findInclude;
   }
   return include;
 }

@@ -30,7 +30,7 @@ app.post('/breeze/NorthwindIBModel/SaveCheckUnmappedProperty', routes.saveCheckU
 app.post('/breeze/NorthwindIBModel/SaveCheckUnmappedPropertySerialized', routes.saveCheckUnmappedPropertySerialized);
 app.post('/breeze/NorthwindIBModel/SaveCheckUnmappedPropertySuppressed', routes.saveCheckUnmappedPropertySuppressed);
 
-app.get('/breeze/NorthwindIBModel/:slug', routes.get);
+app.get('/breeze/NorthwindIBModel/:slug', noCache, routes.get);
 // alt other files
 app.get(/^(.+)$/, function(req, res) {
     res.sendfile(testCaseDir + req.params[0]);
@@ -38,6 +38,13 @@ app.get(/^(.+)$/, function(req, res) {
 
 app.listen(3000);
 console.log('Listening on port 3000');
+
+function noCache(req, res, next) {
+  res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+  res.header('Expires', '-1');
+  res.header('Pragma', 'no-cache');
+  next();
+}
 
 function errorHandler(err, req, res, next) {
   var status = err.statusCode || 500;

@@ -213,12 +213,17 @@ namedQuery.CustomersWithBigOrders = function(req, res, next) {
 }
 
 namedQuery.CustomersAndProducts = function(req, res, next) {
-  // var stuff = new { Customers = ContextProvider.Context.Customers.ToList(), Products = ContextProvider.Context.Products.ToList() };
-//  var q1 = new SequelizeQuery(_sequelizeManager, entityQuery);
-//    query.execute().then(function (r) {
-//    returnResults(r, res);
-//  }).catch(next)
-  throw new Error("Not yet written")
+  var eq1 = EntityQuery.from("Customers");
+  var sq1 = new SequelizeQuery(_sequelizeManager, eq1);
+  var r1;
+  sq1.execute().then(function (r) {
+    r1 = r;
+    var eq2 = EntityQuery.from("Products");
+    var sq2 = new SequelizeQuery(_sequelizeManager, eq2);
+    return sq2.execute();
+  }).then(function(r2) {
+    returnResults( { Customers: r1, Products: r2 }, res);
+  });
 }
 
 

@@ -15,7 +15,7 @@ var DataService = breeze.DataService;
 var _ = Sequelize.Utils._;
 var log = testFns.log;
 
-describe.only("EntityQuery to SequelizeQuery - execute", function () {
+describe("EntityQuery to SequelizeQuery - execute", function () {
   
   this.enableTimeouts(false);
 

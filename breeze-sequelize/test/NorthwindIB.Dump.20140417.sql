@@ -249,7 +249,7 @@ CREATE TABLE `internationalorder` (
   `ExciseTax` decimal(19,4) NOT NULL,
   `RowVersion` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`OrderID`),
-  CONSTRAINT `FK_InternationalOrder_Order` FOREIGN KEY (`OrderID`) REFERENCES `order` (`OrderID`) ON DELETE NO ACTION ON UPDATE NO ACTION
+  CONSTRAINT `FK_InternationalOrder_Order` FOREIGN KEY (`OrderID`) REFERENCES `order` (`OrderID`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -349,7 +349,7 @@ CREATE TABLE `orderdetail` (
   KEY `OrdersOrder_Details` (`OrderID`),
   KEY `ProductID` (`ProductID`),
   KEY `ProductsOrder_Details` (`ProductID`),
-  CONSTRAINT `FK_OrderDetail_Order` FOREIGN KEY (`OrderID`) REFERENCES `order` (`OrderID`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `FK_OrderDetail_Order` FOREIGN KEY (`OrderID`) REFERENCES `order` (`OrderID`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `FK_OrderDetail_Product` FOREIGN KEY (`ProductID`) REFERENCES `product` (`ProductID`) ON DELETE NO ACTION ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
