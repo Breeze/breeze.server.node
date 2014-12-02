@@ -6,6 +6,3 @@ function log(s) {
   console.log('[Breeze] ' + s + '\n');
 }
 
-function toJsonCircular(json) {
-
-}

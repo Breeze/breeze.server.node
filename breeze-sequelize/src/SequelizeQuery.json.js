@@ -633,10 +633,12 @@ var toSQVisitor = (function () {
     if (methodInfo == null) {
       throw new Error('Unable to locate fn: ' + fnName);
     }
+    methodInfo.validate && methodInfo.validate(expr.exprs);
+
     var exprs = expr.exprs.map(function (ex) {
       return processNestedExpr(ex, context, result);
     })
-    exprVal = methodInfo.fn(exprs);
+    var exprVal = methodInfo.fn(exprs);
     return exprVal;
   }
 
@@ -645,7 +647,7 @@ var toSQVisitor = (function () {
     if (expr.visitorMethodName === 'propExpr') {
       exprVal = processPropExpr(expr, context, result);
       return Sequelize.col(exprVal);
-    } else if (expr.vistorMethodName == 'fnExpr') {
+    } else if (expr.visitorMethodName == 'fnExpr') {
       var exprVal = processFnExpr(expr, context, result);
       return exprVal;
     } else if (expr.visitorMethodName = 'litExpr') {
@@ -659,11 +661,17 @@ var toSQVisitor = (function () {
     toupper: {
       fn: function(sqArgs) {
         return Sequelize.fn("UPPER", sqArgs[0] );
+      },
+      validate: function(exprs) {
+        validateMonadicFn("toUpper", exprs);
       }
     },
     tolower: {
       fn: function(sqArgs) {
         return Sequelize.fn("LOWER", sqArgs[0] );
+      },
+      validate: function(exprs) {
+        validateMonadicFn("toLower", exprs);
       }
     },
     substring: {
@@ -679,10 +687,35 @@ var toSQVisitor = (function () {
     translateMap[fnName] = {
       fn: function (sqArgs) {
         return Sequelize.fn(fnName.toUpperCase(), sqArgs[0]);
+      },
+      validate: function(exprs) {
+        validateMonadicFn(fnName, exprs);
       }
     }
   });
 
+  function validateMonadicFn(fnName, exprs) {
+    var errTmpl = "Error with call to the '%1' function.";
+    var errMsg;
+    if (exprs.length != 1) {
+      errMsg = formatString(errTmpl + " This function only takes a single parameter", fnName);
+    } else if (exprs[0].visitorMethodName == 'litExpr') {
+      errMsg = formatString(errTmpl + " The single parameter may not be a literal expression. Param: %2", fnName, exprs[0].toString());
+    }
+    if (errMsg) {
+      throw new Error(errMsg);
+    }
+  }
+
+  // Based on fragment from Dean Edwards' Base 2 library
+  // format("a %1 and a %2", "cat", "dog") -> "a cat and a dog"
+  function formatString(string) {
+    var args = arguments;
+    var pattern = RegExp("%([1-" + (arguments.length - 1) + "])", "g");
+    return string.replace(pattern, function (match, index) {
+      return args[index];
+    });
+  }
 
   return visitor;
 }());
