@@ -49,6 +49,7 @@ describe("SequelizeQuery 2", function() {
   });
 
   it("should be able to perform subselect and still expand", function(done) {
+    // don't know how to mix subselect and expand in Sequelize yet.
     var Order = _nwSm.models.Orders;
     var Employee = _nwSm.models.Employees;
     var q = {

@@ -87,12 +87,12 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
 
   it("should be able to use fn 'substring' and 'tolower'", function (done) {
     var q = EntityQuery.from("Customers")
-        .where("substring(toLower(CompanyName),0,2)", "==", "om");
+        .where("substring(toLower(CompanyName),1,2)", "==", "om");
     var sq = toSequelizeQuery(q)
     sq.executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(0);
       r.forEach(function (cust) {
-        ok = cust.CompanyName.substring(0,2).toLowerCase() == 'om';
+        ok = cust.CompanyName.substr(1,2).toLowerCase() == 'om';
         expect(ok).true;
       });
 
@@ -172,7 +172,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     }).then(done, done);
   });
 
-  it("should be able to use 'any'", function (done) {
+  it("should be able to use 'any' with expand on same type", function (done) {
     // problem here is that the query works fine EXCEPT
     // that the expand only returns orders.freight > 950
     // not all orders that match the parent;

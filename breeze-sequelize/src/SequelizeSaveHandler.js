@@ -295,6 +295,11 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel, transaction) {
       });
     }
     var that = this;
+    // don't bother executing update statement if nothing to update
+    // this can happen if setModified is called without any properties being changed.
+    if (_.isEmpty(setHash)) {
+      return Promise.resolve(that._addToResults(entity, entityTypeName));
+    }
     // return sqModel.update(setHash, { where: whereHash }, trxOptions).then(function(infoArray) {
     return sqModel.update(setHash, { where: whereHash }).then(function(infoArray) {
       var itemsSaved = infoArray[0];
