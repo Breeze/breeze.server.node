@@ -11,14 +11,16 @@ var log = utils.log;
 
 module.exports = SequelizeManager;
 
-function SequelizeManager(dbConfig) {
-  this.dbConfig = dbConfig;
-  this.sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, {
+function SequelizeManager(dbConfig, sequelizeOptions) {
+  var defaultOptions = {
     dialect: "mysql", // or 'sqlite', 'postgres', 'mariadb'
     port: 3306, // or 5432 (for postgres)
     // omitNull: true,
     logging: console.log
-  });
+  };
+  this.sequelizeOptions = _.extend(defaultOptions, sequelizeOptions || {});
+  this.dbConfig = dbConfig;
+  this.sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, this.sequelizeOptions);
 }
 
 // Expose Sequelize from outside
