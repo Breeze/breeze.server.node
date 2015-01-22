@@ -3,7 +3,6 @@ var expect           = require('chai').expect;
 var breeze           = require('breeze-client');
 var Sequelize        = require('sequelize');
 
-
 var testFns          = require('./testFns.js');
 
 var EntityManager = breeze.EntityManager;

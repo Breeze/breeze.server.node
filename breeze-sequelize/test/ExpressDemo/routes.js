@@ -2,12 +2,15 @@
 var fs = require('fs');
 var Promise = require("bluebird");
 var breezeSequelize = require('breeze-sequelize');
-var breeze = require('breeze-client');
-
 
 var SequelizeManager =breezeSequelize.SequelizeManager;
 var SequelizeQuery = breezeSequelize.SequelizeQuery;
 var SequelizeSaveHandler = breezeSequelize.SequelizeSaveHandler;
+
+// Don't use this
+// var breeze = require('breeze-client');
+// Use this
+var breeze = breezeSequelize.breeze;
 var EntityQuery = breeze.EntityQuery;
 
 var _dbConfigNw = {
@@ -120,6 +123,8 @@ function executeEntityQuery(entityQuery, returnResultsFn, res, next) {
     returnResultsFn(r, res);
   }).catch(next)
 }
+
+
 
 function saveUsingCallback(saveHandler, res, next) {
   saveHandler.save().then(function(r) {

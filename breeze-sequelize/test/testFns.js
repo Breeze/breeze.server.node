@@ -1,8 +1,12 @@
-var breeze           = require("breeze-client");
+var breezeSequelize  = require("breeze-sequelize");
 var fs               = require('fs');
 var expect           = require('chai').expect;
 var _                = require('lodash');
 
+// Don't use this
+// var breeze = require('breeze-client');
+// Use this
+var breeze = breezeSequelize.breeze;
 
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;

@@ -33,13 +33,13 @@ module.exports = SequelizeQuery;
 // config.pathName: if null - url
 // config.entityQuery:
 // config.entityQueryFn: a fn(entityQuery) -> entityQuery
-function SequelizeQuery(sequelizeManager, entityQuery) {
+function SequelizeQuery(sequelizeManager, serverSideEntityQuery) {
 
   this.sequelizeManager = sequelizeManager;
   this.metadataStore = sequelizeManager.metadataStore;
 
-  this.entityType = entityQuery._getFromEntityType(this.metadataStore, true);
-  this.entityQuery = entityQuery;
+  this.entityType = serverSideEntityQuery._getFromEntityType(this.metadataStore, true);
+  this.entityQuery = serverSideEntityQuery;
   this.sqQuery = this._processQuery();
 
 }

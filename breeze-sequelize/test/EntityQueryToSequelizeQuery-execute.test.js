@@ -2,8 +2,13 @@ var fs = require('fs');
 var expect = require('chai').expect;
 var Sequelize = require('sequelize');
 var Promise = require('bluebird');
-var breeze = require('breeze-client');
+
 var breezeSequelize = require("breeze-sequelize");
+// Don't use this
+// var breeze = require('breeze-client');
+// Use this
+var breeze = breezeSequelize.breeze;
+
 var testFns          = require('./testFns.js');
 
 var SequelizeManager = breezeSequelize.SequelizeManager;
@@ -15,7 +20,7 @@ var DataService = breeze.DataService;
 var _ = Sequelize.Utils._;
 var log = testFns.log;
 
-describe("EntityQuery to SequelizeQuery - execute", function () {
+describe.only("EntityQuery to SequelizeQuery - execute", function () {
   
   this.enableTimeouts(false);
 
