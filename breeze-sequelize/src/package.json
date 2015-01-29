@@ -1,6 +1,6 @@
 {
   "name": "breeze-sequelize",
-  "version": "0.0.13",
+  "version": "0.0.15",
   "description": "Breeze Sequelize server implementation",
   "main": "main.js",
   "directories": {},
@@ -22,5 +22,5 @@
     "test": "mocha"
   },
   "author": "Jay Traband",
-  "license": "ISC"
+  "license": "MIT"
 }
