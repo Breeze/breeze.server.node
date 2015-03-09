@@ -32,7 +32,7 @@ MongoQuery.prototype._parseUrl = function(reqQuery) {
         var filterTree = parse(section, "filterExpr");
         var context = {
             translateMember: function(memberPath) {
-                return memberPath.replace("/", ".");
+                return memberPath.replace(/\//g, ".");
             }
         };
 
