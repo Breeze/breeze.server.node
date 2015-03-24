@@ -20,5 +20,11 @@
     "gulp": "^3.8.7",
     "gulp-changed": "^1.0.0",
     "gulp-shell": "^0.2.9"
+  },
+  "jspm": {
+    "directories": {
+      "lib": "build"
+    },
+    "format": "global"
   }
 }
