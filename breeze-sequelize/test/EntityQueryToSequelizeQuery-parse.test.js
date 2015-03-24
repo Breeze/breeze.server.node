@@ -7,10 +7,13 @@ var testFns          = require('./testFns.js');
 
 var SequelizeManager = breezeSequelize.SequelizeManager;
 var SequelizeQuery = breezeSequelize.SequelizeQuery;
-var EntityManager = breezeSequelize.EntityManager;
-var EntityQuery = breezeSequelize.EntityQuery;
-var Predicate = breezeSequelize.Predicate;
-var DataService = breezeSequelize.DataService;
+
+var breeze = breezeSequelize.breeze;
+var EntityManager = breeze.EntityManager;
+var EntityQuery = breeze.EntityQuery;
+var Predicate = breeze.Predicate;
+var DataService = breeze.DataService;
+
 
 var _ = Sequelize.Utils._;
 var log = testFns.log;
