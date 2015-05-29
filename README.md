@@ -3,6 +3,5 @@ breeze.server.node
 
 Breeze support for Node servers
 
-Sequelize support: See http://www.getbreezenow.com/sequelize-mysqlpostgressql-lite
-
-MongoDb support: See http://www.getbreezenow.com/documentation/mongodb
+Sequelize support: See https://breeze.github.io/doc-node-sequelize/
+MongoDb support: See https://breeze.github.io/doc-node-mongodb/
