@@ -39,7 +39,7 @@ SequelizeManager.prototype.authenticate = function() {
 };
 
 SequelizeManager.prototype.createDb = function() {
-  return dbUtils.createDb(this.dbConfig);
+  return dbUtils.createDb(this.dbConfig, this.sequelizeOptions);
 };
 
 SequelizeManager.prototype.importMetadata = function(breezeMetadata) {

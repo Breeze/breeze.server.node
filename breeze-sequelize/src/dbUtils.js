@@ -1,6 +1,7 @@
 
 var Promise    = require('bluebird');
 var mysql      = require('mysql');
+var pq         = require('pq');
 Promise.promisifyAll(require("mysql/lib/Connection").prototype);
 Promise.promisifyAll(require("mysql/lib/Pool").prototype);
 
@@ -11,28 +12,54 @@ exports.connect = connect;
 exports.createDb = createDb;
 
 // returns a Promise(connection)
-function connect(dbConfig) {
-  var connection = mysql.createConnection(dbConfig);
+function connect(dbConfig, sequelizeOptions) {
 
-  connection.on('error', function(err) {
-    log("Unable to connect to mySql (on err):" + err.code); // 'ER_BAD_DB_ERROR'
-  });
+  if (sequelizeOptions && sequelizeOptions.dialect === 'postgres') {
+    connectionString = 'postgres://' + dbConfig.user + ':' + dbConfig.password + '@' + dbConfig.host + '/postgres';
+    var client = new pg.Client(connectionString);
+    return new Promise(function (resolve, reject){
+      client.connect(function (err, pgclient, done) {
+        if(err) {
+          return console.error('error fetching client from pool', err);
+        }
+        resolve(pgclient);
+      });
+    });
+  } else {
+    var connection = mysql.createConnection(dbConfig);
+    connection.on('error', function(err) {
+      log("Unable to connect to mySql (on err):" + err.code); // 'ER_BAD_DB_ERROR'
+    });
 
-  // promisified connect
-  return connection.connectAsync().then(function() {
-    log("mysql connected: " + dbConfig.host);
-    return connection;
-  }).error(function(err) {
-    log("Unable to connect to mySql:" + err);
-    throw err;
-  });
+    // promisified connect
+    return connection.connectAsync().then(function() {
+      log("mysql connected: " + dbConfig.host);
+      return connection;
+    }).error(function(err) {
+      log("Unable to connect to mySql:" + err);
+      throw err;
+    });
+  }
 }
 
 // return promise(null);
 function createDb(dbConfig) {
   return connect(dbConfig).then(function(connection) {
-    // promisified query
-    return connection.queryAsync('CREATE DATABASE ' + dbConfig.dbName);
+    var statement = 'CREATE DATABASE ' + dbConfig.dbName;
+    if (sequelizeOptions.dialect === 'postgres') {
+      return new Promise(function (resolve, reject) {
+        return connection.query(statement, function (err, result) {
+          if (!err){
+            resolve(result);
+          } else {
+            reject(err);
+          }
+        });
+      });
+    } else {
+      // promisified query
+      return connection.queryAsync(statement);
+    }
   }).then(function() {
 
   }).then(function() {
