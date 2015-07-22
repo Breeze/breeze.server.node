@@ -8,10 +8,10 @@ To install with npm, open a terminal or command window and enter:
 
 >Case matters! Be sure to spell "breeze-sequelize" in all lowercase.
 
-[Learn more about Breeze](http://www.getbreezenow.com/breezejs "breezejs").
+[Learn more about Breeze](http://breeze.github.io/doc-js/ "breezejs").
 
 ## More documentation
 
-[Breeze/Sequelize documentation here](http://www.getbreezenow.com/sequelize-mysqlpostgressql-lite "breeze-sequelize documentation")
+[Breeze/Sequelize documentation here](http://breeze.github.io/doc-node-sequelize/ "breeze-sequelize documentation")
 
 

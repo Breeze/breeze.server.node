@@ -8,7 +8,7 @@ To install with bower, open a terminal or command window and enter:
 
 >Case matters! Be sure to spell "breeze-client" in all lowercase.
 
-[Learn more about Breeze](http://www.getbreezenow.com/breezejs "breezejs").
+[Learn more about Breeze](http://breeze.github.io/doc-js/ "breezejs").
 
 ## Structure
 
@@ -45,6 +45,6 @@ If you choose to run with "breeze.**base**.debug.js" instead of "breeze.debug.js
 
 This package **does not include the Breeze Labs**.
 
-[**Breeze Labs**](http://www.getbreezenow.com/documentation/what-are-breeze-labs) are experimental libraries and not part of the Breeze core.
+[**Breeze Labs**](http://breeze.github.io/doc-breeze-labs/) are experimental libraries and not part of the Breeze core.
 
 
