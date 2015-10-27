@@ -10,7 +10,7 @@
     "lodash": "^2.4.1",
     "mysql": "^2.4.3",
     "node-uuid": "^1.4.1",
-    "sequelize": "^2.0.0-rc2",
+    "sequelize": "^3.13.0",
     "toposort": "^0.2.10"
   },
   "devDependencies": {
