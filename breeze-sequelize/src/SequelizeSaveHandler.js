@@ -257,7 +257,7 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel, transaction) {
           that._fkFixupMap[tempKeyString] = keyMapping.realValue;
           that._keyMappings.push(keyMapping);
         }
-        return that._addToResults(savedEntity.values, entityTypeName);
+        return that._addToResults(savedEntity.dataValues, entityTypeName);
       }).catch(handleItemSaveError(entity, entityState));
     });
   } else if (entityState === "Modified") {

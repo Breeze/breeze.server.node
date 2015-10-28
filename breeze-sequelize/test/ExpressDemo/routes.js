@@ -64,7 +64,7 @@ KeyGenerator.prototype._updateNextId = function() {
 
   var that = this;
   var nextId;
-  return this.nextIdModel.find("GLOBAL").then(function(nextIdItem) {
+  return this.nextIdModel.findById("GLOBAL").then(function(nextIdItem) {
     nextId = nextIdItem["NextId"];
     var nextIdToSave = nextId + that.groupSize;
     return that.nextIdModel.update({ NextId: nextIdToSave }, { where: { Name: "GLOBAL", NextId: nextId }});
