@@ -1,6 +1,6 @@
 {
   "name": "breeze-sequelize",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "Breeze Sequelize server implementation",
   "main": "main.js",
   "directories": {},
@@ -8,7 +8,6 @@
     "bluebird": "^2.3.2",
     "breeze-client": "*",
     "lodash": "^2.4.1",
-    "mysql": "^2.4.3",
     "node-uuid": "^1.4.1",
     "sequelize": "^3.13.0",
     "toposort": "^0.2.10"
@@ -20,6 +19,10 @@
   },
   "scripts": {
     "test": "mocha"
+  },
+  "repository" : { 
+    "type" : "git", 
+     "url" : "https://github.com/Breeze/breeze.server.node.git"    
   },
   "author": "Jay Traband",
   "license": "MIT"

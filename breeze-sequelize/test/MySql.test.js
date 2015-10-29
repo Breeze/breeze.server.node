@@ -25,13 +25,12 @@ describe("MySql", function() {
   });
 
   it('should connect', function(done) {
-    dbUtils.connect(dbConfig).then(function(connection) {
-      expect(connection.state).to.eql("authenticated");
+    dbUtils.connect(dbConfig).then(function(success) {
+      expect(success).to.eql("success");
     }).then(done, done);
   })
 
   it("should create a db", function(done) {
-    // dbUtils.createDb(dbConfig).then(done, done);
     dbUtils.createDb(dbConfig).then(function() {
       log(dbConfig.dbName + " created or exists");
     }).then(done, done);

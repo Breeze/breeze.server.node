@@ -27,8 +27,8 @@ describe("PostGres", function() {
   });
 
   it('should connect', function(done) {
-    dbUtils.connect(dbConfig, optionsConfig).then(function(connection) {
-      expect(connection.state).to.eql("authenticated");
+    dbUtils.connect(dbConfig).then(function(success) {
+      expect(success).to.eql("success");
     }).then(done, done);
   })
 

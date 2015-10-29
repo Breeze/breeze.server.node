@@ -5,7 +5,7 @@
     "private": true,
     "dependencies": {
 		"breeze-client":  "*",
-		"breeze-sequelize": "file:../../src",
+		"breeze-sequelize": "0.0.16",
         "express": "3.x"        
     }
 }
