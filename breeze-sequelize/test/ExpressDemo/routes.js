@@ -14,10 +14,15 @@ var breeze = breezeSequelize.breeze;
 var EntityQuery = breeze.EntityQuery;
 
 var _dbConfigNw = {
-  host: "localhost",
   user: "jayt",
   password: "password",
   dbName: 'northwindib'
+}
+
+var _seqOpts = {
+  dialect: "mysql",
+  host: "localhost",
+  port: 3306
 }
 
 var _sequelizeManager = createSequelizeManager();
@@ -28,7 +33,7 @@ function createSequelizeManager() {
     next(new Error("Unable to locate file: " + filename));
   }
   var metadata = fs.readFileSync(filename, 'utf8');
-  var sm = new SequelizeManager(_dbConfigNw);
+  var sm = new SequelizeManager(_dbConfigNw, _seqOpts);
   sm.importMetadata(metadata);
 
 

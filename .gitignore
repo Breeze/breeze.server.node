@@ -8,6 +8,9 @@
 *.testsettings
 *.old
 *.suo
+*.csproj
+*.sln
+*.log
 
 node_modules
 bin

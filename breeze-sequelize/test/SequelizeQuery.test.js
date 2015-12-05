@@ -78,7 +78,7 @@ describe("SequelizeQuery 2", function() {
     _nwSm.models.Customers.findAll(q ).then(function(r) {
       expect(r).to.have.length.above(5);
       r.forEach(function(cust) {
-        expect(Object.keys(cust.values)).to.have.length(3);
+        expect(Object.keys(cust.dataValues)).to.have.length(3);
         expect(cust).to.have.property("CompanyName");
         expect(cust).to.have.property("Orders");
         expect(cust.CompanyName).to.match(/B.*/)
@@ -89,10 +89,12 @@ describe("SequelizeQuery 2", function() {
 
   it("should be able to project and include scalar props in same query", function(done) {
     var CustomerModel = _nwSm.models.Customers;
-    var where = Sequelize.where(Sequelize.col("Freight"), { gt: 100} );
+    var where = {
+      "Freight": { $gt: 100 },
+      "CustomerID": { $ne: null }
+    };
 
     var q = {
-      // where: { Freight: { gt: 100} },
       where: where,
       attributes: [ "OrderID", "Freight" ],
       include: [ { model: CustomerModel, as: "Customer", attributes: [ "CompanyName" , "City"] }]
@@ -100,12 +102,12 @@ describe("SequelizeQuery 2", function() {
     _nwSm.models.Orders.findAll(q ).then(function(r) {
       expect(r).to.have.length.above(1);
       r.forEach(function(order) {
-        expect(Object.keys(order.values)).to.have.length(3);
+        expect(Object.keys(order.dataValues)).to.have.length(3);
         expect(order).to.have.property("OrderID");
         expect(order).to.have.property("Freight");
         expect(order).to.have.property("Customer");
         var cust = order.Customer;
-        expect(Object.keys(cust.values)).to.have.length(2);
+        expect(Object.keys(cust.dataValues)).to.have.length(2);
         expect(cust).to.have.property("CompanyName");
         expect(cust).to.have.property("City");
 
@@ -161,14 +163,15 @@ describe("SequelizeQuery 2", function() {
     var Order = _nwSm.models.Orders;
     _nwSm.models.Orders.findAll( {
       limit: 2,
+      where: { "CustomerID": { $ne: null }},
       include: { model: Customer, as: "Customer", attributes: [ "CompanyName"]} ,
       attributes: [ "OrderDate", "Customer.CompanyName"]
     }).then(function(r) {
       expect(r).to.have.length(2);
       r.forEach(function(orderx) {
         expect(orderx).to.have.property("Customer");
-        expect(orderx.Customer).to.have.property("CompanyName");
-        expect(orderx.Customer).to.not.have.property("City");
+        expect(orderx.Customer.dataValues).to.have.property("CompanyName");
+        expect(orderx.Customer.dataValues).to.not.have.property("City");
         expect(orderx).to.have.property("OrderDate");
       });
     }).then(done, done).catch(done);
@@ -184,9 +187,9 @@ describe("SequelizeQuery 2", function() {
     }).then(function(r) {
       expect(r).to.have.length(2);
       r.forEach(function(custx) {
-        expect(custx).to.have.property("CompanyName");
-        expect(custx).to.have.property("Orders");
-        expect(custx).to.not.have.property("City");
+        expect(custx.dataValues).to.have.property("CompanyName");
+        expect(custx.dataValues).to.have.property("Orders");
+        expect(custx.dataValues).to.not.have.property("City");
         expect(custx.Orders).to.be.instanceOf(Array);
       });
     }).then(done, done);

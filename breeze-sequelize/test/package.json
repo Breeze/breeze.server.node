@@ -4,11 +4,11 @@
   "description": "Breeze Sequelize server tests",
   "directories": {},
   "dependencies": {
-    "bluebird": "^2.3.2",
+    "bluebird": "^3.0.6",
     "breeze-client": "*",
-    "lodash": "^2.4.1",
-    "node-uuid": "^1.4.1",
-    "sequelize": "^3.13.0",
+    "lodash": "^3.10.1",
+    "node-uuid": "^1.4.7",
+    "sequelize": "^3.14.2",
     "breeze-sequelize": "0.0.16"
   },
   "devDependencies": {

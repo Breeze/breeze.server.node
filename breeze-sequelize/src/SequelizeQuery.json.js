@@ -250,21 +250,18 @@ SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
     // start with the sqResult and then promote nested properties up to the top level
     // while removing nested path.
     var result = sqResult.dataValues;
-    var parent = sqResult;
+    var parent;
     propertyPaths.forEach(function (pp) {
+      parent = sqResult;
       var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
       var nextProp = props[0];
       remainingProps = props.slice(0);
       while (remainingProps.length > 1 && nextProp.isNavigationProperty) {
-        // remove node from parent
-        var oldParent = parent;
-
         parent = parent[nextProp.nameOnServer];
-        oldParent[nextProp.nameOnServer] = undefined;
         remainingProps = remainingProps.slice(1);
         nextProp = remainingProps[0];
       }
-      var val = parent[nextProp.nameOnServer];
+      var val = parent && parent[nextProp.nameOnServer];
       // if last property in path is a nav prop then we need to wrap the results
       // as either an entity or entities.
       if (nextProp.isNavigationProperty) {
