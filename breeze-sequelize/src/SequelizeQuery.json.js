@@ -492,7 +492,9 @@ var toSQVisitor = (function () {
       }
       where = makeWhere(p1Value, crit);
       // the 'where' clause may be on a nested include
-      if (result.includes && result.includes.length > 0) {
+      if (result.lastInclude) {
+        result.lastInclude.where = where;
+      } else if (result.includes && result.includes.length > 0) {
         result.includes[0].where = where;
       } else {
         result.where = where;
@@ -567,7 +569,8 @@ var toSQVisitor = (function () {
       }
 
       var props = context.entityType.getPropertiesOnPath(this.expr.propertyPath, context.usesNameOnServer, true);
-      var include = context.sequelizeQuery._addInclude( {}, props);
+      var parent = {};
+      var include = context.sequelizeQuery._addInclude(parent, props);
       var newContext = _.clone(context);
       newContext.entityType = this.expr.dataType;
 
@@ -577,7 +580,7 @@ var toSQVisitor = (function () {
       var r = this.pred.visit(newContext);
       include.where = r.where;
       include.includes = r.includes;
-      return { includes: [ include] }
+      return { includes: parent.include }
 
     },
 
@@ -613,9 +616,11 @@ var toSQVisitor = (function () {
     if (props.length > 1) {
       // handle a nested property path on the LHS - query gets moved into the include
       // context.include starts out null at top level
-      var include = context.sequelizeQuery._addInclude({}, props);
-      include.where = {}
-      result.includes = [ include ];
+      var parent = {};
+      var include = context.sequelizeQuery._addInclude(parent, props);
+      include.where = {};
+      result.includes = parent.include;
+      result.lastInclude = include;
       exprVal = props[props.length - 1].nameOnServer;
     } else {
       result.where = {};

@@ -198,6 +198,79 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     }).then(done, done);
   });
 
+  it("should handle a where clause on a deep relation", function(done) {
+
+    var orderEmp = breeze.Predicate.create('order.employee.lastName', 'eq', 'Peacock');
+
+    //var nameStartsWith = breeze.Predicate.create('order.customer.companyName', 'startsWith', 'B');
+
+    //var pred = breeze.Predicate.and(orderEmpIsBuchanan, nameStartsWith);
+
+    var q = EntityQuery.from("OrderDetails").where(orderEmp);
+    var sq = toSequelizeQuery(q);
+
+    sq.executeRaw().then(function(r) {
+      expect(r).to.have.length.greaterThan(1);
+
+    }).then(done, done);
+  });
+
+  it("should be able to use predicates with 'any' & 'and'", function(done) {
+
+    var isBuchanan = breeze.Predicate.create('employeeID', 'Equals', 5)
+            .and('employee.reportsToEmployeeID', 'Equals', 8);
+
+    var orderEmpIsBuchanan = breeze.Predicate.create('orders', 'any', isBuchanan);
+
+    var nameStartsWith = breeze.Predicate.create('companyName', 'startsWith', 'B');
+
+    var pred = breeze.Predicate.and(orderEmpIsBuchanan, nameStartsWith);
+
+    var q = EntityQuery.from("Customers").where(pred);
+    var sq = toSequelizeQuery(q);
+
+    sq.executeRaw().then(function(r) {
+      expect(r).to.have.length.greaterThan(1);
+      r.forEach(function(cust) {
+        ok = cust.Orders.some(function(order) {
+          return order.EmployeeID == 5;
+        });
+        expect(ok).true;
+      });
+
+    }).then(done, done);
+  });
+
+  it("should be able to use predicates with 'any' that reference the same table again", function(done) {
+    // See https://github.com/Breeze/breeze.server.node/issues/17
+
+    var subPred = breeze.Predicate.create('employee.employeeID', 'equals', 8);
+            //.and('shipCity', 'equals', 'London');
+
+    var pred1 = breeze.Predicate.create('customer.orders', 'any', subPred);
+
+    var pred2 = breeze.Predicate.create('orderID', 'gt', 10);
+
+    var pred = breeze.Predicate.and(pred1, pred2);
+
+    var q = EntityQuery.from("Orders").where(pred);
+
+    var sq = toSequelizeQuery(q);
+
+    sq.executeRaw().then(function(r) {
+      expect(r).to.have.length.greaterThan(1);
+      var hasOrder8 = false;
+      r.forEach(function(order) {
+        // at least one order should have employeeID 8
+        if (order.EmployeeID == 8) hasOrder8 = true;
+      });
+      expect(hasOrder8).true;
+
+    }).then(done, done);
+  });
+
+
+
   it("should be able to use 'in'", function (done) {
     // needs to turn the query into one with an include with a where condition.
     var countries = ['Austria', 'Italy', 'Norway']
