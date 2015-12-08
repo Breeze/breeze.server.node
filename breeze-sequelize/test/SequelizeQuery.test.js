@@ -195,6 +195,51 @@ describe("SequelizeQuery 2", function() {
     }).then(done, done);
   });
 
+  it("should handle 'where' on deep include ", function(done) {
+
+    var Order = _nwSm.models.Orders;
+    var Employee = _nwSm.models.Employees;
+    _nwSm.models.OrderDetails.findAll({
+      limit: 2,
+      include: [{
+        model: Order, as: 'Order',
+        include: [{
+          model: Employee, as: 'Employee',
+          where: { lastName: 'Peacock' }
+        }]
+      }]
+    }).then(function(r) {
+      expect(r).to.have.length(2);
+      r.forEach(function(od) {
+        expect(od.dataValues).to.have.property("Quantity");
+        expect(od.dataValues).to.have.property("Order");
+        expect(od.dataValues.Order).to.have.property("Employee");
+      });
+    }).then(done, done);
+  });
+
+  it("should use attributes:[] on deep include, to prevent child entities ", function(done) {
+
+    var Order = _nwSm.models.Orders;
+    var Employee = _nwSm.models.Employees;
+    _nwSm.models.OrderDetails.findAll({
+      limit: 2,
+      include: [{
+        model: Order, as: 'Order', attributes: [],
+        include: [{
+          model: Employee, as: 'Employee',
+          attributes: [],
+          where: { lastName: 'Peacock' }
+        }]
+      }]
+    }).then(function(r) {
+      expect(r).to.have.length(2);
+      r.forEach(function(od) {
+        expect(od.dataValues).to.have.property("Quantity");
+        expect(od.dataValues).not.to.have.property("Order");
+      });
+    }).then(done, done);
+  });
 
   var buildOrQuery = function() {
     var c1= { "CompanyName": { like: 'B%'} };
