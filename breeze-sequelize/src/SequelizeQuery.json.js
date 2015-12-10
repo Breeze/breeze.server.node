@@ -137,7 +137,7 @@ SequelizeQuery.prototype._processSelect = function() {
     var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
     var isNavPropertyPath = props[0].isNavigationProperty;
     if (isNavPropertyPath) {
-      this._addInclude(this.sqQuery, props);
+      this._addInclude(this.sqQuery, props, true);
     }
     if (isNavPropertyPath) return null;
     return usesNameOnServer ?  pp : _.pluck(props, "nameOnServer").join(".");
@@ -156,7 +156,7 @@ SequelizeQuery.prototype._processOrderBy = function() {
     var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
     var isNavPropertyPath = props[0].isNavigationProperty;
     if (isNavPropertyPath) {
-      this._addInclude(this.sqQuery, props);
+      this._addInclude(this.sqQuery, props, false);
     }
 
     var r = [];
@@ -183,7 +183,7 @@ SequelizeQuery.prototype._processExpand = function() {
   if (expandClause == null) return;
   expandClause.propertyPaths.forEach(function(pp) {
     var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
-    this._addInclude(this.sqQuery, props);
+    this._addInclude(this.sqQuery, props, true);
   }, this);
 };
 
@@ -363,11 +363,13 @@ SequelizeQuery.prototype._populateExpand = function(result, sqResult, expandProp
 }
 
 
-SequelizeQuery.prototype._addInclude = function(parent, props) {
+SequelizeQuery.prototype._addInclude = function(parent, props, isFetch) {
   // returns 'last' include in props chain
-  var prop = props[0];
+  // isFetch - if query should return the data for this include, i.e. a select or expand
+
   // if (!parent) parent = this.sqQuery;
   var include = this._getIncludeFor(parent, props[0]);
+  if (!isFetch && !include.$disallowAttributes) include.attributes = include.attributes || [];
   // $disallowAttributes code is used to insure two things
   // 1) if a navigation property is declared as the last prop of a select or expand expression
   //    that it is not 'trimmed' i.e. has further 'attributes' added that would narrow the projection.
@@ -376,15 +378,15 @@ SequelizeQuery.prototype._addInclude = function(parent, props) {
   props = props.slice(1);
   if (props.length > 0) {
     if (props[0].isNavigationProperty) {
-      return this._addInclude(include, props);
+      return this._addInclude(include, props, isFetch);
     } else {
       // dataProperty
-      if (!include.$disallowAttributes) {
+      if (isFetch && !include.$disallowAttributes) {
         include.attributes = include.attributes || [];
         include.attributes.push(props[0].nameOnServer);
       }
     }
-  } else {
+  } else if (isFetch) {
     // do not allow attributes set on any final navNodes nodes
     include.$disallowAttributes = true
     // and remove any that might have been added.
@@ -570,7 +572,7 @@ var toSQVisitor = (function () {
 
       var props = context.entityType.getPropertiesOnPath(this.expr.propertyPath, context.usesNameOnServer, true);
       var parent = {};
-      var include = context.sequelizeQuery._addInclude(parent, props);
+      var include = context.sequelizeQuery._addInclude(parent, props, false);
       var newContext = _.clone(context);
       newContext.entityType = this.expr.dataType;
 
@@ -617,7 +619,7 @@ var toSQVisitor = (function () {
       // handle a nested property path on the LHS - query gets moved into the include
       // context.include starts out null at top level
       var parent = {};
-      var include = context.sequelizeQuery._addInclude(parent, props);
+      var include = context.sequelizeQuery._addInclude(parent, props, false);
       include.where = {};
       result.includes = parent.include;
       result.lastInclude = include;
