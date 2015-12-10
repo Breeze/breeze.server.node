@@ -54,7 +54,7 @@ describe("SequelizeQuery 2", function() {
     var Employee = _nwSm.models.Employees;
     var q = {
       include: [
-        { model: Order, as: "Orders", where: { Freight: { gt: 1000 } } }
+        { model: Order, as: "Orders", where: { Freight: { gt: 400 } } }
         // { model: Order, as: "Orders" }
       ]
     };

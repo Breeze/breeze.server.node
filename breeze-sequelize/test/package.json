@@ -9,7 +9,7 @@
     "lodash": "^3.10.1",
     "node-uuid": "^1.4.7",
     "sequelize": "^3.14.2",
-    "breeze-sequelize": "0.0.17"
+    "breeze-sequelize": "0.0.18"
   },
   "devDependencies": {
     "gulp": "^3.8.7",

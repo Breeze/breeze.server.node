@@ -89,10 +89,10 @@ SequelizeQuery.prototype._processQuery = function() {
     sqQuery.offset = entityQuery.skipCount;
   }
 
-//  // Empty include is ok with Sequelize.
-//  if (_.isEmpty(this.sqQuery.include)) {
-//    delete this.sqQuery.include;
-//  }
+  // Empty include is ok with Sequelize, but we clean it up.
+  if (_.isEmpty(this.sqQuery.include)) {
+    delete this.sqQuery.include;
+  }
   return this.sqQuery;
 
 }
@@ -107,25 +107,11 @@ SequelizeQuery.prototype._processWhere = function() {
     metadataStore: this.metadataStore
   }, toSQVisitor);
 
-
-  this.sqQuery.where = sqQuery.where;
-  this.sqQuery.include = sqQuery.include;
-  //this.sqQuery.include = cvtIncludes(sqQuery.includes);
+  if (sqQuery.where) this.sqQuery.where = sqQuery.where;
+  if (sqQuery.include) this.sqQuery.include = sqQuery.include;
 
   processAndOr(this.sqQuery);
 }
-
-//function cvtIncludes(includes) {
-//  if (includes) {
-//    includes.forEach(function(include) {
-//      if (include.includes) {
-//        include.include = cvtIncludes(include.includes);
-//        delete include.includes;
-//      }
-//    });
-//  }
-//  return includes;
-//}
 
 SequelizeQuery.prototype._processSelect = function() {
   var selectClause = this.entityQuery.selectClause;
@@ -363,7 +349,6 @@ SequelizeQuery.prototype._populateExpand = function(result, sqResult, expandProp
 }
 
 
-
 // Add an include for a where or order by clause.  Returns last include in the props chain.
 SequelizeQuery.prototype._addInclude = function(parent, props) {
   var include = this._getIncludeFor(parent, props[0]);
@@ -420,43 +405,7 @@ SequelizeQuery.prototype._addFetchInclude = function(parent, props, isExpand) {
   return include;
 }
 
-SequelizeQuery.prototype._addIncludeOLD = function(parent, props, isFetch) {
-  // returns 'last' include in props chain
-  // isFetch - if query should return the data for this include, i.e. a select or expand
-
-  // if (!parent) parent = this.sqQuery;
-  var include = this._getIncludeFor(parent, props[0]);
-  if (!isFetch && !include.$disallowAttributes) include.attributes = include.attributes || [];
-  // $disallowAttributes code is used to insure two things
-  // 1) if a navigation property is declared as the last prop of a select or expand expression
-  //    that it is not 'trimmed' i.e. has further 'attributes' added that would narrow the projection.
-  // 2) that we support restricted projections on expanded nodes as long as we don't
-  //    violate #1 above.
-  props = props.slice(1);
-  if (props.length > 0) {
-    if (props[0].isNavigationProperty) {
-      if (isFetch) {
-        if (include.attributes && include.attributes.length == 0) {
-          include.attributes = include.model.primaryKeyAttributes;
-        }
-      }
-      return this._addInclude(include, props, isFetch);
-    } else {
-      // dataProperty
-      if (isFetch && !include.$disallowAttributes) {
-        include.attributes = include.attributes || [];
-        include.attributes.push(props[0].nameOnServer);
-      }
-    }
-  } else if (isFetch) {
-    // do not allow attributes set on any final navNodes nodes
-    include.$disallowAttributes = true
-    // and remove any that might have been added.
-    delete include.attributes;
-  }
-  return include;
-}
-
+// Find or create an include object, and attach it to parent
 SequelizeQuery.prototype._getIncludeFor = function(parent, prop) {
   var sqModel = this.sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
   var includes = parent.include = parent.include || [];
@@ -643,7 +592,7 @@ var toSQVisitor = (function () {
 
       var r = this.pred.visit(newContext);
       include.where = r.where;
-      include.include = r.include;
+      if (r.include) include.include = r.include;
       return { include: parent.include }
 
     },

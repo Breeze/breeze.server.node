@@ -14,7 +14,10 @@ Then go back to this `breeze-sequelize/test` directory, and link to the breeze-s
 
     npm link breeze-sequelize
 
-That way, you will run the test with your local breeze-sequelize code.  Finally build/install the test package:
+That way, you will run the tests with your local breeze-sequelize code from the ../src directory, and any changes that you make to src are used in the tests.  
+You only have to do the npm-link once.
+
+Finally build/install the test package:
 
     npm install
 

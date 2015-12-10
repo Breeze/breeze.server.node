@@ -13,6 +13,9 @@ Handles AJAX requests for CRUD operations from the Breeze client.  Most queries 
 Other methods are for special scenarios that are being exercised by the test suite.
 
 ## Debugging
+
+Perform the npm-link process as described in the README file in the parent (test) directory.
+
 You can debug into the application using [node-inspector](https://github.com/node-inspector/node-inspector).  First install it:
 
     npm install -g node-inspector

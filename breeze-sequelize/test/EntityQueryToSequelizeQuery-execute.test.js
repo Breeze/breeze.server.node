@@ -39,10 +39,18 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
   function toSequelizeQuery(entityQuery) {
     // comment next 3 line out to test client side queries implemented on the server.
     var uri = entityQuery._toUri(_em);
-    console.log(uri);
+    console.log(decodeURIComponent(uri));
     var entityQuery = EntityQuery.fromUrl(uri);
     var sq = new SequelizeQuery(_sm, entityQuery);
+    var cl = cloneQuery(sq.sqQuery);
+    console.dir(cl, { depth: 10 });
     return sq;
+  }
+
+  function cloneQuery(sq) {
+    return _.cloneDeep(sq, function(val) {
+      if (val) return val.name;
+    });
   }
 
   it("should be able to use fn 'toupper'", function (done) {
@@ -183,14 +191,14 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     // that the expand only returns orders.freight > 950
     // not all orders that match the parent;
     var q = EntityQuery.from("Employees")
-        .where("orders", "any", "freight", ">", 950)
+        .where("orders", "any", "freight", ">", 400)
         .expand("orders");
     var sq = toSequelizeQuery(q)
     sq.executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(1);
       r.forEach(function (emp) {
         ok = emp.Orders.some(function (order) {
-          return order.Freight > 950;
+          return order.Freight > 400;
         });
         expect(ok).true;
       });
@@ -215,10 +223,10 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     }).then(done, done);
   });
 
-  it("should be able to use predicates with 'any' & 'and'", function(done) {
+  it("should be able to use predicates with 'any' & 'and' with expand", function(done) {
 
     var isBuchanan = breeze.Predicate.create('employeeID', 'Equals', 5)
-            .and('employee.reportsToEmployeeID', 'Equals', 8);
+            .and('employee.manager.reportsToEmployeeID', 'ne', 5);
 
     var orderEmpIsBuchanan = breeze.Predicate.create('orders', 'any', isBuchanan);
 
@@ -226,7 +234,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
 
     var pred = breeze.Predicate.and(orderEmpIsBuchanan, nameStartsWith);
 
-    var q = EntityQuery.from("Customers").where(pred);
+    var q = EntityQuery.from("Customers").where(pred).expand("orders.employee")
     var sq = toSequelizeQuery(q);
 
     sq.executeRaw().then(function(r) {
@@ -241,11 +249,34 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     }).then(done, done);
   });
 
+  it("should be able to use predicates with 'any' & 'and' without expand", function(done) {
+
+    var isBuchanan = breeze.Predicate.create('employeeID', 'Equals', 5)
+            .and('employee.manager.reportsToEmployeeID', 'ne', null);
+
+    var orderEmpIsBuchanan = breeze.Predicate.create('orders', 'any', isBuchanan);
+
+    var nameStartsWith = breeze.Predicate.create('companyName', 'startsWith', 'B');
+
+    var pred = breeze.Predicate.and(orderEmpIsBuchanan, nameStartsWith);
+
+    var q = EntityQuery.from("Customers").where(pred);
+    var sq = toSequelizeQuery(q);
+
+    sq.executeRaw().then(function(r) {
+      expect(r).to.have.length.greaterThan(1);
+      r.forEach(function(cust) {
+        expect(cust.Orders).to.be.undefined;
+      });
+
+    }).then(done, done);
+  });
+
   it("should be able to use predicates with 'any' that reference the same table again", function(done) {
     // See https://github.com/Breeze/breeze.server.node/issues/17
 
-    var subPred = breeze.Predicate.create('employee.employeeID', 'equals', 8);
-            //.and('shipCity', 'equals', 'London');
+    var subPred = breeze.Predicate.create('employee.reportsToEmployeeID', 'equals', 8)
+            .and('shipCity', 'equals', 'London');
 
     var pred1 = breeze.Predicate.create('customer.orders', 'any', subPred);
 
@@ -363,11 +394,12 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     }).then(done, done);
   });
 
-  it("should be able to order by nested property", function (done) {
+  it("should be able to order by nested property with expand", function (done) {
     // needs to turn the query into one with an include with a where condition.
     var q = EntityQuery.from("Orders")
         .where("freight", ">", 300)
         .where("customerID", ">", "")
+        .expand("customer")
         .orderBy("customer.companyName desc");
     toSequelizeQuery(q).executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(1);
@@ -385,11 +417,58 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     }).then(done, done);
   });
 
+  it("should be able to order by nested property with select", function(done) {
+    // needs to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("Orders")
+        .where("freight", ">", 300)
+        .where("customerID", ">", "")
+        .select("customer.companyName")
+        .orderBy("customer.companyName desc");
+    toSequelizeQuery(q).executeRaw().then(function(r) {
+      expect(r).to.have.length.greaterThan(1);
+      var custs = r.map(function(order) {
+        expect(order).to.have.property("Customer");
+        return order.Customer;
+      })
+      var ok = testFns.isSorted(custs, ["CompanyName desc"]);
+      expect(ok, "should be sorted").true;
+      return toSequelizeQuery(q).execute(_sm);
+    }).then(function(r2) {
+      expect(r2).to.have.length.greaterThan(1);
+      expect(r2).not.to.have.property("Customer");
+
+    }).then(done, done);
+  });
+
+  it("should be able to order by nested property without select or expand", function(done) {
+    // needs to turn the query into one with an include with a where condition.
+    var q = EntityQuery.from("Orders")
+        .where("freight", ">", 300)
+        .where("customerID", ">", "")
+        .orderBy("customer.companyName desc");
+    toSequelizeQuery(q).executeRaw().then(function(r) {
+      expect(r).to.have.length.greaterThan(1);
+      var custIds = r.map(function(order) {
+        expect(order).not.to.have.property("Customer");
+        return order.CustomerID;
+      })
+      // using known customer id values
+      expect(custIds[0]).to.equal('F02CC730-2CE3-40F5-88DA-5E6C1B7F5241');
+      expect(custIds[1]).to.equal('CD98057F-B5C2-49F4-A235-05D155E636DF');
+      expect(custIds[2]).to.equal('35D5BCB3-4EAD-4BD4-8209-FC1200A58F0A');
+      return toSequelizeQuery(q).execute(_sm);
+    }).then(function(r2) {
+      expect(r2).to.have.length.greaterThan(1);
+      expect(r2).not.to.have.property("Customer");
+    }).then(done, done);
+  });
+
   it("should be able to order by nested property and regular property", function (done) {
     // needs to turn the query into one with an include with a where condition.
     var q = EntityQuery.from("Orders")
         .where("freight", ">", 300)
         .where("customerID", ">", "")
+        .expand("customer")
         .orderBy("customer.companyName desc, freight");
     toSequelizeQuery(q).executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(1);
@@ -411,6 +490,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
           "customer.companyName": { startsWith: "S"},
           "freight" : { ">": 300 }
         })
+        .expand("customer")
         .orderBy("customer.companyName desc, freight");
 
     toSequelizeQuery(q).executeRaw().then(function (r) {
@@ -433,6 +513,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     // needs to turn the query into one with an include with a where condition.
     var q = EntityQuery.from("Orders")
         .where("customer.companyName", "startsWith", "B")
+        .expand("customer.companyName")
         .take(2);
     toSequelizeQuery(q).executeRaw().then(function (r) {
       expect(r).to.have.length(2);
@@ -450,6 +531,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to query with where on a nested property - 2", function (done) {
     // TODO: need to turn the query into one with an include with a where condition.
     var q = EntityQuery.from("OrderDetails")
+        .expand("product.productID")
         .where("product.productID", "==", 1);
     toSequelizeQuery(q).executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(0);
@@ -471,6 +553,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
       "product.productName": {startsWith:  'Q'}
     };
     var q = EntityQuery.from("OrderDetails")
+        .expand('product')
         .where(p);
 
     toSequelizeQuery(q).executeRaw().then(function (r) {
@@ -482,7 +565,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
         expect(product).to.have.property("ProductName");
         expect(product.ProductID).to.be.greaterThan(11);
         expect(product.ProductName.indexOf("Q") == 0).true;
-        expect(Object.keys(product.dataValues)).to.have.length(2);
+        //expect(Object.keys(product.dataValues)).to.have.length(2);
 
       });
     }).then(done, done);
@@ -494,6 +577,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
       { "product.productName": {startsWith:  'Z'} }
     ]};
     var q = EntityQuery.from("OrderDetails")
+        .expand('product')
         .where(p);
     toSequelizeQuery(q).executeRaw().then(function (r) {
       expect(r).to.have.length.gt(1);
