@@ -109,23 +109,23 @@ SequelizeQuery.prototype._processWhere = function() {
 
 
   this.sqQuery.where = sqQuery.where;
-  // this.sqQuery.include = sqQuery.includes;
-  this.sqQuery.include = cvtIncludes(sqQuery.includes);
+  this.sqQuery.include = sqQuery.include;
+  //this.sqQuery.include = cvtIncludes(sqQuery.includes);
 
   processAndOr(this.sqQuery);
 }
 
-function cvtIncludes(includes) {
-  if (includes) {
-    includes.forEach(function(include) {
-      if (include.includes) {
-        include.include = cvtIncludes(include.includes);
-        delete include.includes;
-      }
-    });
-  }
-  return includes;
-}
+//function cvtIncludes(includes) {
+//  if (includes) {
+//    includes.forEach(function(include) {
+//      if (include.includes) {
+//        include.include = cvtIncludes(include.includes);
+//        delete include.includes;
+//      }
+//    });
+//  }
+//  return includes;
+//}
 
 SequelizeQuery.prototype._processSelect = function() {
   var selectClause = this.entityQuery.selectClause;
@@ -137,7 +137,7 @@ SequelizeQuery.prototype._processSelect = function() {
     var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
     var isNavPropertyPath = props[0].isNavigationProperty;
     if (isNavPropertyPath) {
-      this._addInclude(this.sqQuery, props, true);
+      this._addFetchInclude(this.sqQuery, props, false);
     }
     if (isNavPropertyPath) return null;
     return usesNameOnServer ?  pp : _.pluck(props, "nameOnServer").join(".");
@@ -156,7 +156,7 @@ SequelizeQuery.prototype._processOrderBy = function() {
     var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
     var isNavPropertyPath = props[0].isNavigationProperty;
     if (isNavPropertyPath) {
-      this._addInclude(this.sqQuery, props, false);
+      this._addInclude(this.sqQuery, props);
     }
 
     var r = [];
@@ -183,7 +183,7 @@ SequelizeQuery.prototype._processExpand = function() {
   if (expandClause == null) return;
   expandClause.propertyPaths.forEach(function(pp) {
     var props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
-    this._addInclude(this.sqQuery, props, true);
+    this._addFetchInclude(this.sqQuery, props, true);
   }, this);
 };
 
@@ -363,7 +363,64 @@ SequelizeQuery.prototype._populateExpand = function(result, sqResult, expandProp
 }
 
 
-SequelizeQuery.prototype._addInclude = function(parent, props, isFetch) {
+
+// Add an include for a where or order by clause.  Returns last include in the props chain.
+SequelizeQuery.prototype._addInclude = function(parent, props) {
+  var include = this._getIncludeFor(parent, props[0]);
+  // empty attributes array tells sequelize not to retrieve the entity data
+  if (!include.$disallowAttributes) include.attributes = include.attributes || [];
+  props = props.slice(1);
+  if (props.length > 0) {
+    if (props[0].isNavigationProperty) {
+      return this._addInclude(include, props);
+    }
+  }
+  return include;
+}
+
+// Add an include for a select or expand clause.  Returns last include in the props chain.
+SequelizeQuery.prototype._addFetchInclude = function(parent, props, isExpand) {
+  // $disallowAttributes code is used to insure two things
+  // 1) if a navigation property is declared as the last prop of a select or expand expression
+  //    that it is not 'trimmed' i.e. has further 'attributes' added that would narrow the projection.
+  // 2) that we support restricted projections on expanded nodes as long as we don't
+  //    violate #1 above.
+
+  var include = this._getIncludeFor(parent, props[0]);
+  props = props.slice(1);
+  if (props.length > 0) {
+    if (props[0].isNavigationProperty) {
+      if (isExpand) {
+        // expand = include the whole entity = no attributes
+        include.$disallowAttributes = true
+        delete include.attributes;
+      } else {
+        // select = include at least one attribute at each level, so sequelize will create an object
+        if (!include.$disallowAttributes) {
+          include.attributes = include.attributes || [];
+          if (include.attributes.length == 0) {
+            include.attributes = include.model.primaryKeyAttributes;
+          }
+        }
+      }
+      return this._addFetchInclude(include, props, isExpand);
+    } else {
+      // dataProperty
+      if (!include.$disallowAttributes) {
+        include.attributes = include.attributes || [];
+        include.attributes.push(props[0].nameOnServer);
+      }
+    }
+  } else {
+    // do not allow attributes set on any final navNodes nodes
+    include.$disallowAttributes = true
+    // and remove any that might have been added.
+    delete include.attributes;
+  }
+  return include;
+}
+
+SequelizeQuery.prototype._addIncludeOLD = function(parent, props, isFetch) {
   // returns 'last' include in props chain
   // isFetch - if query should return the data for this include, i.e. a select or expand
 
@@ -378,6 +435,11 @@ SequelizeQuery.prototype._addInclude = function(parent, props, isFetch) {
   props = props.slice(1);
   if (props.length > 0) {
     if (props[0].isNavigationProperty) {
+      if (isFetch) {
+        if (include.attributes && include.attributes.length == 0) {
+          include.attributes = include.model.primaryKeyAttributes;
+        }
+      }
       return this._addInclude(include, props, isFetch);
     } else {
       // dataProperty
@@ -425,7 +487,7 @@ var toSQVisitor = (function () {
       if (this.op.key !== "not") {
         throw new Error("Not yet implemented: Unary operation: " + this.op.key + " pred: " + JSON.stringify(this.pred));
       }
-      if (!_.isEmpty(predSq.includes)) {
+      if (!_.isEmpty(predSq.include)) {
         throw new Error("Unable to negate an expression that requires a Sequelize 'include'");
       }
       predSq.where =  applyNot(predSq.where);
@@ -496,8 +558,8 @@ var toSQVisitor = (function () {
       // the 'where' clause may be on a nested include
       if (result.lastInclude) {
         result.lastInclude.where = where;
-      } else if (result.includes && result.includes.length > 0) {
-        result.includes[0].where = where;
+      } else if (result.include && result.include.length > 0) {
+        result.include[0].where = where;
       } else {
         result.where = where;
       }
@@ -522,8 +584,8 @@ var toSQVisitor = (function () {
           if (!_.isEmpty(predSq.where)) {
             wheres.push(predSq.where);
           }
-          if (!_.isEmpty(predSq.includes)) {
-            predSq.includes.forEach(function(inc) {
+          if (!_.isEmpty(predSq.include)) {
+            predSq.include.forEach(function(inc) {
               var include = _.find(includes, { model: inc.model });
               if (!include) {
                 includes.push(inc);
@@ -559,7 +621,7 @@ var toSQVisitor = (function () {
         }
         // q = Sequelize.or(q1, q2);
       }
-      result.includes = includes;
+      result.include = includes;
       return result;
     },
 
@@ -572,7 +634,7 @@ var toSQVisitor = (function () {
 
       var props = context.entityType.getPropertiesOnPath(this.expr.propertyPath, context.usesNameOnServer, true);
       var parent = {};
-      var include = context.sequelizeQuery._addInclude(parent, props, false);
+      var include = context.sequelizeQuery._addInclude(parent, props);
       var newContext = _.clone(context);
       newContext.entityType = this.expr.dataType;
 
@@ -581,8 +643,8 @@ var toSQVisitor = (function () {
 
       var r = this.pred.visit(newContext);
       include.where = r.where;
-      include.includes = r.includes;
-      return { includes: parent.include }
+      include.include = r.include;
+      return { include: parent.include }
 
     },
 
@@ -619,9 +681,9 @@ var toSQVisitor = (function () {
       // handle a nested property path on the LHS - query gets moved into the include
       // context.include starts out null at top level
       var parent = {};
-      var include = context.sequelizeQuery._addInclude(parent, props, false);
+      var include = context.sequelizeQuery._addInclude(parent, props);
       include.where = {};
-      result.includes = parent.include;
+      result.include = parent.include;
       result.lastInclude = include;
       exprVal = props[props.length - 1].nameOnServer;
     } else {
