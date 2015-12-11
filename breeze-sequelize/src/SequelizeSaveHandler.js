@@ -85,6 +85,7 @@ ctor.prototype._saveWithTransaction = function(saveMap) {
   var that = this;
   var sequelize = this.sequelizeManager.sequelize;
   return sequelize.transaction().then(function(trx)   {
+    that.transaction = trx;
 
     var nextPromise;
     var beforeSaveEntities = (that.beforeSaveEntities || noopBeforeSaveEntities).bind(that);
@@ -247,8 +248,8 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel, transaction) {
     }
     promise = promise || Promise.resolve(null);
     return promise.then(function() {
-      // return sqModel.create(entity, trxOptions).then(function(savedEntity) {
-      return sqModel.create(entity).then(function(savedEntity) {
+      return sqModel.create(entity, {transaction: transaction}).then(function(savedEntity) {
+      //return sqModel.create(entity).then(function(savedEntity) {
         if (keyMapping) {
           if (keyMapping.realValue === null) {
             keyMapping.realValue = savedEntity[firstKeyPropName];
@@ -300,8 +301,8 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel, transaction) {
     if (_.isEmpty(setHash)) {
       return Promise.resolve(that._addToResults(entity, entityTypeName));
     }
-    // return sqModel.update(setHash, { where: whereHash }, trxOptions).then(function(infoArray) {
-    return sqModel.update(setHash, { where: whereHash }).then(function(infoArray) {
+    return sqModel.update(setHash, { where: whereHash, transaction: transaction }).then(function(infoArray) {
+    //return sqModel.update(setHash, { where: whereHash }).then(function(infoArray) {
       var itemsSaved = infoArray[0];
       if (itemsSaved != 1) {
         var err = new Error("unable to update entity - concurrency violation");
@@ -320,8 +321,8 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel, transaction) {
     });
     // we don't bother with concurrency check on deletes
     // TODO: we may want to add a 'switch' for this later.
-    // return sqModel.destroy({ where: whereHash, limit: 1, transaction: transaction}).then(function() {
-    return sqModel.destroy({ where: whereHash, limit: 1}).then(function() {
+    return sqModel.destroy({ where: whereHash, limit: 1, transaction: transaction}).then(function() {
+    //return sqModel.destroy({ where: whereHash, limit: 1}).then(function() {
       // Sequelize 'destroy' does not return the entity; so
       // we are just returning the original entity here.
       return that._addToResults(entity, entityTypeName);
