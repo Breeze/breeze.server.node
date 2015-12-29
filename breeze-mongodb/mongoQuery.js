@@ -141,7 +141,7 @@ function toOrderbyExpr(orderbyItems) {
     // "sort": [['field1','asc'], ['field2','desc']]
 
     var sortItems = orderbyItems.map(function(s) {
-        var sPath = s.path.replace("/",".");
+        var sPath = s.path.replace(/\//g, ".");
         return [sPath,  s.isAsc ? "asc" : "desc"];
     }) ;
     return { sort: sortItems };
@@ -150,7 +150,7 @@ function toOrderbyExpr(orderbyItems) {
 function toSelectExpr(selectItems) {
     var result = {};
     selectItems.forEach(function(s) {
-        var sPath = s.replace("/",".");
+        var sPath = s.replace(/\//g, ".");
         result[sPath] = 1;
     }) ;
     return result;
