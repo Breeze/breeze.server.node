@@ -44,19 +44,50 @@ function SequelizeQuery(sequelizeManager, serverSideEntityQuery) {
 
 }
 
-SequelizeQuery.prototype.execute = function() {
+SequelizeQuery.prototype.execute = function(options) {
   var that = this;
-  return this.executeRaw().then(function(r) {
+  return this.executeRaw(options).then(function(r) {
     var result = that._reshapeResults(r);
     return Promise.resolve(result);
   })
 }
 
-SequelizeQuery.prototype.executeRaw = function() {
-  var model = this.sequelizeManager.resourceNameSqModelMap[this.entityQuery.resourceName];
-  var methodName = this.entityQuery.inlineCountEnabled ? "findAndCountAll" : "findAll";
-  var r = model[methodName].call(model, this.sqQuery);
-  return r;
+SequelizeQuery.prototype.executeRaw = function(options) {
+  var self = this;
+  var model = self.sequelizeManager.resourceNameSqModelMap[self.entityQuery.resourceName];
+  var methodName = self.entityQuery.inlineCountEnabled ? "findAndCountAll" : "findAll";
+  options = options || {};
+
+  return (function(){
+    if (options.useTransaction)
+      return self.sequelizeManager.sequelize.transaction()
+          .then(function(trans) {
+            self.transaction = trans;
+            self.sqQuery.transaction = trans;
+          });
+    else
+      return Promise.resolve();
+  })()
+      .then(function() {
+        if (options.beforeQueryEntities)
+          return options.beforeQueryEntities.call(self);
+        else
+          return Promise.resolve();
+      })
+      .then(function() {
+        return model[methodName].call(model, self.sqQuery);
+      })
+      .then(
+      function(results){
+        if (options.useTransaction)
+          self.sqQuery.transaction.commit();
+        return results;
+      },
+      function(e) {
+        self.sqQuery.transaction.rollback();
+        throw e;
+      }
+  );
 }
 
 // pass in either a query string or a urlQuery object
