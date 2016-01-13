@@ -293,7 +293,7 @@ MongoSaveHandler.prototype._coerceData = function(entity, entityType) {
 MongoSaveHandler.prototype._handleInsert = function(insertDoc, err, insertedObjects) {
     if (this._checkIfError(err)) return;
     var entityKey = this._handleSave(insertDoc, this._insertedKeys);
-    if ((!insertedObjects) || insertedObjects.length !== 1) {
+    if ((!insertedObjects) || insertedObjects.length !== 1 && !insertedObjects.result && !insertedObjects.result.ok) {
         this._raiseError(new Error("Not inserted: " + formatEntityKey(entityKey)));
     }
     this._checkIfCompleted();
