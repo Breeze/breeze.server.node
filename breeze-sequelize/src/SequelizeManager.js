@@ -52,7 +52,7 @@ SequelizeManager.prototype.importMetadata = function(breezeMetadata) {
 };
 
 // returns Promise(sequelize);
-SequelizeManager.prototype.sync = function(shouldCreateDb) {
+SequelizeManager.prototype.sync = function(shouldCreateDb, sequelizeOpts) {
   if (shouldCreateDb) {
     var that = this;
     return this.createDb().then(function() {
@@ -64,9 +64,11 @@ SequelizeManager.prototype.sync = function(shouldCreateDb) {
 };
 
 // returns Promise(sequelize);
-function syncCore(sequelize) {
+function syncCore(sequelize, sequelizeOpts) {
+  var defaultOptions = { force: true };
+  sequelizeOpts = _.extend(defaultOptions, sequelizeOpts || {});
 
-  return sequelize.sync({ force: true}).then(function() {
+  return sequelize.sync(sequelizeOpts).then(function() {
     log("schema created");
     return sequelize;
   }).catch(function(err) {
