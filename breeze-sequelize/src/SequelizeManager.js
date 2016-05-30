@@ -56,10 +56,10 @@ SequelizeManager.prototype.sync = function(shouldCreateDb, sequelizeOpts) {
   if (shouldCreateDb) {
     var that = this;
     return this.createDb().then(function() {
-      return syncCore(that.sequelize);
+      return syncCore(that.sequelize, sequelizeOpts);
     });
   } else {
-    return syncCore(this.sequelize);
+    return syncCore(this.sequelize, sequelizeOpts);
   }
 };
 
