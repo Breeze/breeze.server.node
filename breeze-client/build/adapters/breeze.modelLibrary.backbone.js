@@ -3,7 +3,7 @@
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
@@ -27,7 +27,7 @@
   var protoFn = ctor.prototype;
 
   protoFn.initialize = function () {
-    Backbone = core.requireLib("Backbone");
+    Backbone = core.requireLib("Backbone;backbone");
     _ = core.requireLib("_;underscore");
     bbSet = Backbone.Model.prototype.set;
     bbGet = Backbone.Model.prototype.get;

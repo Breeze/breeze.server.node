@@ -3,7 +3,7 @@
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
@@ -22,7 +22,7 @@
   var protoFn = ctor.prototype;
 
   protoFn.initialize = function () {
-    ko = core.requireLib("ko", "The Knockout library");
+    ko = core.requireLib("ko;knockout", "The Knockout library");
     ko.extenders.intercept = function (target, interceptorOptions) {
       var instance = interceptorOptions.instance;
       var property = interceptorOptions.property;

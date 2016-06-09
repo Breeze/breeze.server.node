@@ -6,7 +6,7 @@
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
@@ -26,7 +26,7 @@
 
   proto.initialize = function () {
     // look for the jQuery lib but don't fail immediately if not found
-    jQuery = core.requireLib("jQuery");
+    jQuery = core.requireLib("jQuery;jquery");
   };
 
   proto.ajax = function (config) {

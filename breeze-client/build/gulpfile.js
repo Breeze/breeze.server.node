@@ -16,8 +16,8 @@ var _clientBuildDir = _clientDir + 'build/';
 gulp.task('buildBreeze', shell.task('gulp', { cwd: _clientBuildDir }))
 
 // copy the lastest breeze.debug.js
-gulp.task('getBreeze', ['buildBreeze'], function() {
-    
+gulp.task('getBreeze', [], function() {
+
   eventStream.concat(
     // copy all breeze files with preexisting structure into build
     gulp.src( [_clientBuildDir + 'breeze.*', _clientBuildDir + 'adapters/*.*'], { base: _clientBuildDir })
@@ -28,9 +28,9 @@ gulp.task('getBreeze', ['buildBreeze'], function() {
       .pipe(changed('..'))
       .pipe(gulp.dest('..'))
   );
-       
-}); 
+
+});
 
 gulp.task('default', ['getBreeze'], function() {
 
-});      
+});

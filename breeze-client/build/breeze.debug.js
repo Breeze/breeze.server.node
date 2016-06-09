@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 IdeaBlade, Inc.  All Rights Reserved.  
+ * Copyright 2012-2016 IdeaBlade, Inc.  All Rights Reserved.  
  * Use, reproduction, distribution, and modification of this code is subject to the terms and 
  * conditions of the IdeaBlade Breeze license, available at http://www.breezejs.com/license
  *
@@ -23,7 +23,7 @@
 })(this, function (global) {
     "use strict"; 
     var breeze = {
-        version: "1.5.4",
+        version: "1.5.7",
         metadataVersion: "1.0.5"
     };
     ;/**
@@ -3206,7 +3206,7 @@ breeze.ValidationOptions = ValidationOptions;
    complexTypes associated with a data property on a single entity or other complex object. i.e. customer.orders or order.orderDetails.
    This collection looks like an array in that the basic methods on arrays such as 'push', 'pop', 'shift', 'unshift', 'splice'
    are all provided as well as several special purpose methods.
-   @class ↈ_complexArray_
+   @class {complexArray}
    **/
 
   /**
@@ -3227,7 +3227,7 @@ breeze.ValidationOptions = ValidationOptions;
   @readOnly
   **/
 
-    // virtual impls 
+    // virtual impls
   complexArrayMixin._getGoodAdds = function (adds) {
     return getGoodAdds(this, adds);
   };
@@ -4671,7 +4671,7 @@ var EntityState = (function () {
     @example
         return es === EntityState.Added || es === EntityState.Modified || es === EntityState.Deleted
     @method isAddedModifiedOrDeleted
-    @return {Boolean} Whether an entityState instance is EntityState.Unchanged or EntityState.Modified or EntityState.Deleted.
+    @return {Boolean} Whether an entityState instance is EntityState.Added or EntityState.Modified or EntityState.Deleted.
     **/
     isAddedModifiedOrDeleted: function () {
       return this === EntityState.Added ||
@@ -4743,7 +4743,7 @@ breeze.EntityState = EntityState;
   primitive types associated with a data property on a single entity or complex object. i.e. customer.invoiceNumbers.
   This collection looks like an array in that the basic methods on arrays such as 'push', 'pop', 'shift', 'unshift', 'splice'
   are all provided as well as several special purpose methods.
-  @class ↈ_primitiveArray_
+  @class {primitiveArray}
   **/
 
   /**
@@ -4764,7 +4764,7 @@ breeze.EntityState = EntityState;
   @readOnly
   **/
 
-    // virtual impls 
+    // virtual impls
   primitiveArrayMixin._getGoodAdds = function (adds) {
     return adds;
   };
@@ -4818,7 +4818,7 @@ breeze.EntityState = EntityState;
   entities associated with a navigation property on a single entity. i.e. customer.orders or order.orderDetails.
   This collection looks like an array in that the basic methods on arrays such as 'push', 'pop', 'shift', 'unshift', 'splice'
   are all provided as well as several special purpose methods.
-  @class ↈ_relationArray_
+  @class {relationArray}
   **/
 
   /**
@@ -5006,7 +5006,7 @@ breeze.EntityState = EntityState;
   }
 
   // exit if no change - extra cruft is because dateTimes don't compare cleanly.
-  if (newValue === oldValue || (dataType && dataType.isDate && newValue && oldValue && newValue.valueOf() === oldValue.valueOf())) {
+  if (newValue === oldValue || (dataType && dataType.normalize && newValue && oldValue && dataType.normalize(newValue) === dataType.normalize(oldValue))) {
     return;
   }
 
@@ -5453,6 +5453,52 @@ var DataType = (function () {
   @property isNumeric {Boolean}
   **/
 
+  /**
+  Whether this is an 'integer' DataType.
+  @property isInteger {Boolean}
+  **/
+
+  /**
+  Function to convert a value from string to this DataType.  Note that this will be called each time a property is changed, so make it fast.
+  @method parse {Function}
+  @param value {any}
+  @param sourceTypeName {String}
+  @return value appropriate for this DataType
+  **/
+
+  /**
+  Function to format this DataType for OData queries.
+  @method fmtOData {Function}
+  @return value appropriate for OData query
+  **/
+
+  /**
+  Optional function to get the next value for key generation, if this datatype is used as a key.  Uses an internal table of previous values.
+  @method getNext {Function}
+  @return value appropriate for this DataType
+  **/
+
+  /**
+  Optional function to normalize a data value for comparison, if its value cannot be used directly.  Note that this will be called each time a property is changed, so make it fast.
+  @method normalize {Function}
+  @param value
+  @return value appropriate for this DataType
+  **/
+
+  /**
+  Optional function to get the next value when the datatype is used as a concurrency property.
+  @method getConcurrencyValue {Function}
+  @param previousValue
+  @return the next concurrency value, which may be a function of the previousValue.
+  **/
+
+  /**
+  Optional function to convert a raw (server) value from string to this DataType.
+  @method parseRawValue {Function}
+  @param value {any}
+  @return value appropriate for this DataType
+  **/
+
   var dataTypeMethods = {
     // default
   };
@@ -5484,6 +5530,16 @@ var DataType = (function () {
 
   var getNextDateTime = function () {
     return new Date();
+  };
+
+  var getConcurrencyDateTime = function(val) {
+    // use the current datetime but insure that it is different from previous call.
+    var dt = new Date();
+    var dt2 = new Date();
+    while (dt.getTime() === dt2.getTime()) {
+      dt2 = new Date();
+    }
+    return dt2;
   };
 
   var coerceToString = function (source, sourceTypeName) {
@@ -5624,6 +5680,20 @@ var DataType = (function () {
     throw new Error(msg);
   }
 
+  var parseRawDate = function(val) {
+    if (!__isDate(val)) {
+      val = DataType.parseDateFromServer(val);
+    }
+    return val;
+  }
+
+  var parseRawBinary = function(val) {
+    if (val && val.$value !== undefined) {
+      val = val.$value; // this will be a byte[] encoded as a string
+    }
+    return val;
+  }
+
   var DataType = new Enum("DataType", dataTypeMethods);
 
 
@@ -5633,10 +5703,10 @@ var DataType = (function () {
   @static
   **/
   DataType.String = DataType.addSymbol({
-  defaultValue: "",
-  parse: coerceToString,
-  fmtOData: fmtString,
-  getNext: getNextString
+    defaultValue: "",
+    parse: coerceToString,
+    fmtOData: fmtString,
+    getNext: getNextString
   });
   /**
   @property Int64 {DataType}
@@ -5644,10 +5714,13 @@ var DataType = (function () {
   @static
   **/
   DataType.Int64 = DataType.addSymbol({
-  defaultValue: 0, isNumeric: true, isInteger: true, quoteJsonOData: true,
-  parse: coerceToInt,
-  fmtOData: makeFloatFmt("L"),
-  getNext: getNextNumber
+    defaultValue: 0,
+    isNumeric: true,
+    isInteger: true,
+    quoteJsonOData: true,
+    parse: coerceToInt,
+    fmtOData: makeFloatFmt("L"),
+    getNext: getNextNumber
   });
   /**
   @property Int32 {DataType}
@@ -5655,10 +5728,12 @@ var DataType = (function () {
   @static
   **/
   DataType.Int32 = DataType.addSymbol({
-  defaultValue: 0, isNumeric: true, isInteger: true,
-  parse: coerceToInt,
-  fmtOData: fmtInt,
-  getNext: getNextNumber
+    defaultValue: 0,
+    isNumeric: true,
+    isInteger: true,
+    parse: coerceToInt,
+    fmtOData: fmtInt,
+    getNext: getNextNumber
   });
   /**
   @property Int16 {DataType}
@@ -5666,27 +5741,38 @@ var DataType = (function () {
   @static
   **/
   DataType.Int16 = DataType.addSymbol({
-  defaultValue: 0, isNumeric: true, isInteger: true,
-  parse: coerceToInt,
-  fmtOData: fmtInt,
-  getNext: getNextNumber
+    defaultValue: 0,
+    isNumeric: true,
+    isInteger: true,
+    parse: coerceToInt,
+    fmtOData: fmtInt,
+    getNext: getNextNumber
   });
   /**
   @property Byte {DataType}
   @final
   @static
   **/
-  DataType.Byte = DataType.addSymbol({ defaultValue: 0, isNumeric: true, isInteger: true, parse: coerceToInt, fmtOData: fmtInt });
+  DataType.Byte = DataType.addSymbol({
+    defaultValue: 0,
+    isNumeric: true,
+    isInteger: true,
+    parse: coerceToInt,
+    fmtOData: fmtInt
+  });
   /**
   @property Decimal {DataType}
   @final
   @static
   **/
   DataType.Decimal = DataType.addSymbol({
-  defaultValue: 0, isNumeric: true, quoteJsonOData: true, isFloat: true,
-  parse: coerceToFloat,
-  fmtOData: makeFloatFmt("m"),
-  getNext: getNextNumber
+    defaultValue: 0,
+    isNumeric: true,
+    quoteJsonOData: true,
+    isFloat: true,
+    parse: coerceToFloat,
+    fmtOData: makeFloatFmt("m"),
+    getNext: getNextNumber
   });
   /**
   @property Double {DataType}
@@ -5694,10 +5780,12 @@ var DataType = (function () {
   @static
   **/
   DataType.Double = DataType.addSymbol({
-  defaultValue: 0, isNumeric: true, isFloat: true,
-  parse: coerceToFloat,
-  fmtOData: makeFloatFmt("d"),
-  getNext: getNextNumber
+    defaultValue: 0,
+    isNumeric: true,
+    isFloat: true,
+    parse: coerceToFloat,
+    fmtOData: makeFloatFmt("d"),
+    getNext: getNextNumber
   });
   /**
   @property Single {DataType}
@@ -5705,10 +5793,12 @@ var DataType = (function () {
   @static
   **/
   DataType.Single = DataType.addSymbol({
-  defaultValue: 0, isNumeric: true, isFloat: true,
-  parse: coerceToFloat,
-  fmtOData: makeFloatFmt("f"),
-  getNext: getNextNumber
+    defaultValue: 0,
+    isNumeric: true,
+    isFloat: true,
+    parse: coerceToFloat,
+    fmtOData: makeFloatFmt("f"),
+    getNext: getNextNumber
   });
   /**
   @property DateTime {DataType}
@@ -5716,10 +5806,14 @@ var DataType = (function () {
   @static
   **/
   DataType.DateTime = DataType.addSymbol({
-  defaultValue: new Date(1900, 0, 1), isDate: true,
-  parse: coerceToDate,
-  fmtOData: fmtDateTime,
-  getNext: getNextDateTime
+    defaultValue: new Date(1900, 0, 1),
+    isDate: true,
+    parse: coerceToDate,
+    parseRawValue: parseRawDate,
+    normalize: function(value) { return value && value.getTime && value.getTime(); }, // dates don't perform equality comparisons properly
+    fmtOData: fmtDateTime,
+    getNext: getNextDateTime,
+    getConcurrencyValue: getConcurrencyDateTime
   });
 
   /**
@@ -5728,33 +5822,47 @@ var DataType = (function () {
   @static
   **/
   DataType.DateTimeOffset = DataType.addSymbol({
-  defaultValue: new Date(1900, 0, 1), isDate: true,
-  parse: coerceToDate,
-  fmtOData: fmtDateTimeOffset,
-  getNext: getNextDateTime
+    defaultValue: new Date(1900, 0, 1),
+    isDate: true,
+    parse: coerceToDate,
+    parseRawValue: parseRawDate,
+    normalize: function (value) { return value && value.getTime && value.getTime(); }, // dates don't perform equality comparisons properly
+    fmtOData: fmtDateTimeOffset,
+    getNext: getNextDateTime,
+    getConcurrencyValue: getConcurrencyDateTime
   });
   /**
   @property Time {DataType}
   @final
   @static
   **/
-  DataType.Time = DataType.addSymbol({ defaultValue: "PT0S", fmtOData: fmtTime });
+  DataType.Time = DataType.addSymbol({
+    defaultValue: "PT0S",
+    fmtOData: fmtTime,
+    parseRawValue: DataType.parseTimeFromServer
+  });
   /**
   @property Boolean {DataType}
   @final
   @static
   **/
-  DataType.Boolean = DataType.addSymbol({ defaultValue: false, parse: coerceToBool, fmtOData: fmtBoolean });
+  DataType.Boolean = DataType.addSymbol({
+    defaultValue: false,
+    parse: coerceToBool,
+    fmtOData: fmtBoolean
+  });
   /**
   @property Guid {DataType}
   @final
   @static
   **/
   DataType.Guid = DataType.addSymbol({
-  defaultValue: "00000000-0000-0000-0000-000000000000",
-  parse: coerceToGuid,
-  fmtOData: fmtGuid,
-  getNext: getNextGuid
+    defaultValue: "00000000-0000-0000-0000-000000000000",
+    parse: coerceToGuid,
+    fmtOData: fmtGuid,
+    getNext: getNextGuid,
+    parseRawValue: function(val) { return val.toLowerCase(); },
+    getConcurrencyValue: __getUuid
   });
 
   /**
@@ -5762,21 +5870,25 @@ var DataType = (function () {
   @final
   @static
   **/
-  DataType.Binary = DataType.addSymbol({ defaultValue: null, fmtOData: fmtBinary });
+  DataType.Binary = DataType.addSymbol({
+    defaultValue: null,
+    fmtOData: fmtBinary,
+    parseRawValue: parseRawBinary
+  });
   /**
   @property Undefined {DataType}
   @final
   @static
   **/
-  DataType.Undefined = DataType.addSymbol({ defaultValue: undefined, fmtOData: fmtUndefined});
+  DataType.Undefined = DataType.addSymbol({
+    defaultValue: undefined,
+    fmtOData: fmtUndefined
+  });
   DataType.resolveSymbols();
 
-  DataType.getComparableFn = function (dataType) {
-    if (dataType && dataType.isDate) {
-      // dates don't perform equality comparisons properly
-      return function (value) {
-        return value && value.getTime();
-      };
+  DataType.getComparableFn = function(dataType) {
+    if (dataType && dataType.normalize) {
+      return dataType.normalize;
     } else if (dataType === DataType.Time) {
       // durations must be converted to compare them
       return function (value) {
@@ -5884,18 +5996,9 @@ var DataType = (function () {
     // undefined values will be the default for most unmapped properties EXCEPT when they are set
     // in a jsonResultsAdapter ( an unusual use case).
     if (val === undefined) return undefined;
-    if (dataType.isDate && val) {
-      if (!__isDate(val)) {
-        val = DataType.parseDateFromServer(val);
-      }
-    } else if (dataType === DataType.Binary) {
-      if (val && val.$value !== undefined) {
-        val = val.$value; // this will be a byte[] encoded as a string
-      }
-    } else if (dataType === DataType.Time) {
-      val = DataType.parseTimeFromServer(val);
-    } else if (val && dataType === DataType.Guid) {
-      val = val.toLowerCase();
+    if (!val) return val;
+    if (dataType && dataType.parseRawValue) {
+      val = dataType.parseRawValue(val);
     }
     return val;
   }
@@ -6174,7 +6277,8 @@ var JsonResultsAdapter = (function () {
                   entityType: entityType,
                   nodeId: node.$id,
                   nodeRefId: node.$ref,
-                  ignore: ignore
+                  ignore: ignore,
+                  passThru: false // default
               };
           }
       });
@@ -6228,7 +6332,7 @@ breeze.JsonResultsAdapter = JsonResultsAdapter;
 
 // Get the promises library called Q
 // define a quick failing version if not found.
-var Q = __requireLibCore("Q");
+var Q = core.requireLib("Q;q");
 
 if (!Q) {
   // No Q.js! Substitute a placeholder Q which always fails
@@ -6697,13 +6801,13 @@ var MetadataStore = (function () {
       // any queries or EntityType.create calls from this point on will call the Customer constructor
       // registered above.
   @method registerEntityTypeCtor
-  @param structuralTypeName {String} The name of the EntityType o0r ComplexType.
+  @param structuralTypeName {String} The name of the EntityType or ComplexType.
   @param aCtor {Function}  The constructor for this EntityType or ComplexType; may be null if all you want to do is set the next parameter.
   @param [initFn] {Function} A function or the name of a function on the entity that is to be executed immediately after the entity has been created
   and populated with any initial values.
   initFn(entity)
   @param initFn.entity {Entity} The entity being created or materialized.
-  @param [noTrackingFn} {Function} A function that is executed immediately after a noTracking entity has been created and whose return
+  @param [noTrackingFn] {Function} A function that is executed immediately after a noTracking entity has been created and whose return
   value will be used in place of the noTracking entity.
   @param noTrackingFn.entity {Object}
   @param noTrackingFn.entityType {EntityType} The entityType that the 'entity' parameter would be if we were tracking
@@ -6980,7 +7084,8 @@ var CsdlMetadataParser = (function () {
   function parse(metadataStore, schemas, altMetadata) {
 
     metadataStore._entityTypeResourceMap = {};
-    __toArray(schemas).forEach(function (schema) {
+    schemas = __toArray(schemas);
+    schemas.forEach(function (schema) {
       if (schema.cSpaceOSpaceMapping) {
         // Web api only - not avail in OData.
         var mappings = JSON.parse(schema.cSpaceOSpaceMapping);
@@ -7009,7 +7114,7 @@ var CsdlMetadataParser = (function () {
       }
       if (schema.entityType) {
         __toArray(schema.entityType).forEach(function (et) {
-          var entityType = parseCsdlEntityType(et, schema, metadataStore);
+          var entityType = parseCsdlEntityType(et, schema, schemas, metadataStore);
 
         });
       }
@@ -7017,8 +7122,13 @@ var CsdlMetadataParser = (function () {
     });
     var badNavProps = metadataStore.getIncompleteNavigationProperties();
     if (badNavProps.length > 0) {
-      var msg = badNavProps.map(function (np) {
-        return np.parentType.name + ":" + np.name;
+      var msg = badNavProps.map(function(npa) {
+        if (Array.isArray(npa)) {
+          return npa.map(function(np) {
+            return np.parentType.name + ":" + np.name;
+          }).join(', ');
+        }
+        return npa.parentType.name + ":" + npa.name;
       }).join(', ');
       throw new Error("Incomplete navigation properties: " + msg);
     }
@@ -7028,7 +7138,7 @@ var CsdlMetadataParser = (function () {
     return metadataStore;
   }
 
-  function parseCsdlEntityType(csdlEntityType, schema, metadataStore) {
+  function parseCsdlEntityType(csdlEntityType, schema, schemas, metadataStore) {
     var shortName = csdlEntityType.name;
     var ns = getNamespaceFor(shortName, schema);
     var entityType = new EntityType({
@@ -7041,7 +7151,7 @@ var CsdlMetadataParser = (function () {
       entityType.baseTypeName = baseTypeName;
       var baseEntityType = metadataStore._getEntityType(baseTypeName, true);
       if (baseEntityType) {
-        completeParseCsdlEntityType(entityType, csdlEntityType, schema, metadataStore);
+        completeParseCsdlEntityType(entityType, csdlEntityType, schema, schemas, metadataStore);
       } else {
         var deferrals = metadataStore._deferredTypes[baseTypeName];
         if (!deferrals) {
@@ -7051,14 +7161,14 @@ var CsdlMetadataParser = (function () {
         deferrals.push({ entityType: entityType, csdlEntityType: csdlEntityType });
       }
     } else {
-      completeParseCsdlEntityType(entityType, csdlEntityType, schema, metadataStore);
+      completeParseCsdlEntityType(entityType, csdlEntityType, schema, schemas, metadataStore);
     }
     // entityType may or may not have been added to the metadataStore at this point.
     return entityType;
 
   }
 
-  function completeParseCsdlEntityType(entityType, csdlEntityType, schema, metadataStore) {
+  function completeParseCsdlEntityType(entityType, csdlEntityType, schema, schemas, metadataStore) {
     var keyNamesOnServer = csdlEntityType.key ? __toArray(csdlEntityType.key.propertyRef).map(__pluck("name")) : [];
 
     __toArray(csdlEntityType.property).forEach(function (prop) {
@@ -7066,7 +7176,7 @@ var CsdlMetadataParser = (function () {
     });
 
     __toArray(csdlEntityType.navigationProperty).forEach(function (prop) {
-      parseCsdlNavProperty(entityType, prop, schema);
+      parseCsdlNavProperty(entityType, prop, schema, schemas);
     });
 
     metadataStore.addEntityType(entityType);
@@ -7076,7 +7186,7 @@ var CsdlMetadataParser = (function () {
     var deferrals = deferredTypes[entityType.name];
     if (deferrals) {
       deferrals.forEach(function (d) {
-        completeParseCsdlEntityType(d.entityType, d.csdlEntityType, schema, metadataStore);
+        completeParseCsdlEntityType(d.entityType, d.csdlEntityType, schema, schemas, metadataStore);
       });
       delete deferredTypes[entityType.name];
     }
@@ -7175,8 +7285,11 @@ var CsdlMetadataParser = (function () {
     return dp;
   }
 
-  function parseCsdlNavProperty(entityType, csdlProperty, schema) {
-    var association = getAssociation(csdlProperty, schema);
+  function parseCsdlNavProperty(entityType, csdlProperty, schema, schemas) {
+    var association = getAssociation(csdlProperty, schema, schemas);
+    if (!association) {
+      throw new Error("Unable to resolve Foreign Key Association: " + csdlProperty.relationship);
+    }
     var toEnd = __arrayFirst(association.end, function (assocEnd) {
       return assocEnd.role === csdlProperty.toRole;
     });
@@ -7308,9 +7421,16 @@ var CsdlMetadataParser = (function () {
   //   match ( associationSet.name == schema.association[].name )
   //      -> association
 
-  function getAssociation(csdlNavProperty, schema) {
-    var assocName = parseTypeNameWithSchema(csdlNavProperty.relationship, schema).shortTypeName;
-    var assocs = schema.association;
+  function getAssociation(csdlNavProperty, containingSchema, schemas) {
+    var assocFullName = parseTypeNameWithSchema(csdlNavProperty.relationship, containingSchema);
+    var assocNamespace = assocFullName.namespace;
+    var assocSchema = __arrayFirst(schemas, function (schema) {
+      return schema.namespace === assocNamespace;
+    });
+    if (!assocSchema) return null;
+    
+    var assocName = assocFullName.shortTypeName;
+    var assocs = assocSchema.association;
     if (!assocs) return null;
     if (!Array.isArray(assocs)) {
       assocs = [assocs];
@@ -7324,7 +7444,7 @@ var CsdlMetadataParser = (function () {
   // schema is only needed for navProperty type name
   function parseTypeNameWithSchema(entityTypeName, schema) {
     var result = parseTypeName(entityTypeName);
-    if (schema) {
+    if (schema && schema.cSpaceOSpaceMapping) {
       var ns = getNamespaceFor(result.shortTypeName, schema);
       if (ns) {
         result = makeTypeHash(result.shortTypeName, ns);
@@ -7825,6 +7945,9 @@ var EntityType = (function () {
     this.initFn = r.initFn;
     this.noTrackingFn = r.noTrackingFn;
 
+    if (aCtor.prototype._$typeName && aCtor.prototype._$typeName != this.name) {
+      console.warn("Registering a constructor for " + this.name + " that is already used for " + aCtor.prototype._$typeName + ".");
+    }
     aCtor.prototype._$typeName = this.name;
     this._setCtor(aCtor);
     return aCtor;
@@ -8103,7 +8226,7 @@ var EntityType = (function () {
         return coEquals(v1, v2);
       } else {
         var dataType = dp.dataType; // this will be a complexType when dp is a complexProperty
-        return (v1 === v2 || (dataType && dataType.isDate && v1 && v2 && v1.valueOf() === v2.valueOf()));
+        return (v1 === v2 || (dataType && dataType.normalize && v1 && v2 && dataType.normalize(v1) === dataType.normalize(v2)));
       }
     });
     return areEqual;
@@ -8865,9 +8988,9 @@ var DataProperty = (function () {
 
   ctor.fromJSON = function (json) {
     json.dataType = DataType.fromName(json.dataType);
-    // dateTime instances require 'extra' work to deserialize properly.
-    if (json.defaultValue && json.dataType && json.dataType.isDate) {
-      json.defaultValue = new Date(Date.parse(json.defaultValue));
+    // Parse default value into correct data type. (dateTime instances require extra work to deserialize properly.)
+    if (json.defaultValue && json.dataType && json.dataType.parse) {
+      json.defaultValue = json.dataType.parse(json.defaultValue, typeof json.defaultValue);
     }
 
     if (json.validators) {
@@ -12056,7 +12179,19 @@ var FilterQueryOp = (function () {
    @static
    **/
   aEnum.All = aEnum.addSymbol({ operator: "all" });
-  
+
+  /**
+   @property In {FilterQueryOp}
+   @final
+   @static
+   **/
+  aEnum.In = aEnum.addSymbol({ operator: "in" });
+
+  /**
+   @property IsTypeOf {FilterQueryOp}
+   @final
+   @static
+   **/
   aEnum.IsTypeOf = aEnum.addSymbol({ operator: "isof" });
   
   aEnum.resolveSymbols();
@@ -13009,7 +13144,7 @@ var EntityManager = (function () {
   @param [config] {Object} A configuration object.
   @param [config.mergeStrategy] {MergeStrategy} A  {{#crossLink "MergeStrategy"}}{{/crossLink}} to use when
   merging into an existing EntityManager.
-  @param [config.metadataVersionFn} {Function} A function that takes two arguments ( the current metadataVersion and the imported store's 'name'}
+  @param [config.metadataVersionFn] {Function} A function that takes two arguments (the current metadataVersion and the imported store's 'name')
   and may be used to perform version checking.
   @return {EntityManager} A new EntityManager.  Note that the return value of this method call is different from that
   provided by the same named method on an EntityManager instance. Use that method if you need additional information
@@ -13162,7 +13297,7 @@ var EntityManager = (function () {
   @param [config] {Object} A configuration object.
   @param [config.mergeStrategy] {MergeStrategy} A  {{#crossLink "MergeStrategy"}}{{/crossLink}} to use when
   merging into an existing EntityManager.
-  @param [config.metadataVersionFn} {Function} A function that takes two arguments ( the current metadataVersion and the imported store's 'name'}
+  @param [config.metadataVersionFn] {Function} A function that takes two arguments (the current metadataVersion and the imported store's 'name')
   and may be used to perform version checking.
   @return result {Object}
 
@@ -13577,7 +13712,10 @@ var EntityManager = (function () {
     var result = [];
     // TODO: mapMany
     groups.forEach(function (group) {
-      result.push.apply(result, group._entities.filter(newFilterFunc));
+      var entities = group._entities.filter(newFilterFunc);
+      if (entities.length) {
+          result = result.length ? result.concat(entities) : entities;
+      }
     });
 
     var orderByComparer = query.orderByClause && query.orderByClause.getComparer(entityType);
@@ -14500,6 +14638,9 @@ var EntityManager = (function () {
           }
         })
       }
+    } else if (entities && entities.length === 0) {
+      // empty array = export nothing
+      entityGroupMap = {};
     } else {
       entityGroupMap = em._entityGroupMap;
     }
@@ -14938,17 +15079,10 @@ var EntityManager = (function () {
     if (!value) value = property.dataType.defaultValue;
     if (property.dataType.isNumeric) {
       entity.setProperty(property.name, value + 1);
-    } else if (property.dataType.isDate) {
-      // use the current datetime but insure that it
-      // is different from previous call.
-      var dt = new Date();
-      var dt2 = new Date();
-      while (dt.getTime() === dt2.getTime()) {
-        dt2 = new Date();
-      }
-      entity.setProperty(property.name, dt2);
-    } else if (property.dataType === DataType.Guid) {
-      entity.setProperty(property.name, __getUuid());
+    } else if (property.dataType.getConcurrencyValue) {
+      // DataType has its own implementation
+      var nextValue = property.dataType.getConcurrencyValue(value);
+      entity.setProperty(property.name, nextValue);
     } else if (property.dataType === DataType.Binary) {
       // best guess - that this is a timestamp column and is computed on the server during save
       // - so no need to set it here.
@@ -15486,10 +15620,10 @@ var MappingContext = (function () {
       if (typeof relatedEntity === 'function') {
         mc.deferredFns.push(function () {
           relatedEntity = relatedEntity();
-          updateRelatedEntityInCollection(relatedEntity, originalRelatedEntities, targetEntity, inverseProperty);
+          updateRelatedEntityInCollection(mc, relatedEntity, originalRelatedEntities, targetEntity, inverseProperty);
         });
       } else {
-        updateRelatedEntityInCollection(relatedEntity, originalRelatedEntities, targetEntity, inverseProperty);
+        updateRelatedEntityInCollection(mc, relatedEntity, originalRelatedEntities, targetEntity, inverseProperty);
       }
     });
   }
@@ -15540,11 +15674,21 @@ var MappingContext = (function () {
     }
   }
 
-  function updateRelatedEntityInCollection(relatedEntity, relatedEntities, targetEntity, inverseProperty) {
+  function updateRelatedEntityInCollection(mc, relatedEntity, relatedEntities, targetEntity, inverseProperty) {
     if (!relatedEntity) return;
 
+    // don't update relatedCollection if preserveChanges & relatedEntity has an fkChange.
+    if (relatedEntity.entityAspect.entityState === EntityState.Modified
+      && mc.mergeOptions.mergeStrategy === MergeStrategy.PreserveChanges) {
+      var origValues = relatedEntity.entityAspect.originalValues;
+      var fkWasModified = inverseProperty.relatedDataProperties.some(function(dp) {
+        return origValues[dp.name] != undefined;
+      });
+      if (fkWasModified) return;
+    }
     // check if the related entity is already hooked up
     var thisEntity = relatedEntity.getProperty(inverseProperty.name);
+
     if (thisEntity !== targetEntity) {
       // if not - hook it up.
       relatedEntities.push(relatedEntity);
@@ -16016,7 +16160,7 @@ breeze.SaveOptions = SaveOptions;
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
@@ -16119,6 +16263,7 @@ breeze.SaveOptions = SaveOptions;
         config: config,
         data: data,
         getHeaders: headers,
+        ngConfig: xconfig,
         status: status,
         statusText: statusText
       };
@@ -16135,6 +16280,7 @@ breeze.SaveOptions = SaveOptions;
         config: config,
         data: data,
         getHeaders: headers,
+        ngConfig: xconfig,
         status: status,
         statusText: statusText
       };
@@ -16188,7 +16334,7 @@ breeze.SaveOptions = SaveOptions;
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
@@ -16208,7 +16354,7 @@ breeze.SaveOptions = SaveOptions;
 
   proto.initialize = function () {
     // look for the jQuery lib but don't fail immediately if not found
-    jQuery = core.requireLib("jQuery");
+    jQuery = core.requireLib("jQuery;jquery");
   };
 
   proto.ajax = function (config) {
@@ -16304,7 +16450,7 @@ breeze.SaveOptions = SaveOptions;
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
@@ -16316,6 +16462,8 @@ breeze.SaveOptions = SaveOptions;
   var MetadataStore = breeze.MetadataStore;
   var JsonResultsAdapter = breeze.JsonResultsAdapter;
   var DataProperty = breeze.DataProperty;
+  var DataType = breeze.DataType;
+  var AutoGeneratedKeyType = breeze.AutoGeneratedKeyType;
 
   var OData;
 
@@ -16335,10 +16483,87 @@ breeze.SaveOptions = SaveOptions;
   proto.changeRequestInterceptor = abstractDsaProto.changeRequestInterceptor;
   proto._createChangeRequestInterceptor = abstractDsaProto._createChangeRequestInterceptor;
   proto.headers = { "DataServiceVersion": "2.0" };
+
+  // Absolute URL is the default as of Breeze 1.5.5.  
+  // To use relative URL (like pre-1.5.5), add adapterInstance.relativeUrl = true:
+  //
+  //     var ds = breeze.config.initializeAdapterInstance("dataService", "webApiOData");
+  //     ds.relativeUrl = true; 
+  //
+  // To use custom url construction, add adapterInstance.relativeUrl = myfunction(dataService, url):
+  //
+  //     var ds = breeze.config.initializeAdapterInstance("dataService", "webApiOData");
+  //     ds.relativeUrl = function(dataService, url) {
+  //        return somehowConvert(url);
+  //     }
+  //
+
+  proto.getAbsoluteUrl = function (dataService, url){
+    var serviceName = dataService.qualifyUrl('');
+    // only prefix with serviceName if not already on the url
+    var base = (core.stringStartsWith(url, serviceName)) ? '' : serviceName;
+    // If no protocol, turn base into an absolute URI
+    if (window && serviceName.indexOf('//') < 0) { 
+      // no protocol; make it absolute
+      base = window.location.protocol + '//' + window.location.host + 
+            (core.stringStartsWith(serviceName, '/') ? '' : '/') +
+            base;
+    }
+    return base + url;
+  };
+
+  proto.getRoutePrefix = function (dataService) {
+      // Get the routePrefix from a Web API OData service name.
+      // The routePrefix is presumed to be the pathname within the dataService.serviceName
+      // Examples of servicename -> routePrefix:
+      //   'http://localhost:55802/odata/' -> 'odata/'
+      //   'http://198.154.121.75/service/odata/' -> 'service/odata/'
+      var parser;
+      if (typeof document === 'object') { // browser
+          parser = document.createElement('a');
+          parser.href = dataService.serviceName;
+      } else { // node
+          parser = url.parse(dataService.serviceName);
+      }
+      var prefix = parser.pathname;
+      if (prefix[0] === '/') {
+          prefix = prefix.substr(1);
+      } // drop leading '/'  (all but IE)
+      if (prefix.substr(-1) !== '/') {
+          prefix += '/';
+      }      // ensure trailing '/'
+      return prefix;
+  };
+
+  // crude serializer.  Doesn't recurse
+  function toQueryString(obj) {
+    var parts = [];
+    for (var i in obj) {
+      if (obj.hasOwnProperty(i)) {
+        parts.push(encodeURIComponent(i) + "=" + encodeURIComponent(obj[i]));
+      }
+    }
+    return parts.join("&");
+  }
+
   proto.executeQuery = function (mappingContext) {
 
-    var deferred = Q.defer();
-    var url = mappingContext.getUrl();
+    var deferred = breeze.Q.defer();
+    var url;
+    if (this.relativeUrl === true) {
+      url = mappingContext.getUrl();
+    } else if (core.isFunction(this.relativeUrl)) {
+      url = this.relativeUrl(mappingContext.dataService, mappingContext.getUrl());
+    } else {
+      url = this.getAbsoluteUrl(mappingContext.dataService, mappingContext.getUrl());
+    }
+
+    // Add query params if .withParameters was used
+    if (mappingContext.query.parameters) {
+      var paramString = toQueryString(mappingContext.query.parameters);
+      var sep = url.indexOf("?") < 0 ? "?" : "&";
+      url = url + sep + paramString;
+    }
 
     OData.read({
           requestUri: url,
@@ -16350,7 +16575,16 @@ breeze.SaveOptions = SaveOptions;
             // OData can return data.__count as a string
             inlineCount = parseInt(data.__count, 10);
           }
-          return deferred.resolve({ results: data.results, inlineCount: inlineCount, httpResponse: response });
+          // Odata returns different result structure when it returns multiple entities (data.results) vs single entity (data directly).
+          // @see http://www.odata.org/documentation/odata-version-2-0/json-format/#RepresentingCollectionsOfEntries
+          // and http://www.odata.org/documentation/odata-version-2-0/json-format/#RepresentingEntries
+          var results;
+          if (data.results) {
+            results = data.results;
+          } else {
+            results = data;
+          }
+          return deferred.resolve({ results: results, inlineCount: inlineCount, httpResponse: response });
         },
         function (error) {
           return deferred.reject(createError(error, url));
@@ -16362,10 +16596,19 @@ breeze.SaveOptions = SaveOptions;
 
   proto.fetchMetadata = function (metadataStore, dataService) {
 
-    var deferred = Q.defer();
+    var deferred = breeze.Q.defer();
 
     var serviceName = dataService.serviceName;
-    var url = dataService.qualifyUrl('$metadata');
+
+    var url;
+    if (this.relativeUrl === true) {
+      url = dataService.qualifyUrl('$metadata');
+    } else if (core.isFunction(this.relativeUrl)) {
+      url = this.relativeUrl(dataService, '$metadata');
+    } else {
+      url = this.getAbsoluteUrl(dataService, '$metadata');
+    }
+
     // OData.read(url,
     OData.read({
           requestUri: url,
@@ -16406,15 +16649,23 @@ breeze.SaveOptions = SaveOptions;
 
   };
 
-  proto.getRoutePrefix = function (/*dataService*/) {
-    return '';
-  } // see webApiODataCtor
+
 
   proto.saveChanges = function (saveContext, saveBundle) {
     var adapter = saveContext.adapter = this;
-    var deferred = Q.defer();
-    saveContext.routePrefix = adapter.getRoutePrefix(saveContext.dataService);
-    var url = saveContext.dataService.qualifyUrl("$batch");
+    var deferred = breeze.Q.defer();
+
+    var url;
+    if (this.relativeUrl === true) {
+      saveContext.routePrefix = adapter.getRoutePrefix(saveContext.dataService);
+      url = saveContext.dataService.qualifyUrl("$batch");
+    } else if (core.isFunction(adapter.relativeUrl)) {
+      saveContext.routePrefix = adapter.relativeUrl(saveContext.dataService, '');
+      url = saveContext.routePrefix + '$batch';
+    } else {
+      saveContext.routePrefix = adapter.getAbsoluteUrl(saveContext.dataService, '');
+      url = saveContext.routePrefix + '$batch';
+    }
 
     var requestData = createChangeRequests(saveContext, saveBundle);
     var tempKeys = saveContext.tempKeys;
@@ -16439,6 +16690,10 @@ breeze.SaveOptions = SaveOptions;
           }
 
           var contentId = cr.headers["Content-ID"];
+          // Olingo sends different case of 'ID' for the header name.
+          if (!contentId) {
+            contentId = cr.headers["Content-Id"];
+          }
 
           var rawEntity = cr.data;
           if (rawEntity) {
@@ -16589,7 +16844,7 @@ breeze.SaveOptions = SaveOptions;
     }
     request.requestUri =
       // use routePrefix if uriKey lacks protocol (i.e., relative uri)
-            uriKey.indexOf('//') > 0 ? uriKey : routePrefix + uriKey;
+      uriKey.indexOf('//') > 0 ? uriKey : routePrefix + uriKey;
   }
 
   function getUriKey(aspect) {
@@ -16672,29 +16927,6 @@ breeze.SaveOptions = SaveOptions;
 
   breeze.core.extend(webApiODataCtor.prototype, proto);
 
-  webApiODataCtor.prototype.getRoutePrefix = function (dataService) {
-    // Get the routePrefix from a Web API OData service name.
-    // The routePrefix is presumed to be the pathname within the dataService.serviceName
-    // Examples of servicename -> routePrefix:
-    //   'http://localhost:55802/odata/' -> 'odata/'
-    //   'http://198.154.121.75/service/odata/' -> 'service/odata/'
-    var parser;
-    if (typeof document === 'object') { // browser
-      parser = document.createElement('a');
-      parser.href = dataService.serviceName;
-    } else { // node
-      parser = url.parse(dataService.serviceName);
-    }
-    var prefix = parser.pathname;
-    if (prefix[0] === '/') {
-      prefix = prefix.substr(1);
-    } // drop leading '/'  (all but IE)
-    if (prefix.substr(-1) !== '/') {
-      prefix += '/';
-    }      // ensure trailing '/'
-    return prefix;
-  };
-
   breeze.config.registerAdapter("dataService", webApiODataCtor);
   // OData 4 adapter
   var webApiOData4Ctor = function () {
@@ -16716,7 +16948,7 @@ breeze.SaveOptions = SaveOptions;
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
@@ -16815,7 +17047,7 @@ breeze.SaveOptions = SaveOptions;
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
@@ -17109,7 +17341,7 @@ breeze.SaveOptions = SaveOptions;
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
@@ -17128,7 +17360,7 @@ breeze.SaveOptions = SaveOptions;
   var protoFn = ctor.prototype;
 
   protoFn.initialize = function () {
-    ko = core.requireLib("ko", "The Knockout library");
+    ko = core.requireLib("ko;knockout", "The Knockout library");
     ko.extenders.intercept = function (target, interceptorOptions) {
       var instance = interceptorOptions.instance;
       var property = interceptorOptions.property;
@@ -17368,13 +17600,15 @@ breeze.SaveOptions = SaveOptions;
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
   }
 }(function (breeze) {
   "use strict";
+
+  var EntityType = breeze.EntityType;
 
   var ctor = function UriBuilderJsonAdapter() {
     this.name = "json";
@@ -17408,7 +17642,7 @@ breeze.SaveOptions = SaveOptions;
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
     // CommonJS or Node: hard-coded dependency on "breeze"
-    factory(require("breeze"));
+    factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
     // AMD anonymous module with hard-coded dependency on "breeze"
     define(["breeze"], factory);
