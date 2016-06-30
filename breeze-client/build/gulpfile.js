@@ -20,11 +20,11 @@ gulp.task('getBreeze', [], function() {
 
   eventStream.concat(
     // copy all breeze files with preexisting structure into build
-    gulp.src( [_clientBuildDir + 'breeze.*', _clientBuildDir + 'adapters/*.*'], { base: _clientBuildDir })
+    gulp.src( [_clientBuildDir + 'breeze.*', _clientBuildDir + 'adapters/*.*', _clientBuildDir + 'typings/*.d.ts'], { base: _clientBuildDir })
       .pipe(changed(dest))
       .pipe(gulp.dest(dest)),
-    // copy just the breeze.debug.js to the parent of this dir ( i.e. from './build' to './' )
-    gulp.src( _clientBuildDir + 'breeze.debug.js')
+    // copy breeze.debug.js and index.d.ts to the parent of this dir ( i.e. from './build' to './' )
+    gulp.src( [_clientBuildDir + 'breeze.debug.js', _clientBuildDir + 'typings/index.d.ts' ])
       .pipe(changed('..'))
       .pipe(gulp.dest('..'))
   );
