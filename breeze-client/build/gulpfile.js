@@ -23,8 +23,8 @@ gulp.task('getBreeze', [], function() {
     gulp.src( [_clientBuildDir + 'breeze.*', _clientBuildDir + 'adapters/*.*', _clientBuildDir + 'typings/*.d.ts'], { base: _clientBuildDir })
       .pipe(changed(dest))
       .pipe(gulp.dest(dest)),
-    // copy breeze.debug.js and index.d.ts to the parent of this dir ( i.e. from './build' to './' )
-    gulp.src( [_clientBuildDir + 'breeze.debug.js', _clientBuildDir + 'typings/index.d.ts' ])
+    // copy breeze scripts and index.d.ts to the parent of this dir ( i.e. from './build' to './' )
+    gulp.src( [_clientBuildDir + 'breeze.*.js', _clientBuildDir + 'typings/index.d.ts' ])
       .pipe(changed('..'))
       .pipe(gulp.dest('..'))
   );
