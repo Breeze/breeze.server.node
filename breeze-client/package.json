@@ -1,6 +1,6 @@
 {
   "name": "breeze-client",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "description": "Breeze Javascript client",
   "main": "breeze.debug",
   "scripts": {
