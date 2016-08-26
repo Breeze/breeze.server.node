@@ -11,9 +11,10 @@
     "mocha": ">=1.21.0"
   },
   "homepage": "www.breezejs.com",
-  "author": {
-      "name": "Jay Traband",
-      "email": "jayt@ideablade.com"
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/Breeze/breeze.server.node.git"
   },
-  "license": ""
+  "author": "Jay Traband",
+  "license": "MIT",
 }
