@@ -19,6 +19,5 @@
         "url": "https://github.com/Breeze/breeze.server.node.git"
     },
     "author": "Jay Traband",
-    "license": "MIT",
-    "readme": "Provides server-side helper classes to facilitate BreezeJs <-> Mongo interop.  See www.breeze.js.com and breeze.github.io/doc-node-mongodb/"
+    "license": "MIT"
 }

@@ -157,7 +157,7 @@ SequelizeQuery.prototype._processSelect = function() {
       this._addFetchInclude(this.sqQuery, props, false);
     }
     if (isNavPropertyPath) return null;
-    return usesNameOnServer ?  pp : _.pluck(props, "nameOnServer").join(".");
+    return usesNameOnServer ?  pp : _.map(props, "nameOnServer").join(".");
   }, this).filter(function(pp) {
     return pp != null;
   });
@@ -292,7 +292,7 @@ SequelizeQuery.prototype._reshapeSelectResults = function(sqResults) {
       } else {
         val = val && (val.dataValues || val);
       }
-      pp = usesNameOnServer ? pp : _.pluck(props, "nameOnServer").join(".");
+      pp = usesNameOnServer ? pp : _.map(props, "nameOnServer").join(".");
       result[pp] = val;
     }, this);
     return result;

@@ -14,8 +14,10 @@ var breeze = breezeSequelize.breeze;
 var EntityQuery = breeze.EntityQuery;
 
 var _dbConfigNw = {
-  user: "jayt",
-  password: "password",
+  //user: "jayt",
+  //password: "password",
+  user: "myadmin",
+  password: "mysql",
   dbName: 'northwindib'
 }
 
@@ -140,7 +142,7 @@ function saveUsingCallback(saveHandler, res, next) {
 }
 
 function returnResults(results, res) {
-  res.setHeader("Content-Type:", "application/json");
+  res.setHeader("Content-Type", "application/json");
   res.send(results);
 }
 
@@ -464,7 +466,7 @@ exports.saveWithFreight2 = function(req, res, next) {
 };
 
 exports.saveWithExit = function(req, res, next) {
-    res.setHeader("Content-Type:", "application/json");
+    res.setHeader("Content-Type", "application/json");
     results = {
         entities: [],
         keyMappings: []
