@@ -41,8 +41,7 @@ MetadataMapper.prototype._createMaps = function() {
     var typeConfig = mapToSqModelConfig(this, entityType);
     var options = {
       // NOTE: case sensitivity of the table name may not be the same on some sql databases.
-      tableName: entityType.shortName, // this will define the table's name
-      timestamps: false           // this will deactivate the timestamp columns
+      modelName: entityType.shortName, // this will define the table's name; see options.define
     };
     var sqModel = this.sequelize.define(entityType.shortName, typeConfig, options);
     entityTypeSqModelMap[entityType.name] = sqModel;

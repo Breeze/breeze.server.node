@@ -152,8 +152,8 @@ describe("SequelizeManager", function() {
       return Customer.find( { where: { customerID: custs[0].customerID }, include: { model: Order, as: "orders" }});
     }).then(function(c0) {
       expect(c0.customerID).to.equal(custs[0].customerID);
-      var orderIds0 = _.pluck(orders, "orderID");
-      var orderIds1 = _.pluck(c0.orders, "orderID");
+      var orderIds0 = _.map(orders, "orderID");
+      var orderIds1 = _.map(c0.orders, "orderID");
       expect(_.difference(orderIds0, orderIds1)).to.be.empty;
     }).then(done, done);
   });

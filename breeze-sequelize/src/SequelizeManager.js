@@ -16,9 +16,15 @@ function SequelizeManager(dbConfig, sequelizeOptions) {
     dialect: "mysql", // or 'sqlite', 'postgres', 'mariadb'
     port: 3306, // or 5432 (for postgres)
     // omitNull: true,
-    logging: console.log
+    logging: console.log,
+    define: {
+        freezeTableName: true,  // prevent sequelize from pluralizing table names
+        timestamps: false       // deactivate the timestamp columns (createdAt, etc.)
+    }  
   };
+  var define = defaultOptions.define;
   this.sequelizeOptions = _.extend(defaultOptions, sequelizeOptions || {});
+  this.sequelizeOptions.define = _.extend(define, (sequelizeOptions && sequelizeOptions.define) || {});
   this.dbConfig = dbConfig;
   this.sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, this.sequelizeOptions);
 }

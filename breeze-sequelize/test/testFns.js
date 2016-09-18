@@ -25,7 +25,7 @@ var __dbConfigNw = {
   host: "localhost",
   //user: "jayt",
   //password: "password",
-  user: "myadmin",
+  user: "mysql",
   password: "mysql",
   dbName: 'northwindib'
 }
