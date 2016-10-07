@@ -1,8 +1,8 @@
 # The "breeze-client" npm package
 
-This is the official NPM package for the Breeze core client-side libraries. The package files are in the [breeze.server.node](https://github.com/Breeze/breeze.server.node "github: "breeze-server-node") repository in the 'breeze-client' subfolder which is built from the original source files in the [breeze.js](https://github.com/Breeze/breeze.js "github: breeze.js") repository.
+This is the official NPM package for the Breeze core client-side libraries. The package files are in the [breeze.server.node](https://github.com/Breeze/breeze.server.node) repository in the 'breeze-client' subfolder, which is built from the original source files in the [breeze.js](https://github.com/Breeze/breeze.js) repository.
 
-To install with bower, open a terminal or command window and enter:
+To install with npm, open a terminal or command window and enter:
 
 `npm install breeze-client`
 
