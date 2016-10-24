@@ -373,6 +373,40 @@ describe("Predicate - parse", function() {
     test(p, entityType, "not (Orders/any(x1: x1/RowVersion ge 0))");
   });
 
+  it("any/all with not - json", function() {
+    var entityType = _ms.getEntityType("Customer");
+    var p2 = { and: [
+          { companyName: { contains: "ar" }},
+          { not: { orders: { any: { freight: 10 }}}}
+             ]      };
+    var p = Predicate.create(p2);
+    test(p, entityType, "(substringof('ar',CompanyName) eq true) and (not (Orders/any(x1: x1/Freight eq 10m)))");
+  });
+
+  it("any/all with empty clause - json", function() {
+    var entityType = _ms.getEntityType("Customer");
+    var p2 = { and: [
+          { companyName: { contains: "ar" }},
+          { not: { orders: { any: {} }}}
+             ]      };
+    var p = Predicate.create(p2);
+    test(p, entityType, "(substringof('ar',CompanyName) eq true) and (not (Orders/any()))");
+  });
+
+  it("and with with not in - json", function() {
+    var entityType = _ms.getEntityType("Customer");
+    var p2 = {
+      and: [ 
+        { companyName: { like: 'B%'} },
+        { not: [ { country: { in: [ 'Belgium', 'Germany'] } } ] }
+      ]  
+    };
+             
+    var p = Predicate.create(p2);
+    test(p, entityType, "(substringof('ar',CompanyName) eq true) and (not (Orders/any()))");
+  });
+  
+
   it("any/all with not null", function() {
     var entityType = _ms.getEntityType("Customer");
     var p = Predicate.create("orders", "any", "rowVersion", "!=", null).not();

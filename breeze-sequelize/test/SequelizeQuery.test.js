@@ -296,4 +296,45 @@ describe("SequelizeQuery 2", function() {
     }).then(done, done);
   });
 
+  it("should be able to use 'in'", function(done) {
+    var q = {
+      where: { Country: { in: [ 'Belgium', 'Germany'] } },
+    };
+    _nwSm.models.Customers.findAll( q).then(function(r) {
+      expect(r).to.have.length(13);
+      r.forEach(function(cust) {
+        expect(cust.Country).to.match(/(Belgium|Germany)/);
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to use 'not' with 'in'", function(done) {
+    var q = {
+      where: { not: { Country: { in: [ 'Belgium', 'Germany'] } } },
+    };
+    _nwSm.models.Customers.findAll( q).then(function(r) {
+      expect(r).to.have.length(78);
+      r.forEach(function(cust) {
+        expect(cust.Country).not.to.match(/(Belgium|Germany)/);
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to use 'not' array with 'in' inside 'and'", function(done) {
+    var q = {
+      where: [
+          { 
+           CompanyName: { like: 'B%'} 
+          },
+          { not: [ { Country: { in: [ 'Belgium', 'Germany'] } } ] }
+        ]  
+    };
+    _nwSm.models.Customers.findAll( q).then(function(r) {
+      expect(r).to.have.length(6);
+      r.forEach(function(cust) {
+        expect(cust.Country).not.to.match(/(Belgium|Germany)/);
+      });
+    }).then(done, done);
+  });
+
 });
