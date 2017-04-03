@@ -170,6 +170,10 @@ ctor.prototype._processEntityGroup = function(entityGroup, transaction, processD
 //    //Total is 30
 //  });
 
+  entityInfos = toposortEntityInfos(entityType, entityInfos);
+  if (processDeleted)
+      entityInfos = entityInfos.reverse();
+
   var that = this;
   return Promise.reduce(entityInfos, function(savedEntities, entityInfo) {
     // function returns a promise for this entity
@@ -456,6 +460,33 @@ function toposortEntityTypes(entityTypes) {
     return a.index - b.index;
   });
   return sortedEntityTypes;
+}
+
+function toposortEntityInfos(entityType, entityInfos) {
+  var edges = [];
+  var selfReferenceNavProp = _.find(entityType.navigationProperties, navProp => navProp.entityType === entityType);
+  if (!selfReferenceNavProp)
+    return entityInfos;
+
+  var fkDataProp = selfReferenceNavProp.relatedDataProperties[0].name;
+  var keyProp = entityType.keyProperties[0].name;
+  entityInfos.forEach(function(entityInfo) {
+    var dependsOn = entityInfo.entity[fkDataProp];
+    if (dependsOn) {
+      var dependsOnInfo = _.find(entityInfos, x => x.entity[keyProp] === dependsOn);
+      if (dependsOnInfo)
+        edges.push([entityInfo, dependsOnInfo]);
+    }
+  });
+
+  var allSortedEntityInfos = toposort(edges).reverse();
+    allSortedEntityInfos.forEach(function(st, ix) {
+    st.__index = ix;
+  });
+  var sortedEntityInfos = entityInfos.sort(function(a, b) {
+      return a.__index - b.__index;
+  });
+  return sortedEntityInfos;
 }
 
 function buildKeyString(entityType, val) {
