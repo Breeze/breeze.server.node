@@ -3,6 +3,7 @@ var expect           = require('chai').expect;
 var Sequelize        = require('sequelize');
 var Promise          = require("bluebird");
 var breezeSequelize  = require("breeze-sequelize");
+var _                = require('lodash');
 var testFns          = require('./testFns.js');
 
 var SequelizeManager = breezeSequelize.SequelizeManager;
@@ -14,8 +15,6 @@ var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
 var DataService = breeze.DataService;
 
-
-var _ = Sequelize.Utils._;
 var log = testFns.log;
 
 describe("EntityQuery to SequelizeQuery - parse", function() {

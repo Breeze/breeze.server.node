@@ -1,16 +1,15 @@
 {
   "name": "breeze-sequelize",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Breeze Sequelize server implementation",
   "main": "main.js",
   "directories": {},
   "dependencies": {
-    "bluebird": ">=3.0.6",
+    "bluebird": "^3.5.1",
     "breeze-client": "*",
-    "lodash": ">=3.10.1",
-    "node-uuid": ">=1.4.7",
-    "sequelize": ">=3.14.2",
-    "toposort": ">=0.2.10"
+    "lodash": "^4.17.4",
+    "sequelize": "^4.22.11",
+    "toposort": "^1.0.6"
   },
   "devDependencies": {
     "gulp": ">=3.8.7",

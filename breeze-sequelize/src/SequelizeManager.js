@@ -1,12 +1,12 @@
 var Sequelize      = require('sequelize');
 var breeze         = require("breeze-client");
 var Promise        = require("bluebird");
+var _              = require('lodash');
 
 var MetadataMapper = require('./MetadataMapper.js');
 var dbUtils        = require('./dbUtils.js');
 var utils          = require('./utils.js');
 
-var _             = Sequelize.Utils._;
 var log = utils.log;
 
 module.exports = SequelizeManager;
@@ -17,6 +17,7 @@ function SequelizeManager(dbConfig, sequelizeOptions) {
     port: 3306, // or 5432 (for postgres)
     // omitNull: true,
     logging: console.log,
+    dialectOptions: { decimalNumbers: true },
     define: {
         freezeTableName: true,  // prevent sequelize from pluralizing table names
         timestamps: false       // deactivate the timestamp columns (createdAt, etc.)

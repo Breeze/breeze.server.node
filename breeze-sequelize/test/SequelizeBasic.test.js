@@ -2,13 +2,13 @@
 var fs               = require("fs");
 var expect           = require("chai").expect;
 var Sequelize        = require('sequelize');
-var uuid             = require('node-uuid');
+var uuid             = require('uuid');
 var Promise          = require('bluebird');
+var _                = require('lodash');
 var breezeSequelize = require("breeze-sequelize");
 var testFns          = require('./testFns.js');
 
 var SequelizeManager = breezeSequelize.SequelizeManager;
-var _ = Sequelize.Utils._;
 var log = testFns.log;
 
 describe("SequelizeManager", function() {
@@ -19,7 +19,7 @@ describe("SequelizeManager", function() {
 
   before(function(done) {
     var nwConfig = _.clone(testFns.dbConfigNw);
-    nwConfig.dbName = "NorthwindIB_temp";
+    nwConfig.dbName = "NorthwindIB_temp" + new Date().getTime();
     var sm = new SequelizeManager(nwConfig);
     var breezeMetadata = testFns.getMetadata();
     // removing naming convention so that we don't camel case the data.
@@ -35,7 +35,7 @@ describe("SequelizeManager", function() {
 
   it("should create a simple schema", function(done) {
     var testConfig = _.clone(testFns.dbConfigNw);
-    testConfig.dbName = "test";
+    testConfig.dbName = "test" + new Date().getTime();
     var sm = new SequelizeManager(testConfig);
 
     createSimpleSchema(sm.sequelize);

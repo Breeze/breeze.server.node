@@ -2,8 +2,8 @@ var Sequelize = require('sequelize');
 var Promise = require("bluebird");
 var urlUtils = require("url");
 var breeze = require('breeze-client');
+var _ = require('lodash');
 
-var _ = Sequelize.Utils._;
 var EntityQuery = breeze.EntityQuery;
 
 EntityQuery.fromUrl = function(url, resourceName ) {

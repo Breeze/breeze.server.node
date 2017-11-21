@@ -1,12 +1,12 @@
 var Sequelize = require('sequelize');
 var Promise = require("bluebird");
 var toposort = require("toposort");
+var _ = require('lodash');
 
 // TODO: transactions
 //       server side validations
 //       check SaveMap api for consistency with the rest of breeze.
 
-var _ = Sequelize.Utils._;
 module.exports = SequelizeSaveHandler;
 
 function SequelizeSaveHandler(sequelizeManager, req) {
