@@ -853,7 +853,9 @@ var _notOps = {
   ne: "eq",
   eq: "ne",
   like: "nlike",
-  nlike: "like"
+  nlike: "like",
+  in: "notIn",
+  notIn: "in"
 };
 
 // Used to determine if a clause is the result of a Sequelize.and/or method call.

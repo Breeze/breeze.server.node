@@ -1007,14 +1007,24 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     }).then(done, done);
   });
 
+  it("should be able to use 'not' array with 'in'", function(done) {
+    var p2 = { not: { country: { in: [ 'Belgium', 'Germany'] } } };
+             
+    var p = Predicate.create(p2);
+    var q = new EntityQuery("Customers").where(p);
+    toSequelizeQuery(q).executeRaw().then(function (r) {
+      expect(r).to.have.length(78);
+      r.forEach(function(cust) {
+        expect(cust.Country).not.to.match(/(Belgium|Germany)/);
+      });
+    }).then(done, done);
+  });
+
   it("should be able to use 'not' array with 'in' inside 'and'", function(done) {
     var p2 = {
       and: [ 
         { companyName: { like: 'B%'} },
-        // { country: { in: [ 'Belgium', 'Germany'] } },
-        // { not: { country: { in: [ 'Belgium', 'Germany'] } } },  TODO make this work
-        { country: { ne: 'Belgium'}},
-        { country: { ne: 'Germany'}}
+        { not: { country: { in: [ 'Belgium', 'Germany'] } } },
       ]  
     };
              
