@@ -269,7 +269,12 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel, transaction) {
 
     if (entityType.concurrencyProperties && entityType.concurrencyProperties.length > 0) {
       entityType.concurrencyProperties.forEach(function (cp) {
-        whereHash[cp.nameOnServer] = entityAspect.originalValuesMap[cp.nameOnServer];
+        // this is consistent with the client behaviour where it does not update the version property
+        // if its data type is binary
+        if (cp.dataType.name === 'Binary')
+          whereHash[cp.nameOnServer] = entity[cp.nameOnServer];
+        else
+          whereHash[cp.nameOnServer] = entityAspect.originalValuesMap[cp.nameOnServer];
       });
     }
     var setHash;
