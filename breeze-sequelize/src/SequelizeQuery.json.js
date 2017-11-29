@@ -139,8 +139,8 @@ SequelizeQuery.prototype._processWhere = function() {
     metadataStore: this.metadataStore
   }, toSQVisitor);
 
-  if (sqQuery.where) this.sqQuery.where = sqQuery.where;
-  if (sqQuery.include) this.sqQuery.include = sqQuery.include;
+  if (sqQuery && sqQuery.where) this.sqQuery.where = sqQuery.where;
+  if (sqQuery && sqQuery.include) this.sqQuery.include = sqQuery.include;
 
   processAndOr(this.sqQuery);
 }
