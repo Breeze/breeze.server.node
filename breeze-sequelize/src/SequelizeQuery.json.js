@@ -566,25 +566,32 @@ var toSQVisitor = (function () {
             wheres.push(predSq.where);
           }
           if (!_.isEmpty(predSq.include)) {
-            predSq.include.forEach(function(inc) {
-              var include = _.find(includes, { model: inc.model });
-              if (!include) {
-                includes.push(inc);
-              } else {
-                if (include.where == null) {
-                  include.where = inc.where;
-                } else if (inc.where != null) {
-                  var where = {};
-                  where[that.op.key] = [ include.where, inc.where ] ;
-                  include.where = where;
-                }
-                if ( include.attributes == null || include.attributes.length == 0) {
-                  include.attributes = inc.attributes;
-                } else if (inc.attributes != null) {
-                  include.attributes = _.uniq(include.attributes.concat(inc.attributes));
-                }
-              }
-            });
+            var processIncludes = function (sourceIncludes, targetIncludes) {
+                sourceIncludes.forEach(function(sourceInclude) {
+                    if (!targetIncludes)
+                      targetIncludes = [];
+                    var include = _.find(targetIncludes, { model: sourceInclude.model });
+                    if (!include) {
+                        targetIncludes.push(sourceInclude);
+                    } else {
+                        if (include.where == null) {
+                            include.where = sourceInclude.where;
+                        } else if (sourceInclude.where != null) {
+                            var where = {};
+                            where[that.op.key] = [ include.where, sourceInclude.where ] ;
+                            include.where = where;
+                        }
+                        if ( include.attributes == null || include.attributes.length == 0) {
+                            include.attributes = sourceInclude.attributes;
+                        } else if (sourceInclude.attributes != null) {
+                            include.attributes = _.uniq(include.attributes.concat(sourceInclude.attributes));
+                        }
+                        if (!_.isEmpty(sourceInclude.include))
+                          processIncludes(sourceInclude.include, include.include);
+                    }
+                });
+            };
+            processIncludes(predSq.include, includes);
           }
         });
       }
