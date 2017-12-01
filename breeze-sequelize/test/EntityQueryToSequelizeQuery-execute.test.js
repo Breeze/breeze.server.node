@@ -249,6 +249,26 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     }).then(done, done);
   });
 
+  it("should be able to use predicates with 'any' with expand - Employee", function(done) {
+
+    var ordersAny = breeze.Predicate.create( 
+      { orders: { any: { 'customer.companyName': { startswith: 'Lazy' } } } });
+
+    var q = EntityQuery.from("Employees").where(ordersAny); //.expand("orders.customer")
+    var sq = toSequelizeQuery(q);
+
+    sq.executeRaw().then(function(r) {
+      expect(r).to.have.length(2); // should be only two such employees
+      r.forEach(function(emp) {
+        ok = emp.Orders.some(function(order) {
+          return order.Customer && order.Customer.CompanyName.indexOf("Lazy") == 0;
+        });
+        expect(ok).true;
+      });
+
+    }).then(done, done);
+  });
+
   it("should be able to use predicates with 'any' & 'and' without expand", function(done) {
 
     var isBuchanan = breeze.Predicate.create('employeeID', 'Equals', 5)
