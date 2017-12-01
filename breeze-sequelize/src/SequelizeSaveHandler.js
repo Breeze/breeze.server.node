@@ -470,7 +470,7 @@ function toposortEntityTypes(entityTypes) {
 function toposortEntityInfos(entityType, entityInfos) {
   var edges = [];
   var selfReferenceNavProp = _.find(entityType.navigationProperties, navProp => navProp.entityType === entityType);
-  if (!selfReferenceNavProp)
+  if (!selfReferenceNavProp || !selfReferenceNavProp.relatedDataProperties)
     return entityInfos;
 
   var fkDataProp = selfReferenceNavProp.relatedDataProperties[0].name;
