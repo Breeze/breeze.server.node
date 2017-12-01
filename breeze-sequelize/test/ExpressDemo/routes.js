@@ -216,8 +216,8 @@ namedQuery.CustomersWithBigOrders = function(req, res, next) {
   var processResults = function(results, res) {
     var newResults = results.map(function(r) {
       return {
-        Customer: r,
-        BigOrders:  r.orders.filter(function (order) {
+        customer: r,
+        bigOrders:  r.orders.filter(function (order) {
           return order.Freight > 100;
         })
       }
@@ -251,7 +251,7 @@ namedQuery.AltCustomers = function(req, res, next) {
 
 namedQuery.SearchCustomers = function(req, res, next) {
   var qbe = req.query;
-  var ok = qbe != null && qbe.companyName != null & qbe.contactNames.length > 0 && qbe.city.length > 1;
+  var ok = qbe != null && qbe.CompanyName != null & qbe.ContactNames.length > 0 && qbe.City.length > 1;
   if (!ok) {
     throw new Exception("qbe error");
   }
@@ -269,7 +269,7 @@ namedQuery.SearchCustomers2 = function(req, res, next) {
     throw new Exception("all least two items must be passed in");
   }
   qbeList.forEach(function(qbe) {
-    var ok = qbe != null && qbe.companyName != null & qbe.contactNames.length > 0 && qbe.city.length > 1;
+    var ok = qbe != null && qbe.CompanyName != null & qbe.ContactNames.length > 0 && qbe.City.length > 1;
     if (!ok) {
       throw new Exception("qbe error");
     }
@@ -325,7 +325,7 @@ namedQuery.CompanyNamesAndIdsAsDTO = function(req, res, next) {
   var entityQuery = EntityQuery.fromUrl(req.url, "Customers").select("companyName, customerID");
   var projectResults = function(results, res) {
     var newResults = results.map(function(r) {
-      return { CompanyName: r.CompanyName, CustomerID: r.CustomerID };
+      return { companyName: r.companyName, customerID: r.customerID };
     })
     returnResults(newResults, res);
   };
@@ -378,15 +378,15 @@ namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req, res, next) {
 function beforeSaveEntity(entityInfo) {
 
   if ( entityInfo.entityType.shortName == "Region" && entityInfo.entityAspect.entityState == "Added") {
-    if (entityInfo.entity.RegionDescription.toLowerCase().indexOf("error") === 0) {
+    if (entityInfo.entity.regionDescription.toLowerCase().indexOf("error") === 0) {
       return false;
     }
   }
 
   if ( entityInfo.entityType.shortName == "Employee") {
     var emp = entityInfo.entity;
-    if (emp.FullName === null) {
-      emp.FullName = emp.FirstName + " " + emp.LastName;
+    if (emp.fullName === null) {
+      emp.fullName = emp.firstName + " " + emp.lastName;
     }
   }
 
@@ -414,8 +414,8 @@ function beforeSaveEntities(saveMap) {
     var suppliers = saveMap.getEntityInfosOfType("Supplier");
     suppliers.forEach(function(supplierInfo) {
       var product = {
-        ProductName: "Test_ Product added on server",
-        SupplierID: supplierInfo.entity.SupplierID
+        productName: "Test_ Product added on server",
+        supplierID: supplierInfo.entity.supplierID
       };
       saveMap.addEntity("Product", product);
     });
@@ -426,14 +426,14 @@ function beforeSaveEntities(saveMap) {
     // forEach category update the product price for all products in the category
     var categoryInfos = saveMap.getEntityInfosOfType("Category");
     var promises = categoryInfos.filter(function (catInfo) {
-      return catInfo.entity.CategoryID != null;
+      return catInfo.entity.categoryID != null;
     }).map(function (catInfo) {
-      var entityQuery = EntityQuery.from("Products").where("categoryID", "==", catInfo.entity.CategoryID);
+      var entityQuery = EntityQuery.from("Products").where("categoryID", "==", catInfo.entity.categoryID);
       var query = new SequelizeQuery(_sequelizeManager, entityQuery);
       return query.execute().then(function (r) {
         var products = r;
         products.forEach(function (product) {
-          product.UnitPrice = product.UnitPrice + .01;
+          product.unitPrice = product.unitPrice + .01;
           var ei = saveMap.addEntity("Product", product, "Modified");
           ei.forceUpdate = true;
         });
@@ -449,9 +449,9 @@ exports.saveWithComment = function(req, res, next) {
   saveHandler.beforeSaveEntities = function(saveMap) {
     var tag = this.saveOptions.tag;
     var entity = {
-      Comment1: (tag == null) ? "Generic comment" : tag,
-      CreatedOn: new Date(),
-      SeqNum: 1
+      comment1: (tag == null) ? "Generic comment" : tag,
+      createdOn: new Date(),
+      seqNum: 1
     };
     saveMap.addEntity("Comment", entity);
   }
@@ -503,7 +503,7 @@ exports.saveCheckInitializer = function(req, res, next) {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
     var order = {
-      OrderDate: today
+      orderDate: today
     };
     saveMap.addEntity("Order", order);
   };
@@ -513,7 +513,7 @@ exports.saveCheckInitializer = function(req, res, next) {
 exports.saveCheckUnmappedProperty = function(req, res, next) {
   var saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
   saveHandler.beforeSaveEntity = function(entityInfo) {
-    var unmappedValue = entityInfo.unmapped["MyUnmappedProperty"];
+    var unmappedValue = entityInfo.unmapped["myUnmappedProperty"];
     // in c#
     // var unmappedValue = entityInfo.UnmappedValuesMap["myUnmappedProperty"];
     if (unmappedValue != "anything22") {
@@ -527,11 +527,11 @@ exports.saveCheckUnmappedProperty = function(req, res, next) {
 exports.saveCheckUnmappedPropertySerialized = function(req, res, next) {
   var saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
   saveHandler.beforeSaveEntity = function(entityInfo) {
-    var unmappedValue = entityInfo.unmapped["MyUnmappedProperty"];
+    var unmappedValue = entityInfo.unmapped["myUnmappedProperty"];
     if (unmappedValue != "ANYTHING22") {
       throw new Error("wrong value for unmapped property:  " + unmappedValue);
     }
-    var anotherOne = entityInfo.unmapped["AnotherOne"];
+    var anotherOne = entityInfo.unmapped["anotherOne"];
 
     if ( anotherOne.z[5].foo != 4) {
       throw new Error("wrong value for 'anotherOne.z[5].foo'");
@@ -565,12 +565,12 @@ exports.saveCheckUnmappedPropertySuppressed = function(req, res, next) {
 function checkFreightOnOrder(orderInfo) {
   var order = orderInfo.entity;
   if (this.saveOptions.tag === "freight update") {
-    order.Freight = order.Freight + 1;
+    order.freight = order.freight + 1;
   } else if (this.saveOptions.tag === "freight update-ov") {
-    order.Freight = order.Freight + 1;
-    orderInfo.entityAspect.originalValuesMap["Freight"] = null;
+    order.freight = order.freight + 1;
+    orderInfo.entityAspect.originalValuesMap["freight"] = null;
   } else if (this.saveOptions.tag === "freight update-force") {
-    order.Freight = order.Freight + 1;
+    order.freight = order.freight + 1;
     orderInfo.forceUpdate = true;
   }
   return true;
