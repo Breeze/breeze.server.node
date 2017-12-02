@@ -1,8 +1,7 @@
 var Sequelize = require('sequelize');
 var odataParser = require('breeze-odataparser');
 var url = require("url");
-
-var _ = Sequelize.Utils._;
+var _ = require('lodash');
 
 module.exports.SequelizeQuery = SequelizeQuery;
 

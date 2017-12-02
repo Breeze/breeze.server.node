@@ -1,11 +1,12 @@
 {
     "name": "Breeze-Sequelize-Express-Demo",
     "description": "A Breeze-Sequelize-Express Demo",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "private": true,
     "dependencies": {
-		"breeze-client":  "*",
-		"breeze-sequelize": "0.0.18",
-        "express": "3.x"        
+        "breeze-client": "*",
+        "breeze-sequelize": "*",
+        "express": "3.x",
+        "mysql": "^2.15.0"
     }
 }

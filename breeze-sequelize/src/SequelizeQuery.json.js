@@ -2,8 +2,8 @@ var Sequelize = require('sequelize');
 var Promise = require("bluebird");
 var urlUtils = require("url");
 var breeze = require('breeze-client');
+var _ = require('lodash');
 
-var _ = Sequelize.Utils._;
 var EntityQuery = breeze.EntityQuery;
 
 EntityQuery.fromUrl = function(url, resourceName ) {
@@ -139,8 +139,8 @@ SequelizeQuery.prototype._processWhere = function() {
     metadataStore: this.metadataStore
   }, toSQVisitor);
 
-  if (sqQuery.where) this.sqQuery.where = sqQuery.where;
-  if (sqQuery.include) this.sqQuery.include = sqQuery.include;
+  if (sqQuery && sqQuery.where) this.sqQuery.where = sqQuery.where;
+  if (sqQuery && sqQuery.include) this.sqQuery.include = sqQuery.include;
 
   processAndOr(this.sqQuery);
 }
@@ -860,7 +860,9 @@ var _notOps = {
   ne: "eq",
   eq: "ne",
   like: "nlike",
-  nlike: "like"
+  nlike: "like",
+  in: "notIn",
+  notIn: "in"
 };
 
 // Used to determine if a clause is the result of a Sequelize.and/or method call.

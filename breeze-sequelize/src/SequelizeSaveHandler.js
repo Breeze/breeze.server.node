@@ -1,12 +1,12 @@
 var Sequelize = require('sequelize');
 var Promise = require("bluebird");
 var toposort = require("toposort");
+var _ = require('lodash');
 
 // TODO: transactions
 //       server side validations
 //       check SaveMap api for consistency with the rest of breeze.
 
-var _ = Sequelize.Utils._;
 module.exports = SequelizeSaveHandler;
 
 function SequelizeSaveHandler(sequelizeManager, req) {
@@ -170,6 +170,10 @@ ctor.prototype._processEntityGroup = function(entityGroup, transaction, processD
 //    //Total is 30
 //  });
 
+  entityInfos = toposortEntityInfos(entityType, entityInfos);
+  if (processDeleted)
+      entityInfos = entityInfos.reverse();
+
   var that = this;
   return Promise.reduce(entityInfos, function(savedEntities, entityInfo) {
     // function returns a promise for this entity
@@ -269,7 +273,12 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel, transaction) {
 
     if (entityType.concurrencyProperties && entityType.concurrencyProperties.length > 0) {
       entityType.concurrencyProperties.forEach(function (cp) {
-        whereHash[cp.nameOnServer] = entityAspect.originalValuesMap[cp.nameOnServer];
+        // this is consistent with the client behaviour where it does not update the version property
+        // if its data type is binary
+        if (cp.dataType.name === 'Binary')
+          whereHash[cp.nameOnServer] = entity[cp.nameOnServer];
+        else
+          whereHash[cp.nameOnServer] = entityAspect.originalValuesMap[cp.nameOnServer];
       });
     }
     var setHash;
@@ -456,6 +465,33 @@ function toposortEntityTypes(entityTypes) {
     return a.index - b.index;
   });
   return sortedEntityTypes;
+}
+
+function toposortEntityInfos(entityType, entityInfos) {
+  var edges = [];
+  var selfReferenceNavProp = _.find(entityType.navigationProperties, navProp => navProp.entityType === entityType);
+  if (!selfReferenceNavProp || !selfReferenceNavProp.relatedDataProperties)
+    return entityInfos;
+
+  var fkDataProp = selfReferenceNavProp.relatedDataProperties[0].name;
+  var keyProp = entityType.keyProperties[0].name;
+  entityInfos.forEach(function(entityInfo) {
+    var dependsOn = entityInfo.entity[fkDataProp];
+    if (dependsOn) {
+      var dependsOnInfo = _.find(entityInfos, x => x.entity[keyProp] === dependsOn);
+      if (dependsOnInfo)
+        edges.push([entityInfo, dependsOnInfo]);
+    }
+  });
+
+  var allSortedEntityInfos = toposort(edges).reverse();
+    allSortedEntityInfos.forEach(function(st, ix) {
+    st.__index = ix;
+  });
+  var sortedEntityInfos = entityInfos.sort(function(a, b) {
+      return a.__index - b.__index;
+  });
+  return sortedEntityInfos;
 }
 
 function buildKeyString(entityType, val) {

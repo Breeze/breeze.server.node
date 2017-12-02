@@ -12,7 +12,6 @@ var FilterQueryOp = breeze.FilterQueryOp;
 var OrderByClause = breeze.OrderByClause;
 var FetchStrategy = breeze.FetchStrategy;
 
-var _ = Sequelize.Utils._;
 var log = testFns.log;
 // log.enabled = false;
 
@@ -34,14 +33,15 @@ describe("EntityQuery - parse", function() {
     var jsonParsed = JSON.parse(jsonString);
 
     var q2 = new EntityQuery(jsonParsed);
+    console.log(q2);
     if (q.expandClause) {
-      expect(q2).to.have.deep.property("expandClause.propertyPaths");
+      expect(q2).to.have.nested.property("expandClause.propertyPaths");
     }
     if (q.selectClause) {
-      expect(q2).to.have.deep.property("selectClause.propertyPaths");
+      expect(q2).to.have.nested.property("selectClause.propertyPaths");
     }
     if (q.orderByClause) {
-      expect(q2).to.have.deep.property("orderByClause.items");
+      expect(q2).to.have.nested.property("orderByClause.items");
     }
     if (q.queryOptions && q.queryOptions.fetchStrategy) {
       expect(q2.queryOptions.fetchStrategy).to.eql(q.queryOptions.fetchStrategy);

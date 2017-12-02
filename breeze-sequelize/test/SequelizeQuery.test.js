@@ -9,7 +9,6 @@ var testFns          = require('./testFns.js');
 var Sequelize        = breezeSequelize.Sequelize;
 var SequelizeManager = breezeSequelize.SequelizeManager;
 var log = testFns.log;
-var _ = Sequelize.Utils._;
 
 describe("SequelizeQuery 2", function() {
 
@@ -203,6 +202,7 @@ describe("SequelizeQuery 2", function() {
       limit: 2,
       include: [{
         model: Order, as: 'Order',
+        where: { employeeId: { ne: null }},
         include: [{
           model: Employee, as: 'Employee',
           where: { lastName: 'Peacock' }

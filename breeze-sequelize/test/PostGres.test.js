@@ -26,14 +26,14 @@ describe("PostGres", function() {
     expect('an arbitrary string').to.have.string("arb");
   });
 
-  it('should connect', function(done) {
-    dbUtils.connect(dbConfig).then(function(success) {
+  xit('should connect', function(done) {
+    dbUtils.connect(dbConfig, optionsConfig).then(function(success) {
       expect(success).to.eql("success");
     }).then(done, done);
   })
 
-  it("should create a db", function(done) {
-    dbUtils.createDb(dbConfig).then(function() {
+  xit("should create a db", function(done) {
+    dbUtils.createDb(dbConfig, optionsConfig).then(function() {
       log(dbConfig.dbName + " created or exists");
     }).then(done, done);
   });
