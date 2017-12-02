@@ -2,8 +2,8 @@ var Sequelize = require('sequelize');
 var Promise = require("bluebird");
 var urlUtils = require("url");
 var breeze = require('breeze-client');
+var _ = require('lodash');
 
-var _ = Sequelize.Utils._;
 var EntityQuery = breeze.EntityQuery;
 
 EntityQuery.fromUrl = function(url, resourceName ) {
@@ -139,8 +139,8 @@ SequelizeQuery.prototype._processWhere = function() {
     metadataStore: this.metadataStore
   }, toSQVisitor);
 
-  if (sqQuery.where) this.sqQuery.where = sqQuery.where;
-  if (sqQuery.include) this.sqQuery.include = sqQuery.include;
+  if (sqQuery && sqQuery.where) this.sqQuery.where = sqQuery.where;
+  if (sqQuery && sqQuery.include) this.sqQuery.include = sqQuery.include;
 
   processAndOr(this.sqQuery);
 }
@@ -566,25 +566,32 @@ var toSQVisitor = (function () {
             wheres.push(predSq.where);
           }
           if (!_.isEmpty(predSq.include)) {
-            predSq.include.forEach(function(inc) {
-              var include = _.find(includes, { model: inc.model });
-              if (!include) {
-                includes.push(inc);
-              } else {
-                if (include.where == null) {
-                  include.where = inc.where;
-                } else if (inc.where != null) {
-                  var where = {};
-                  where[that.op.key] = [ include.where, inc.where ] ;
-                  include.where = where;
-                }
-                if ( include.attributes == null || include.attributes.length == 0) {
-                  include.attributes = inc.attributes;
-                } else if (inc.attributes != null) {
-                  include.attributes = _.uniq(include.attributes.concat(inc.attributes));
-                }
-              }
-            });
+            var processIncludes = function (sourceIncludes, targetIncludes) {
+                sourceIncludes.forEach(function(sourceInclude) {
+                    if (!targetIncludes)
+                      targetIncludes = [];
+                    var include = _.find(targetIncludes, { model: sourceInclude.model });
+                    if (!include) {
+                        targetIncludes.push(sourceInclude);
+                    } else {
+                        if (include.where == null) {
+                            include.where = sourceInclude.where;
+                        } else if (sourceInclude.where != null) {
+                            var where = {};
+                            where[that.op.key] = [ include.where, sourceInclude.where ] ;
+                            include.where = where;
+                        }
+                        if ( include.attributes == null || include.attributes.length == 0) {
+                            include.attributes = sourceInclude.attributes;
+                        } else if (sourceInclude.attributes != null) {
+                            include.attributes = _.uniq(include.attributes.concat(sourceInclude.attributes));
+                        }
+                        if (!_.isEmpty(sourceInclude.include))
+                          processIncludes(sourceInclude.include, include.include);
+                    }
+                });
+            };
+            processIncludes(predSq.include, includes);
           }
         });
       }
@@ -853,7 +860,9 @@ var _notOps = {
   ne: "eq",
   eq: "ne",
   like: "nlike",
-  nlike: "like"
+  nlike: "like",
+  in: "notIn",
+  notIn: "in"
 };
 
 // Used to determine if a clause is the result of a Sequelize.and/or method call.

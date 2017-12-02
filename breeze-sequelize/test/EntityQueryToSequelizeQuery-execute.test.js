@@ -2,6 +2,7 @@ var fs = require('fs');
 var expect = require('chai').expect;
 var Sequelize = require('sequelize');
 var Promise = require('bluebird');
+var _ = require('lodash');
 
 var breezeSequelize = require("breeze-sequelize");
 // Don't use this
@@ -18,7 +19,6 @@ var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
 var DataService = breeze.DataService;
-var _ = Sequelize.Utils._;
 var log = testFns.log;
 
 describe("EntityQuery to SequelizeQuery - execute", function () {
@@ -42,8 +42,8 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     console.log(decodeURIComponent(uri));
     var entityQuery = EntityQuery.fromUrl(uri);
     var sq = new SequelizeQuery(_sm, entityQuery);
-    var cl = cloneQuery(sq.sqQuery);
-    console.dir(cl, { depth: 10 });
+    // var cl = cloneQuery(sq.sqQuery);
+    // console.dir(cl, { depth: 10 });
     return sq;
   }
 
@@ -242,6 +242,26 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
       r.forEach(function(cust) {
         ok = cust.Orders.some(function(order) {
           return order.EmployeeID == 5;
+        });
+        expect(ok).true;
+      });
+
+    }).then(done, done);
+  });
+
+  it("should be able to use predicates with 'any' with expand - Employee", function(done) {
+
+    var ordersAny = breeze.Predicate.create( 
+      { orders: { any: { 'customer.companyName': { startswith: 'Lazy' } } } });
+
+    var q = EntityQuery.from("Employees").where(ordersAny); //.expand("orders.customer")
+    var sq = toSequelizeQuery(q);
+
+    sq.executeRaw().then(function(r) {
+      expect(r).to.have.length(2); // should be only two such employees
+      r.forEach(function(emp) {
+        ok = emp.Orders.some(function(order) {
+          return order.Customer && order.Customer.CompanyName.indexOf("Lazy") == 0;
         });
         expect(ok).true;
       });
@@ -476,6 +496,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
         expect(order).to.have.property("Customer");
         return { CompanyName: order.Customer.CompanyName, Freight: order.Freight };
       })
+      console.log(anons);
       var ok = testFns.isSorted(anons, ["CompanyName desc", "Freight"]);
       expect(ok, "should be sorted").true;
 
@@ -1005,5 +1026,37 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
 
     }).then(done, done);
   });
+
+  it("should be able to use 'not' array with 'in'", function(done) {
+    var p2 = { not: { country: { in: [ 'Belgium', 'Germany'] } } };
+             
+    var p = Predicate.create(p2);
+    var q = new EntityQuery("Customers").where(p);
+    toSequelizeQuery(q).executeRaw().then(function (r) {
+      expect(r).to.have.length(78);
+      r.forEach(function(cust) {
+        expect(cust.Country).not.to.match(/(Belgium|Germany)/);
+      });
+    }).then(done, done);
+  });
+
+  it("should be able to use 'not' array with 'in' inside 'and'", function(done) {
+    var p2 = {
+      and: [ 
+        { companyName: { like: 'B%'} },
+        { not: { country: { in: [ 'Belgium', 'Germany'] } } },
+      ]  
+    };
+             
+    var p = Predicate.create(p2);
+    var q = new EntityQuery("Customers").where(p);
+    toSequelizeQuery(q).executeRaw().then(function (r) {
+      expect(r).to.have.length(6);
+      r.forEach(function(cust) {
+        expect(cust.Country).not.to.match(/(Belgium|Germany)/);
+      });
+    }).then(done, done);
+  });
+
 
 });

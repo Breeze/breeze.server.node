@@ -1,11 +1,11 @@
 var Sequelize      = require('sequelize');
 var breeze         = require("breeze-client");
+var _              = require('lodash');
 
 var MetadataMapper = require('./MetadataMapper.js');
 var dbUtils        = require('./dbUtils.js');
 var utils          = require('./utils.js');
 
-var _             = Sequelize.Utils._;
 var log = utils.log;
 /**
  * Retrieve models which match `where`, then delete them

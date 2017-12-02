@@ -1,6 +1,6 @@
 {
     "metadataVersion": "1.0.5",
-    "namingConvention": "camelCase",
+    "namingConvention": "noChange",
     "localQueryComparisonOptions": "caseInsensitiveSQL",
     "dataServices": [
         {

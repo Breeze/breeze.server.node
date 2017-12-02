@@ -24,7 +24,10 @@ var _dbConfigNw = {
 var _seqOpts = {
   dialect: "mysql",
   host: "localhost",
-  port: 3306
+  port: 3306,
+  pool: {
+    max: 100
+  }
 }
 
 var _sequelizeManager = createSequelizeManager();
@@ -125,6 +128,7 @@ exports.saveChanges = function(req, res, next) {
 
 function executeEntityQuery(entityQuery, returnResultsFn, res, next) {
   var returnResultsFn = returnResultsFn || returnResults;
+  console.log(entityQuery);
   var query = new SequelizeQuery(_sequelizeManager, entityQuery);
   query.execute().then(function (r) {
     returnResultsFn(r, res);
@@ -150,14 +154,14 @@ var namedQuery = {};
 
 namedQuery.CustomerFirstOrDefault = function(req, res, next) {
   // should return empty array
-  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").where("CompanyName", "StartsWith", "blah").take(1);
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").where("companyName", "StartsWith", "blah").take(1);
   executeEntityQuery(entityQuery, null, res, next);
 }
 
 
 namedQuery.CustomersStartingWithA = function(req, res, next) {
   var entityQuery = EntityQuery.fromUrl(req.url, "Customers")
-    .where("CompanyName", "startsWith", "A");
+    .where("companyName", "startsWith", "A");
   executeEntityQuery(entityQuery, null, res, next);
 
 };
@@ -170,7 +174,7 @@ namedQuery.CustomersStartingWith = function(req, res, next) {
     next(err);
   }
   // need to use upper case because base query came from server
-  var pred = new breeze.Predicate("CompanyName", "startsWith", companyName);
+  var pred = new breeze.Predicate("companyName", "startsWith", companyName);
   var entityQuery = EntityQuery.fromUrl(req.url, "Customers").where(pred);
   executeEntityQuery(entityQuery, null, res, next);
 };
@@ -181,13 +185,13 @@ namedQuery.CustomersOrderedStartingWith =    function(req, res, next) {
   var companyName = req.query.companyName;
   // need to use upper case because base query came from server
   var entityQuery = EntityQuery.fromUrl(req.url, "Customers")
-      .where("CompanyName", "startsWith", companyName)
-      .orderBy("CompanyName");
+      .where("companyName", "startsWith", companyName)
+      .orderBy("companyName");
   executeEntityQuery(entityQuery, null, res, next);
 }
 
 namedQuery.CustomersAndOrders = function(req, res, next) {
-  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").expand("Orders");
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").expand("orders");
   executeEntityQuery(entityQuery, null,  res, next);
 }
 
@@ -212,8 +216,8 @@ namedQuery.CustomersWithBigOrders = function(req, res, next) {
   var processResults = function(results, res) {
     var newResults = results.map(function(r) {
       return {
-        Customer: r,
-        BigOrders:  r.Orders.filter(function (order) {
+        customer: r,
+        bigOrders:  r.orders.filter(function (order) {
           return order.Freight > 100;
         })
       }
@@ -285,7 +289,7 @@ namedQuery.OrdersCountForCustomer = function(req, res, next) {
   var processResults = function(results, res) {
     var r;
     if (results.length > 0) {
-      r = r.Orders.length;
+      r = r.orders.length;
     } else {
       r = 0;
     }
@@ -313,15 +317,15 @@ namedQuery.CompanyNames = function(req, res, next) {
 };
 
 namedQuery.CompanyNamesAndIds = function(req, res, next) {
-  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").select("CompanyName, CustomerID");
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").select("companyName, customerID");
   executeEntityQuery(entityQuery, null, res, next);
 };
 
 namedQuery.CompanyNamesAndIdsAsDTO = function(req, res, next) {
-  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").select("CompanyName, CustomerID");
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").select("companyName, customerID");
   var projectResults = function(results, res) {
     var newResults = results.map(function(r) {
-      return { CompanyName: r.CompanyName, CustomerID: r.CustomerID };
+      return { companyName: r.companyName, customerID: r.customerID };
     })
     returnResults(newResults, res);
   };
@@ -330,19 +334,19 @@ namedQuery.CompanyNamesAndIdsAsDTO = function(req, res, next) {
 
 
 namedQuery.CompanyInfoAndOrders = function(req, res, next) {
-  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").select("CompanyName, CustomerID, Orders");
+  var entityQuery = EntityQuery.fromUrl(req.url, "Customers").select("companyName, customerID, orders");
   executeEntityQuery(entityQuery, null, res, next);
 }
 
 namedQuery.OrdersAndCustomers = function(req, res, next) {
-  var entityQuery = EntityQuery.fromUrl(req.url, "Orders").expand("Customer");
+  var entityQuery = EntityQuery.fromUrl(req.url, "Orders").expand("customer");
   executeEntityQuery(entityQuery, null, res, next);
 }
 
 namedQuery.SearchEmployees = function(req, res, next) {
 
   var employeeIds = req.query.employeeIds;
-  var pred = { EmployeeID: { in: employeeIds }};
+  var pred = { employeeID: { in: employeeIds }};
   var entityQuery = EntityQuery.fromUrl(req.url, "Employees").where(pred);
 
   executeEntityQuery(entityQuery, null, res, next);
@@ -351,7 +355,7 @@ namedQuery.SearchEmployees = function(req, res, next) {
 namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req, res, next) {
   var birthDate = new Date(Date.parse(req.query.birthDate));
   var country = req.query.country;
-  var pred = { BirthDate: { ge: birthDate}, Country: country };
+  var pred = { birthDate: { ge: birthDate}, country: country };
   var entityQuery = EntityQuery.fromUrl(req.url, "Employees").where(pred);
   executeEntityQuery(entityQuery, null, res, next);
 };
@@ -374,8 +378,15 @@ namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req, res, next) {
 function beforeSaveEntity(entityInfo) {
 
   if ( entityInfo.entityType.shortName == "Region" && entityInfo.entityAspect.entityState == "Added") {
-    if (entityInfo.entity.RegionDescription.toLowerCase().indexOf("error") === 0) {
+    if (entityInfo.entity.regionDescription.toLowerCase().indexOf("error") === 0) {
       return false;
+    }
+  }
+
+  if ( entityInfo.entityType.shortName == "Employee") {
+    var emp = entityInfo.entity;
+    if (emp.fullName === null) {
+      emp.fullName = emp.firstName + " " + emp.lastName;
     }
   }
 
@@ -389,12 +400,12 @@ function beforeSaveEntities(saveMap) {
   var customers = saveMap.getEntityInfosOfType("Customer");
   customers.forEach(function(custInfo) {
     if (custInfo.entityAspect.entityState != "Deleted") {
-      if (custInfo.entity.CompanyName.toLowerCase().indexOf("error") === 0) {
-        saveMap.addEntityError(custInfo, "Bad customer", "This customer is not valid!", "CompanyName");
+      if (custInfo.entity.companyName.toLowerCase().indexOf("error") === 0) {
+        saveMap.addEntityError(custInfo, "Bad customer", "This customer is not valid!", "companyName");
       }
-      var contactName = custInfo.entity.ContactName;
+      var contactName = custInfo.entity.contactName;
       if (contactName && contactName.toLowerCase().indexOf("error") === 0) {
-        saveMap.addEntityError(custInfo, "Bad ContactName", "This contact name should not contain the word 'Error'", "ContactName");
+        saveMap.addEntityError(custInfo, "Bad ContactName", "This contact name should not contain the word 'Error'", "contactName");
       }
     }
   });
@@ -403,8 +414,8 @@ function beforeSaveEntities(saveMap) {
     var suppliers = saveMap.getEntityInfosOfType("Supplier");
     suppliers.forEach(function(supplierInfo) {
       var product = {
-        ProductName: "Test_ Product added on server",
-        SupplierID: supplierInfo.entity.SupplierID
+        productName: "Test_ Product added on server",
+        supplierID: supplierInfo.entity.supplierID
       };
       saveMap.addEntity("Product", product);
     });
@@ -415,14 +426,14 @@ function beforeSaveEntities(saveMap) {
     // forEach category update the product price for all products in the category
     var categoryInfos = saveMap.getEntityInfosOfType("Category");
     var promises = categoryInfos.filter(function (catInfo) {
-      return catInfo.entity.CategoryID != null;
+      return catInfo.entity.categoryID != null;
     }).map(function (catInfo) {
-      var entityQuery = EntityQuery.from("Products").where("categoryID", "==", catInfo.entity.CategoryID);
+      var entityQuery = EntityQuery.from("Products").where("categoryID", "==", catInfo.entity.categoryID);
       var query = new SequelizeQuery(_sequelizeManager, entityQuery);
       return query.execute().then(function (r) {
         var products = r;
         products.forEach(function (product) {
-          product.UnitPrice = product.UnitPrice + .01;
+          product.unitPrice = product.unitPrice + .01;
           var ei = saveMap.addEntity("Product", product, "Modified");
           ei.forceUpdate = true;
         });
@@ -438,9 +449,9 @@ exports.saveWithComment = function(req, res, next) {
   saveHandler.beforeSaveEntities = function(saveMap) {
     var tag = this.saveOptions.tag;
     var entity = {
-      Comment1: (tag == null) ? "Generic comment" : tag,
-      CreatedOn: new Date(),
-      SeqNum: 1
+      comment1: (tag == null) ? "Generic comment" : tag,
+      createdOn: new Date(),
+      seqNum: 1
     };
     saveMap.addEntity("Comment", entity);
   }
@@ -479,7 +490,7 @@ exports.saveWithEntityErrorsException = function(req, res, next) {
   saveHandler.beforeSaveEntities = function(saveMap) {
     var orderInfos = saveMap.getEntityInfosOfType("Order");
     var errorDetails = orderInfos.map(function(orderInfo) {
-      saveMap.addEntityError(orderInfo, "WrongMethod", "Cannot save orders with this save method", "OrderID");
+      saveMap.addEntityError(orderInfo, "WrongMethod", "Cannot save orders with this save method", "orderID");
     });
     saveMap.setErrorMessage("test of custom exception message");
   }
@@ -492,7 +503,7 @@ exports.saveCheckInitializer = function(req, res, next) {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
     var order = {
-      OrderDate: today
+      orderDate: today
     };
     saveMap.addEntity("Order", order);
   };
@@ -502,7 +513,7 @@ exports.saveCheckInitializer = function(req, res, next) {
 exports.saveCheckUnmappedProperty = function(req, res, next) {
   var saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
   saveHandler.beforeSaveEntity = function(entityInfo) {
-    var unmappedValue = entityInfo.unmapped["MyUnmappedProperty"];
+    var unmappedValue = entityInfo.unmapped["myUnmappedProperty"];
     // in c#
     // var unmappedValue = entityInfo.UnmappedValuesMap["myUnmappedProperty"];
     if (unmappedValue != "anything22") {
@@ -516,11 +527,11 @@ exports.saveCheckUnmappedProperty = function(req, res, next) {
 exports.saveCheckUnmappedPropertySerialized = function(req, res, next) {
   var saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
   saveHandler.beforeSaveEntity = function(entityInfo) {
-    var unmappedValue = entityInfo.unmapped["MyUnmappedProperty"];
+    var unmappedValue = entityInfo.unmapped["myUnmappedProperty"];
     if (unmappedValue != "ANYTHING22") {
       throw new Error("wrong value for unmapped property:  " + unmappedValue);
     }
-    var anotherOne = entityInfo.unmapped["AnotherOne"];
+    var anotherOne = entityInfo.unmapped["anotherOne"];
 
     if ( anotherOne.z[5].foo != 4) {
       throw new Error("wrong value for 'anotherOne.z[5].foo'");
@@ -531,7 +542,7 @@ exports.saveCheckUnmappedPropertySerialized = function(req, res, next) {
     }
 
     var cust = entityInfo.entity;
-    if (cust.CompanyName.toUpperCase() != cust.CompanyName) {
+    if (cust.companyName.toUpperCase() != cust.companyName) {
       throw new Error("Uppercasing of company name did not occur");
     }
     return false;
@@ -554,12 +565,12 @@ exports.saveCheckUnmappedPropertySuppressed = function(req, res, next) {
 function checkFreightOnOrder(orderInfo) {
   var order = orderInfo.entity;
   if (this.saveOptions.tag === "freight update") {
-    order.Freight = order.Freight + 1;
+    order.freight = order.freight + 1;
   } else if (this.saveOptions.tag === "freight update-ov") {
-    order.Freight = order.Freight + 1;
-    orderInfo.entityAspect.originalValuesMap["Freight"] = null;
+    order.freight = order.freight + 1;
+    orderInfo.entityAspect.originalValuesMap["freight"] = null;
   } else if (this.saveOptions.tag === "freight update-force") {
-    order.Freight = order.Freight + 1;
+    order.freight = order.freight + 1;
     orderInfo.forceUpdate = true;
   }
   return true;

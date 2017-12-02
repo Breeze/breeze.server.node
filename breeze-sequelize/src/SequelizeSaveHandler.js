@@ -1,12 +1,12 @@
 var Sequelize = require('sequelize');
 var Promise = require("bluebird");
 var toposort = require("toposort");
+var _ = require('lodash');
 
 // TODO: transactions
 //       server side validations
 //       check SaveMap api for consistency with the rest of breeze.
 
-var _ = Sequelize.Utils._;
 module.exports = SequelizeSaveHandler;
 
 function SequelizeSaveHandler(sequelizeManager, req) {
@@ -273,7 +273,12 @@ ctor.prototype._saveEntityAsync = function(entityInfo, sqModel, transaction) {
 
     if (entityType.concurrencyProperties && entityType.concurrencyProperties.length > 0) {
       entityType.concurrencyProperties.forEach(function (cp) {
-        whereHash[cp.nameOnServer] = entityAspect.originalValuesMap[cp.nameOnServer];
+        // this is consistent with the client behaviour where it does not update the version property
+        // if its data type is binary
+        if (cp.dataType.name === 'Binary')
+          whereHash[cp.nameOnServer] = entity[cp.nameOnServer];
+        else
+          whereHash[cp.nameOnServer] = entityAspect.originalValuesMap[cp.nameOnServer];
       });
     }
     var setHash;
@@ -465,7 +470,7 @@ function toposortEntityTypes(entityTypes) {
 function toposortEntityInfos(entityType, entityInfos) {
   var edges = [];
   var selfReferenceNavProp = _.find(entityType.navigationProperties, navProp => navProp.entityType === entityType);
-  if (!selfReferenceNavProp)
+  if (!selfReferenceNavProp || !selfReferenceNavProp.relatedDataProperties)
     return entityInfos;
 
   var fkDataProp = selfReferenceNavProp.relatedDataProperties[0].name;

@@ -1,9 +1,9 @@
 var Sequelize    = require('sequelize');
+var _            = require('lodash');
 
 var breeze       = require("breeze-client");
 var utils        = require('./utils.js');
 
-var _            = Sequelize.Utils._;
 var log = utils.log;
 
 // TODO: still need to handle inherited entity types - TPT
