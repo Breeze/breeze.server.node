@@ -484,6 +484,9 @@ function toposortEntityInfos(entityType, entityInfos) {
     }
   });
 
+  if (edges.length === 0)
+    return entityInfos;
+
   var allSortedEntityInfos = toposort(edges).reverse();
     allSortedEntityInfos.forEach(function(st, ix) {
     st.__index = ix;
