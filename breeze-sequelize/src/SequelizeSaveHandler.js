@@ -478,11 +478,14 @@ function toposortEntityInfos(entityType, entityInfos) {
   entityInfos.forEach(function(entityInfo) {
     var dependsOn = entityInfo.entity[fkDataProp];
     if (dependsOn) {
-      var dependsOnInfo = _.find(entityInfos, x => x.entity[keyProp] === dependsOn);
+      var dependsOnInfo = _.find(entityInfos, x => x.entity[keyProp] === dependsOn && x.entity !== entityInfo.entity); // avoid referencing the same object
       if (dependsOnInfo)
         edges.push([entityInfo, dependsOnInfo]);
     }
   });
+
+  if (edges.length === 0)
+    return entityInfos;
 
   var allSortedEntityInfos = toposort(edges).reverse();
     allSortedEntityInfos.forEach(function(st, ix) {
