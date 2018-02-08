@@ -99,7 +99,7 @@ export namespace core {
     export function getPropertyDescriptor(obj: any, propertyName: string): PropertyDescriptor
 
     /** safely perform toJSON logic on objects with cycles.  Replacer function can map or exclude properties. */
-    export function toJSONSafe(obj: any, replacer: (prop: string, val: any) => any): any
+    export function toJSONSafe(obj: any, replacer?: (prop: string, val: any) => any): any
 
     /** Default value replacer for toJSONSafe.  Replaces entityAspect and other internal properties with undefined. */
     export function toJSONSafeReplacer(prop: string, val: any): any
@@ -162,6 +162,15 @@ export namespace core {
         validators: Validator[];
         addProperty(dataProperty: DataProperty): ComplexType;
         getProperties(): DataProperty[];
+
+        constructor(config: ComplexTypeOptions);
+    }
+
+    export interface ComplexTypeOptions {
+        shortName?: string;
+        namespace?: string;
+        dataProperties?: DataProperty[];
+        custom?: Object;
     }
 
     export class DataProperty implements IProperty {
@@ -176,6 +185,7 @@ export namespace core {
         isNullable: boolean;
         isPartOfKey: boolean;
         isUnmapped: boolean;
+        isSettable: boolean;
 
         maxLength: number;
         name: string;
@@ -264,9 +274,33 @@ export namespace core {
 
     export class DataTypeSymbol extends core.EnumSymbol {
         defaultValue: any;
-        isNumeric: boolean;
-        isDate: boolean;
+        isDate?: boolean;
+        isFloat?: boolean;
+        isInteger?: boolean;
+        isNumeric?: boolean;
+        quoteJsonOData?: boolean;
+
+        validatorCtor: (context: any) => Validator;
+
+        /** Function to convert a value from string to this DataType.  Note that this will be called each time a property is changed, so make it fast. */
+        parse?: (val: any, sourceTypeName?: string) => any;
+
+        /** Function to format this DataType for OData queries. */
+        fmtOData: (val: any) => any;
+
+        /** Optional function to get the next value for key generation, if this datatype is used as a key.  Uses an internal table of previous values. */
+        getNext?: () => any;
+
+        /** Optional function to normalize a data value for comparison, if its value cannot be used directly.  Note that this will be called each time a property is changed, so make it fast. */
+        normalize?: (val: any) => any;
+
+        /** Optional function to get the next value when the datatype is used as a concurrency property. */
+        getConcurrencyValue?: (val: any) => any;
+
+        /** Optional function to convert a raw (server) value from string to this DataType. */
+        parseRawValue?: (val: any) => any;
     }
+
     export interface DataType extends core.IEnum {
         Binary: DataTypeSymbol;
         Boolean: DataTypeSymbol;
@@ -283,30 +317,16 @@ export namespace core {
         String: DataTypeSymbol;
         Time: DataTypeSymbol;
         Undefined: DataTypeSymbol;
-
-        toDataType(typeName: string): DataTypeSymbol;
+        
+        constants: { nextNumber: number, nextNumberIncrement: number, stringPrefix: string };
+        
+        fromEdmDataType(typeName: string): DataTypeSymbol;
+        fromValue(val: any): DataTypeSymbol;
+        getComparableFn(dataType: DataTypeSymbol): (value: any) => any;
+        parseDateAsUTC(source: any): Date;
         parseDateFromServer(date: any): Date;
-        defaultValue: any;
-        isNumeric: boolean;
-        isInteger: boolean;
-
-        /** Function to convert a value from string to this DataType.  Note that this will be called each time a property is changed, so make it fast. */
-        parse: (val: any, sourceTypeName: string) => any;
-
-        /** Function to format this DataType for OData queries. */
-        fmtOData: (val: any) => any;
-
-        /** Optional function to get the next value for key generation, if this datatype is used as a key.  Uses an internal table of previous values. */
-        getNext?: () => any;
-
-        /** Optional function to normalize a data value for comparison, if its value cannot be used directly.  Note that this will be called each time a property is changed, so make it fast. */
-        normalize?: (val: any) => any;
-
-        /** Optional function to get the next value when the datatype is used as a concurrency property. */
-        getConcurrencyValue?: (val: any) => any;
-
-        /** Optional function to convert a raw (server) value from string to this DataType. */
-        parseRawValue?: (val: any) => any;
+        parseRawValue(val: any, dataType?: DataTypeSymbol): any;
+        parseTimeFromServer(source: any): string;
     }
     export var DataType: DataType;
 
@@ -479,10 +499,10 @@ export namespace core {
         hasChanges(entityType: EntityType): boolean;
         hasChanges(entityTypes: EntityType[]): boolean;
 
-        static importEntities(exportedString: string, config?: { mergeStrategy?: MergeStrategySymbol; metadataVersionFn?: (any: any) => void }): EntityManager;
-        static importEntities(exportedData: Object, config?: { mergeStrategy?: MergeStrategySymbol; metadataVersionFn?: (any: any) => void }): EntityManager;
-        importEntities(exportedString: string, config?: { mergeStrategy?: MergeStrategySymbol; metadataVersionFn?: (any: any) => void }): { entities: Entity[]; tempKeyMapping: { [key: string] : EntityKey } };
-        importEntities(exportedData: Object, config?: { mergeStrategy?: MergeStrategySymbol; metadataVersionFn?: (any: any) => void }): { entities: Entity[]; tempKeyMapping: { [key: string]: EntityKey } };
+        static importEntities(exportedString: string, config?: { mergeAdds?: boolean; mergeStrategy?: MergeStrategySymbol; metadataVersionFn?: (any: any) => void }): EntityManager;
+        static importEntities(exportedData: Object, config?: { mergeAdds?: boolean; mergeStrategy?: MergeStrategySymbol; metadataVersionFn?: (any: any) => void }): EntityManager;
+        importEntities(exportedString: string, config?: { mergeAdds?: boolean; mergeStrategy?: MergeStrategySymbol; metadataVersionFn?: (any: any) => void }): { entities: Entity[]; tempKeyMapping: { [key: string] : EntityKey } };
+        importEntities(exportedData: Object, config?: { mergeAdds?: boolean; mergeStrategy?: MergeStrategySymbol; metadataVersionFn?: (any: any) => void }): { entities: Entity[]; tempKeyMapping: { [key: string]: EntityKey } };
 
         rejectChanges(): Entity[];
         saveChanges(entities?: Entity[], saveOptions?: SaveOptions, callback?: SaveChangesSuccessCallback, errorCallback?: SaveChangesErrorCallback): Promise<SaveResult>;
@@ -800,6 +820,8 @@ export namespace core {
         parentType: IStructuralType;
         relatedDataProperties: DataProperty[];
         validators: Validator[];
+        invForeignKeyNames?: string[];
+        invForeignKeyNamesOnServer?: string[];
 
         constructor(config: NavigationPropertyOptions);
     }
@@ -813,6 +835,8 @@ export namespace core {
         foreignKeyNames?: string[];
         foreignKeyNamesOnServer?: string[];
         validators?: Validator[];
+        invForeignKeyNames?: string[];
+        invForeignKeyNamesOnServer?: string[];
     }
 
     export interface IRecursiveArray<T> {
@@ -1017,7 +1041,7 @@ export namespace core {
         /** Register a validator instance so that any deserialized metadata can reference it. */
         static register(validator: Validator): void;
         /** Register a validator factory so that any deserialized metadata can reference it.  */
-        static registerFactory(fn: () => Validator, name: string): void;
+        static registerFactory(fn: (context?: any) => Validator, name: string): void;
         /** Creates a regular expression validator with a fixed expression. */
         static makeRegExpValidator(validatorName: string, expression: RegExp, defaultMessage: string, context?: any): Validator;
 

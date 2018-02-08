@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2016 IdeaBlade, Inc.  All Rights Reserved.  
+ * Copyright 2012-2018 IdeaBlade, Inc.  All Rights Reserved.  
  * Use, reproduction, distribution, and modification of this code is subject to the terms and 
  * conditions of the IdeaBlade Breeze license, available at http://www.breezejs.com/license
  *
@@ -23,7 +23,7 @@
 })(this, function (global) {
     "use strict"; 
     var breeze = {
-        version: "1.6.3",
+        version: "1.7.0",
         metadataVersion: "1.0.5"
     };
     ;/**
@@ -13408,6 +13408,7 @@ var EntityManager = (function () {
     assertConfig(config)
         .whereParam("mergeStrategy").isEnumOf(MergeStrategy).isOptional().withDefault(this.queryOptions.mergeStrategy)
         .whereParam("metadataVersionFn").isFunction().isOptional()
+        .whereParam("mergeAdds").isBoolean().isOptional()
         .applyAll(config);
     var that = this;
 
@@ -14865,6 +14866,7 @@ var EntityManager = (function () {
 
     var entityType = entityGroup.entityType;
     var mergeStrategy = config.mergeStrategy;
+    var mergeAdds = config.mergeAdds;
 
     var targetEntity = null;
 
@@ -14881,11 +14883,10 @@ var EntityManager = (function () {
         throw new Error("Only entities with a non detached entity state may be imported.");
       }
 
-      // Merge if raw entity is in cache
-      // UNLESS this is a new entity w/ a temp key
-      // Cannot safely merge such entities even
-      // if could match temp key to an entity in cache.
-      var newTempKey = entityState.isAdded() && getMappedKey(tempKeyMap, entityKey);
+      // Merge if raw entity is in cache UNLESS this is a new entity w/ a temp key
+      // Cannot safely merge such entities even if could match temp key to an entity in cache.
+      // Can enable merge of entities w/temp key using "mergeAdds" - use at your own risk!
+      var newTempKey = !mergeAdds && entityState.isAdded() && getMappedKey(tempKeyMap, entityKey);
       targetEntity = newTempKey ? null : entityGroup.findEntityByKey(entityKey);
 
       if (targetEntity) {
