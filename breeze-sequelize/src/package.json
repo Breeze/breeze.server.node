@@ -1,6 +1,6 @@
 {
   "name": "breeze-sequelize",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Breeze Sequelize server implementation",
   "keywords": [
     "breeze",
@@ -15,12 +15,11 @@
   "dependencies": {
     "bluebird": "^3.5.1",
     "breeze-client": "*",
-    "lodash": "^4.17.4",
-    "sequelize": "^4.22.11",
+    "lodash": "^4.17.5",
+    "sequelize": "^4.36.0",
     "toposort": "^1.0.6"
   },
   "devDependencies": {
-    "gulp": ">=3.8.7",
     "mocha": "*",
     "chai": "*"
   },

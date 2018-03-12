@@ -4,9 +4,17 @@ This is an [Express](http://expressjs.com/en/index.html) application that runs t
 
 ### server.js
 Sets up the request handling, and starts the server listening on port 3000.  
-Specific request URLs (those starting with `/breeze/NorthwindIBModel/`) are passed to `routes.js`.  
-All others are assumed to be requesting HTML/JS/CS files from the `testCaseDir`
-You will need to pull down the [breeze.js](https://github.com/Breeze/breeze.js) repository, and set `testCaseDir` in server.js line 14.
+
+Specific request URLs (those starting with `/breeze/NorthwindIBModel/`) are passed to `routes.js`.
+
+All others are assumed to be requesting HTML/JS/CS files from the `testCaseDir`.
+You will need to pull down the [breeze.js](https://github.com/Breeze/breeze.js) repository, and set `testCaseDir` in server.js, line 14.
+
+Run the server using 
+
+    node server.js
+
+Then open your browser to http://localhost:3000/
 
 ### routes.js
 Handles AJAX requests for CRUD operations from the Breeze client.  Most queries are handled by the `get` method, which parses the query from the URL.

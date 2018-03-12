@@ -1,20 +1,18 @@
 {
   "name": "breeze-sequelize-tests",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "Breeze Sequelize server tests",
   "directories": {},
   "dependencies": {
     "bluebird": "^3.5.1",
     "breeze-client": "*",
     "breeze-sequelize": "*",
-    "lodash": "^4.17.4",
-    "mysql2": "^1.5.1",
-    "sequelize": "^4.22.11",
-    "uuid": "^3.1.0"
+    "lodash": "^4.17.5",
+    "mysql2": "^1.5.2",
+    "uuid": "^3.2.1"
   },
   "devDependencies": {
-    "gulp": "^3.8.7",
-    "mocha": "^4.0.1",
+    "mocha": "^5.0.4",
     "chai": "^4.1.2"
   },
   "scripts": {
