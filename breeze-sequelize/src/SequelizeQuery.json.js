@@ -842,14 +842,14 @@ function processAndOrClause(where) {
 }
 
 var _boolOpMap = {
-  eq: { not: "ne"},
-  gt: { sequelizeOp: "gt",  not: "le" },
-  ge: { sequelizeOp: "gte", not: "lt"  },
-  lt: { sequelizeOp: "lt",  not: "ge"},
-  le: { sequelizeOp: "lte", not: "gt" },
-  ne: { sequelizeOp: "ne",  not: "eq" },
-  in: { sequelizeOp: "in" },
-  like: { sequelizeOp: "like"}
+  eq: { not: Symbol.for("ne")},
+  gt: { sequelizeOp: Symbol.for("gt"),  not: Symbol.for("le") },
+  ge: { sequelizeOp: Symbol.for("gte"), not: Symbol.for("lt") },
+  lt: { sequelizeOp: Symbol.for("lt"),  not: Symbol.for("ge") },
+  le: { sequelizeOp: Symbol.for("lte"), not: Symbol.for("gt") },
+  ne: { sequelizeOp: Symbol.for("ne"),  not: Symbol.for("eq") },
+  in: { sequelizeOp: Symbol.for("in") },
+  like: { sequelizeOp: Symbol.for("like") }
 };
 
 var _notOps = {
@@ -875,6 +875,3 @@ var _notOps = {
 //  return Object.getPrototypeOf(o).constructor == Sequelize.Utils.or;
 //}
 // --------------------------------
-
-
-
