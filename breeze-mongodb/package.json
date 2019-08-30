@@ -16,7 +16,7 @@
     "homepage": "www.breezejs.com",
     "repository": {
         "type": "git",
-        "url": "https://github.com/khaudennis/breeze.server.node.git"
+        "url": "https://github.com/Breeze/breeze.server.node.git"
     },
     "author": "Jay Traband",
     "license": "MIT"
