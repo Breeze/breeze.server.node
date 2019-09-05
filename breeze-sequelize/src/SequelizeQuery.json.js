@@ -3,6 +3,7 @@ var Promise = require("bluebird");
 var urlUtils = require("url");
 var breeze = require('breeze-client');
 var _ = require('lodash');
+var Op = Sequelize.Op;
 
 var EntityQuery = breeze.EntityQuery;
 
@@ -494,6 +495,7 @@ var toSQVisitor = (function () {
 
 
       var crit;
+      var like = _boolOpMap.like.sequelizeOp;
       if (this.expr2.visitorMethodName === "litExpr") {
         p2Value = this.expr2.value;
         if (op === "eq") {
@@ -501,11 +503,11 @@ var toSQVisitor = (function () {
           // where[p1Value] = p2Value;
 
         } else if (op == "startswith") {
-          crit = { like: p2Value + "%" };
+          crit = { [like]: p2Value + "%" };
         } else if (op === "endswith") {
-          crit = { like: "%" + p2Value };
+          crit = { [like]: "%" + p2Value };
         } else if (op === "contains") {
-          crit =  { like: "%" + p2Value + "%" };
+          crit =  { [like]: "%" + p2Value + "%" };
         } else {
           crit = {};
           var mop = _boolOpMap[op].sequelizeOp;
@@ -522,11 +524,11 @@ var toSQVisitor = (function () {
         if (op === "eq") {
           crit =  colVal;
         } else if (op === "startswith") {
-          crit =  { like: Sequelize.literal("concat(" + p2Value + ",'%')") };
+          crit =  { [like]: Sequelize.literal("concat(" + p2Value + ",'%')") };
         } else if (op === "endswith") {
-          crit =  { like: Sequelize.literal("concat('%'," + p2Value + ")") };
+          crit =  { [like]: Sequelize.literal("concat('%'," + p2Value + ")") };
         } else if (op === "contains") {
-          crit = { like: Sequelize.literal("concat('%'," + p2Value + ",'%')") };
+          crit = { [like]: Sequelize.literal("concat('%'," + p2Value + ",'%')") };
         } else {
           var crit = {};
           var mop = _boolOpMap[op].sequelizeOp;
@@ -597,7 +599,7 @@ var toSQVisitor = (function () {
       }
       if (this.op.key === "and") {
         if (wheres.length > 0) {
-          result.where = wheres.length == 1 ? wheres[0] : { and: wheres };
+          result.where = wheres.length == 1 ? wheres[0] : { [Op.and]: wheres };
         }
         // q = Sequelize.and(q1, q2);
       } else {
@@ -605,7 +607,7 @@ var toSQVisitor = (function () {
           throw new Error("Cannot translate a query with nested property paths and 'OR' conditions to Sequelize. (Sorry).")
         }
         if (wheres.length > 0) {
-          result.where = wheres.length == 1 ? wheres[0] : { or: wheres };
+          result.where = wheres.length == 1 ? wheres[0] : { [Op.or]: wheres };
         }
         // q = Sequelize.or(q1, q2);
       }
@@ -630,9 +632,10 @@ var toSQVisitor = (function () {
       // predicate is applied to inner context
 
       var r = this.pred.visit(newContext);
-      include.where = r.where;
+      include.where = r.where || {};
+      include.require = true;
       if (r.include) include.include = r.include;
-      return { include: parent.include }
+      return { include: parent.include };
 
     },
 
@@ -784,12 +787,13 @@ function applyNot(q1) {
   // not { or  { a: 1, b: 2 } -> { and: [ a: { $ne: 1 }, b: { $ne 2 }]}
 
   var results = [], result;
-  for (var k in q1) {
+  var keys = Reflect.ownKeys(q1);
+  for (var k of keys) {
     var v = q1[k];
-    if (k === "or") {
-      result = { and: [ applyNot(v[0]), applyNot(v[1]) ] };
-    } else if (k === "and") {
-      result = { or: [ applyNot(v[0]), applyNot(v[1]) ] };
+    if (k === Op.or) {
+      result = { [Op.and]: [ applyNot(v[0]), applyNot(v[1]) ] };
+    } else if (k === Op.and) {
+      result = { [Op.or]: [ applyNot(v[0]), applyNot(v[1]) ] };
     } else if ( _notOps[k] ) {
       result = {};
       result[_notOps[k]] = v;
@@ -798,7 +802,7 @@ function applyNot(q1) {
       if ( v!=null && typeof(v) === "object") {
         result[k] = applyNot(v);
       } else {
-        result[k] = { "ne": v };
+        result[k] = { [Op.ne]: v };
       }
     }
 
@@ -809,7 +813,7 @@ function applyNot(q1) {
   } else {
     // Don't think we should ever get here with the current logic because all
     // queries should only have a single node
-    return { "or": results };
+    return { [Op.or]: results };
   }
 }
 
@@ -822,9 +826,11 @@ function processAndOr( parent) {
   parent.include && parent.include.forEach(function(inc) {
     processAndOr(inc);
   });
+  console.trace(parent);
 }
 
 function processAndOrClause(where) {
+  console.log("processAndOrClause", where);
   if (where.and) {
     clauses = where.and.map(function (clause) {
       return processAndOrClause(clause);
@@ -842,14 +848,14 @@ function processAndOrClause(where) {
 }
 
 var _boolOpMap = {
-  eq: { not: Symbol.for("ne")},
-  gt: { sequelizeOp: Symbol.for("gt"),  not: Symbol.for("le") },
-  ge: { sequelizeOp: Symbol.for("gte"), not: Symbol.for("lt") },
-  lt: { sequelizeOp: Symbol.for("lt"),  not: Symbol.for("ge") },
-  le: { sequelizeOp: Symbol.for("lte"), not: Symbol.for("gt") },
-  ne: { sequelizeOp: Symbol.for("ne"),  not: Symbol.for("eq") },
-  in: { sequelizeOp: Symbol.for("in") },
-  like: { sequelizeOp: Symbol.for("like") }
+  eq: { not: Op.ne },
+  gt: { sequelizeOp: Op.gt,  not: Op.le },
+  ge: { sequelizeOp: Op.gte, not: Op.lt },
+  lt: { sequelizeOp: Op.lt,  not: Op.ge },
+  le: { sequelizeOp: Op.lte, not: Op.gt },
+  ne: { sequelizeOp: Op.ne,  not: Op.eq },
+  in: { sequelizeOp: Op.in },
+  like: { sequelizeOp: Op.like }
 };
 
 var _notOps = {
@@ -862,7 +868,18 @@ var _notOps = {
   like: "nlike",
   nlike: "like",
   in: "notIn",
-  notIn: "in"
+  notIn: "in",
+
+  [Op.gt]: Op.lte,
+  [Op.lte]: Op.gt,
+  [Op.gte]: Op.lt,
+  [Op.lt]: Op.gte,
+  [Op.ne]: Op.eq,
+  [Op.like]: Op.notLike,
+  [Op.notLike]: Op.like,
+  [Op.in]: Op.notIn,
+  [Op.notIn]: Op.in
+
 };
 
 // Used to determine if a clause is the result of a Sequelize.and/or method call.

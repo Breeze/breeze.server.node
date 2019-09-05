@@ -24,17 +24,19 @@ Other methods are for special scenarios that are being exercised by the test sui
 
 Perform the npm-link process as described in the README file in the parent (test) directory.
 
-You can debug into the application using [node-inspector](https://github.com/node-inspector/node-inspector).  First install it:
+See [Debugging Node.js with Chrome DevTools](https://medium.com/@paul_irish/debugging-node-js-nightlies-with-chrome-devtools-7c4a1b95ae27#.pmqejrn8q).
 
-    npm install -g node-inspector
+1) Open Chrome and go to `chrome://inspect`
 
-Then change to the breeze-sequelize/test/ExpressDemo directory, and start the server using node-debug:
+2) Click on the link that says [Open dedicated DevTools for Node]()
 
-    node-debug server.js
+3) Put a `debugger;` statement in your code where you want to start debugging
 
-This will open node-inspector in your default browser ([which must be Chrome or Opera](https://github.com/node-inspector/node-inspector#debug))
+4) Start the server with the `--inspect` or `--inspect-brk` flag: 
 
-Then open a second browser window on http://127.0.0.1:3000/ to see the actual test suite app.  
+    node --inspect-brk server.js
+
+5) Open a second browser window on http://127.0.0.1:3000/ to see the actual test suite app.  
 You may need to temporarily turn off breakpoints in the node-inspector window while the app comes up.
 
 You can choose which test modules to run using the dropdown on the upper right of the page, 

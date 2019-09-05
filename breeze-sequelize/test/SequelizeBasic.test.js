@@ -149,7 +149,7 @@ describe("SequelizeManager", function() {
       expect(orders).to.have.length(dtos.length);
       expect(orders[0].customerID).to.equal(custs[0].customerID);
       expect(orders[0].employeeID).to.equal(emps[0].employeeID);
-      return Customer.find( { where: { customerID: custs[0].customerID }, include: { model: Order, as: "orders" }});
+      return Customer.findOne( { where: { customerID: custs[0].customerID }, include: { model: Order, as: "orders" }});
     }).then(function(c0) {
       expect(c0.customerID).to.equal(custs[0].customerID);
       var orderIds0 = _.map(orders, "orderID");

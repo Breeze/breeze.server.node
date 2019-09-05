@@ -16,6 +16,7 @@ var Predicate = breeze.Predicate;
 var DataService = breeze.DataService;
 
 var log = testFns.log;
+var Op = Sequelize.Op;
 
 describe("EntityQuery to SequelizeQuery - parse", function() {
 
@@ -56,7 +57,7 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
     var q0 = new EntityQuery("Customers").where("companyName", "startsWith", "S");
     check(q0,
       { where:
-        { CompanyName: { like: 'S%' } }
+        { CompanyName: { [Op.like]: 'S%' } }
       }
     );
   });
@@ -66,7 +67,7 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
     var q0 = new EntityQuery("Customers").where(p);
     check(q0,
         { where:
-          { CompanyName: { nlike: 'S%' } }
+          { CompanyName: { [Op.notLike]: 'S%' } }
         }
     );
   });
@@ -76,7 +77,7 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
     var q0 = new EntityQuery("Customers").where(p);
     check(q0,
         { where:
-          Sequelize.or( { CompanyName: { like: 'S%' }}, { CompanyName: { like: 'D%'}})
+          Sequelize.or( { CompanyName: { [Op.like]: 'S%' }}, { CompanyName: { [Op.like]: 'D%'}})
         }
     );
   });
@@ -86,7 +87,7 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
     var q0 = new EntityQuery("Customers").where(p);
     check(q0,
         { where:
-            Sequelize.and( { CompanyName: { like: 'S%' }}, { CompanyName: { like: 'D%'}})
+            Sequelize.and( { CompanyName: { [Op.like]: 'S%' }}, { CompanyName: { [Op.like]: 'D%'}})
         }
     );
   });
@@ -96,7 +97,7 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
     var q0 = new EntityQuery("Orders").where(p);
     check(q0,
         { where:
-            Sequelize.and( { Freight: { gt: 100 }}, { Freight: { lt: 200}})
+            Sequelize.and( { Freight: { [Op.gt]: 100 }}, { Freight: { [Op.lt]: 200}})
         }
     );
   });

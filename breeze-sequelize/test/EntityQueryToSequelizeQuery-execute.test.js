@@ -254,7 +254,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     var ordersAny = breeze.Predicate.create( 
       { orders: { any: { 'customer.companyName': { startswith: 'Lazy' } } } });
 
-    var q = EntityQuery.from("Employees").where(ordersAny); //.expand("orders.customer")
+    var q = EntityQuery.from("Employees").where(ordersAny).expand("orders.customer");
     var sq = toSequelizeQuery(q);
 
     sq.executeRaw().then(function(r) {

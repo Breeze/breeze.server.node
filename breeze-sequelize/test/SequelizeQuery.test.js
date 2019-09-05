@@ -14,6 +14,7 @@ describe("SequelizeQuery 2", function() {
 
   this.enableTimeouts(false);
   var _nwSm;
+  var Op = Sequelize.Op;
 
   before(function() {
     _nwSm = new SequelizeManager(testFns.dbConfigNw);
@@ -27,7 +28,7 @@ describe("SequelizeQuery 2", function() {
    var q = {
       where: Sequelize.where(
           Sequelize.fn("UPPER", Sequelize.col("CompanyName")),
-          { like: 'B%' }
+          { [Op.like]: 'B%' }
       )
     };
 
@@ -35,7 +36,7 @@ describe("SequelizeQuery 2", function() {
    var q = {
      where: Sequelize.where(
          Sequelize.fn("UPPER", Sequelize.col("CompanyName")),
-         { like: 'B%' }
+         { [Op.like]: 'B%' }
      )
    };
 
@@ -53,7 +54,7 @@ describe("SequelizeQuery 2", function() {
     var Employee = _nwSm.models.Employees;
     var q = {
       include: [
-        { model: Order, as: "Orders", where: { Freight: { gt: 400 } } }
+        { model: Order, as: "Orders", where: { Freight: { [Op.gt]: 400 } } }
         // { model: Order, as: "Orders" }
       ]
     };
@@ -70,7 +71,7 @@ describe("SequelizeQuery 2", function() {
   it("should be able to project and include nonscalar props in same query", function(done) {
     var Order = _nwSm.models.Orders;
     var q = {
-      where: { CompanyName: { like: 'B%'} },
+      where: { CompanyName: { [Op.like]: 'B%'} },
       attributes: [ "CompanyName", "City" ],
       include: [ { model: Order, as: "Orders" }]
     };
@@ -89,8 +90,8 @@ describe("SequelizeQuery 2", function() {
   it("should be able to project and include scalar props in same query", function(done) {
     var CustomerModel = _nwSm.models.Customers;
     var where = {
-      "Freight": { $gt: 100 },
-      "CustomerID": { $ne: null }
+      "Freight": { [Op.gt]: 100 },
+      "CustomerID": { [Op.ne]: null }
     };
 
     var q = {
@@ -115,7 +116,7 @@ describe("SequelizeQuery 2", function() {
   });
 
   it("should be able to use 'like'", function(done) {
-    _nwSm.models.Customers.findAll( { where: { CompanyName: { like: 'B%'} }}).then(function(r) {
+    _nwSm.models.Customers.findAll( { where: { CompanyName: { [Op.like]: 'B%'} }}).then(function(r) {
       expect(r).to.have.length.above(5);
       r.forEach(function(cust) {
         expect(cust.CompanyName).to.match(/B.*/);
@@ -128,7 +129,7 @@ describe("SequelizeQuery 2", function() {
   it("should be able to use include on 1-N reln", function(done) {
     var Order = _nwSm.models.Orders;
     _nwSm.models.Customers.findAll( {
-      where: { CompanyName: { like: 'B%'} },
+      where: { CompanyName: { [Op.like]: 'B%'} },
       include: { model: Order, as: "Orders" }
     }).then(function(r) {
       expect(r).to.have.length.above(5);
@@ -142,7 +143,7 @@ describe("SequelizeQuery 2", function() {
   it("should be able to use include on 1-N reln with where ( any) ", function(done) {
     var Order = _nwSm.models.Orders;
     _nwSm.models.Customers.findAll( {
-      where: { CompanyName: { like: 'B%'} },
+      where: { CompanyName: { [Op.like]: 'B%'} },
       include: { model: Order, as: "Orders" , where: { ShipCity : "London" }}
     }).then(function(r) {
           expect(r).to.have.length.within(1, 3);
@@ -162,7 +163,7 @@ describe("SequelizeQuery 2", function() {
     var Order = _nwSm.models.Orders;
     _nwSm.models.Orders.findAll( {
       limit: 2,
-      where: { "CustomerID": { $ne: null }},
+      where: { "CustomerID": { [Op.ne]: null }},
       include: { model: Customer, as: "Customer", attributes: [ "CompanyName"]} ,
       attributes: [ "OrderDate", "Customer.CompanyName"]
     }).then(function(r) {
@@ -202,7 +203,7 @@ describe("SequelizeQuery 2", function() {
       limit: 2,
       include: [{
         model: Order, as: 'Order',
-        where: { employeeId: { ne: null }},
+        where: { employeeId: { [Op.ne]: null }},
         include: [{
           model: Employee, as: 'Employee',
           where: { lastName: 'Peacock' }
@@ -242,8 +243,8 @@ describe("SequelizeQuery 2", function() {
   });
 
   var buildOrQuery = function() {
-    var c1= { "CompanyName": { like: 'B%'} };
-    var c2 = { "City": { like: 'L%' } };
+    var c1= { "CompanyName": { [Op.like]: 'B%'} };
+    var c2 = { "City": { [Op.like]: 'L%' } };
     var q = {
       where: Sequelize.or( c1, c2 )
     };
@@ -263,7 +264,7 @@ describe("SequelizeQuery 2", function() {
   it("should be able to use Sequelize.or 2 ", function(done) {
 
     var q = {
-      where:  Sequelize.or( { City: { like: "L%"} }, { CompanyName: { like: "B%" } })
+      where:  Sequelize.or( { City: { [Op.like]: "L%"} }, { CompanyName: { [Op.like]: "B%" } })
       // where:   { City: { like: 'L%'}, CompanyName: { like: 'B%' } }
     };
 
@@ -276,7 +277,7 @@ describe("SequelizeQuery 2", function() {
   it("should be able to use Sequelize.and ", function(done) {
     var Order = _nwSm.models.Orders;
     var q = {
-      where: Sequelize.and( { CompanyName: { like: 'B%'} }, { City: { like: 'L%' } })
+      where: Sequelize.and( { CompanyName: { [Op.like]: 'B%'} }, { City: { [Op.like]: 'L%' } })
     };
     _nwSm.models.Customers.findAll( q).then(function(r) {
       expect(r).to.have.length.above(1);
@@ -285,7 +286,7 @@ describe("SequelizeQuery 2", function() {
 
   it("should be able to use 'like' with empty include", function(done) {
     var q = {
-      where: { CompanyName: { like: 'B%'} },
+      where: { CompanyName: { [Op.like]: 'B%'} },
       include: []
     };
     _nwSm.models.Customers.findAll( q).then(function(r) {
@@ -298,7 +299,7 @@ describe("SequelizeQuery 2", function() {
 
   it("should be able to use 'in'", function(done) {
     var q = {
-      where: { Country: { in: [ 'Belgium', 'Germany'] } },
+      where: { Country: { [Op.in]: [ 'Belgium', 'Germany'] } },
     };
     _nwSm.models.Customers.findAll( q).then(function(r) {
       expect(r).to.have.length(13);
@@ -310,7 +311,7 @@ describe("SequelizeQuery 2", function() {
 
   it("should be able to use 'not' with 'in'", function(done) {
     var q = {
-      where: { not: { Country: { in: [ 'Belgium', 'Germany'] } } },
+      where: { [Op.not]: { Country: { [Op.in]: [ 'Belgium', 'Germany'] } } },
     };
     _nwSm.models.Customers.findAll( q).then(function(r) {
       expect(r).to.have.length(78);
@@ -324,9 +325,9 @@ describe("SequelizeQuery 2", function() {
     var q = {
       where: [
           { 
-           CompanyName: { like: 'B%'} 
+           CompanyName: { [Op.like]: 'B%'} 
           },
-          { not: [ { Country: { in: [ 'Belgium', 'Germany'] } } ] }
+          { [Op.not]: [ { Country: { [Op.in]: [ 'Belgium', 'Germany'] } } ] }
         ]  
     };
     _nwSm.models.Customers.findAll( q).then(function(r) {
