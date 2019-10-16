@@ -2,7 +2,7 @@
     "metadataVersion": "1.0.5",
     "namingConvention": "noChange",
     "localQueryComparisonOptions": "caseInsensitiveSQL",
-    "dataServices": [
+    "XdataServices": [
         {
             "serviceName": "breeze/NorthwindIBModel/",
             "hasServerMetadata": true,

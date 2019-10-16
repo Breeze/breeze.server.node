@@ -4,8 +4,8 @@
     "version": "0.0.3",
     "private": true,
     "dependencies": {
-        "breeze-client": "*",
-        "breeze-sequelize": "*",
+        "breeze-client": "next",
+        "breeze-sequelize": "^0.3.0",
         "express": "3.x",
         "mysql2": "^1.5.2"
     }

@@ -5,8 +5,8 @@
   "directories": {},
   "dependencies": {
     "bluebird": "^3.5.5",
-    "breeze-client": "*",
-    "breeze-sequelize": "*",
+    "breeze-client": "next",
+    "breeze-sequelize": "^0.3.0",
     "lodash": "^4.17.15",
     "mysql2": "^1.7.0",
     "uuid": "^3.3.3"

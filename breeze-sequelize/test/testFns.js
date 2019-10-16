@@ -1,4 +1,5 @@
 var breezeSequelize  = require("breeze-sequelize");
+var adapter_model    = require("breeze-client/adapter-model-library-backing-store");
 var fs               = require('fs');
 var expect           = require('chai').expect;
 var _                = require('lodash');
@@ -12,6 +13,8 @@ var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
 var DataService = breeze.DataService
+
+adapter_model.ModelLibraryBackingStoreAdapter.register();
 
 // test predicate extension
 breeze.Predicate.extendBinaryPredicateFn( { like: {}, nlike: { alias: 'notLike' }}, function(context, expr1, expr2) {

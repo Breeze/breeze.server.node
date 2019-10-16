@@ -3,6 +3,9 @@ var fs = require('fs');
 var Promise = require("bluebird");
 var breezeSequelize = require('breeze-sequelize');
 
+var adapter_model    = require("breeze-client/adapter-model-library-backing-store");
+adapter_model.ModelLibraryBackingStoreAdapter.register();
+
 var SequelizeManager =breezeSequelize.SequelizeManager;
 var SequelizeQuery = breezeSequelize.SequelizeQuery;
 var SequelizeSaveHandler = breezeSequelize.SequelizeSaveHandler;

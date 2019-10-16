@@ -14,7 +14,7 @@
   "directories": {},
   "dependencies": {
     "bluebird": "^3.5.5",
-    "breeze-client": "^1.7.2",
+    "breeze-client": "next",
     "lodash": "^4.17.15",
     "sequelize": "^5.18.1",
     "toposort": "^2.0.2"
