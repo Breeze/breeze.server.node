@@ -8,9 +8,8 @@ var breezeSequelize = require("breeze-sequelize");
 // Don't use this
 // var breeze = require('breeze-client');
 // Use this
-var breeze = breezeSequelize.breeze;
-
 var testFns          = require('./testFns.js');
+var breeze = testFns.breeze;
 
 var SequelizeManager = breezeSequelize.SequelizeManager;
 var SequelizeQuery = breezeSequelize.SequelizeQuery;
@@ -58,7 +57,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
 //        .from("Customers")
 //        .where("toUpper(substring(companyName, 1, 2))", "startsWith", "OM");
     var q = EntityQuery.from("Customers")
-        .where("toUpper(CompanyName)", "startsWith", "C")
+        .where("toUpper(companyName)", "startsWith", "C")
     var sq = toSequelizeQuery(q)
     sq.executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(1);
@@ -73,7 +72,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
 
   it("should be able to use fn 'tolower'", function (done) {
     var q = EntityQuery.from("Customers")
-        .where("toLower(CompanyName)", "startsWith", "c")
+        .where("toLower(companyName)", "startsWith", "c")
     var sq = toSequelizeQuery(q)
     sq.executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(1);
@@ -87,7 +86,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
 
   it("should be able to use fn 'substring'", function (done) {
     var q = EntityQuery.from("Customers")
-        .where("substring(CompanyName,0,2)", "==", "Co");
+        .where("substring(companyName,0,2)", "==", "Co");
     var sq = toSequelizeQuery(q)
     sq.executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(1);
@@ -101,7 +100,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
 
   it("should be able to use fn 'substring' and 'tolower'", function (done) {
     var q = EntityQuery.from("Customers")
-        .where("substring(toLower(CompanyName),1,2)", "==", "om");
+        .where("substring(toLower(companyName),1,2)", "==", "om");
     var sq = toSequelizeQuery(q)
     sq.executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(0);
@@ -116,7 +115,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to use fn 'length'", function (done) {
     var minLength = 26;
     var q = EntityQuery.from("Customers")
-        .where("length(Address)", ">", minLength)
+        .where("length(address)", ">", minLength)
     var sq = toSequelizeQuery(q)
     sq.executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(5);
@@ -130,7 +129,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
 
   it("should be able to use fn 'month'", function (done) {
     var q = EntityQuery.from("Employees")
-        .where("month(BirthDate)", "==", 12)
+        .where("month(birthDate)", "==", 12)
     var sq = toSequelizeQuery(q)
     sq.executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(0);
@@ -144,7 +143,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
 
   it("should be able to use fn 'day'", function (done) {
     var q = EntityQuery.from("Employees")
-        .where("day(BirthDate)", ">", 20)
+        .where("day(birthDate)", ">", 20)
     var sq = toSequelizeQuery(q)
     sq.executeRaw().then(function (r) {
       expect(r).to.have.length.greaterThan(0);
@@ -865,6 +864,7 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
     var sq = toSequelizeQuery(q0);
     sq.executeRaw().then(function (r) {
       expect(r).to.have.length.above(1);
+      console.log(r);
       r.forEach(function (emp) {
         expect(emp).to.have.property("HireDate");
         expect(emp.HireDate).to.be.above(new Date(1994, 0, 1));
@@ -1043,11 +1043,11 @@ describe("EntityQuery to SequelizeQuery - execute", function () {
   it("should be able to use 'not' array with 'in' inside 'and'", function(done) {
     var p2 = {
       and: [ 
-        { companyName: { like: 'B%'} },
+        { companyName: { startsWith: 'B'} },
         { not: { country: { in: [ 'Belgium', 'Germany'] } } },
       ]  
     };
-             
+
     var p = Predicate.create(p2);
     var q = new EntityQuery("Customers").where(p);
     toSequelizeQuery(q).executeRaw().then(function (r) {

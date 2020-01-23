@@ -4,7 +4,6 @@ var Promise = require("bluebird");
 var breezeSequelize = require('breeze-sequelize');
 
 var adapter_model    = require("breeze-client/adapter-model-library-backing-store");
-adapter_model.ModelLibraryBackingStoreAdapter.register();
 
 var SequelizeManager =breezeSequelize.SequelizeManager;
 var SequelizeQuery = breezeSequelize.SequelizeQuery;
@@ -14,6 +13,7 @@ var SequelizeSaveHandler = breezeSequelize.SequelizeSaveHandler;
 // var breeze = require('breeze-client');
 // Use this
 var breeze = breezeSequelize.breeze;
+adapter_model.ModelLibraryBackingStoreAdapter.register(breeze.config);
 var EntityQuery = breeze.EntityQuery;
 
 var _dbConfigNw = {
@@ -53,7 +53,7 @@ function KeyGenerator(sequelize, groupSize) {
   this.nextIdModel = sequelize.define('nextid', {
     Name: { type: sequelize.Sequelize.STRING, primaryKey: true },
     NextId: sequelize.Sequelize.INTEGER
-  }, {   freezeTableName: true, timestamps: false });
+  }, { freezeTableName: true, timestamps: false });
   this.nextId = null;
   this.groupSize = groupSize || 100;
 }
@@ -77,7 +77,7 @@ KeyGenerator.prototype._updateNextId = function() {
 
   var that = this;
   var nextId;
-  return this.nextIdModel.findById("GLOBAL").then(function(nextIdItem) {
+  return this.nextIdModel.findByPk("GLOBAL").then(function(nextIdItem) {
     nextId = nextIdItem["NextId"];
     var nextIdToSave = nextId + that.groupSize;
     return that.nextIdModel.update({ NextId: nextIdToSave }, { where: { Name: "GLOBAL", NextId: nextId }});
@@ -403,10 +403,11 @@ function beforeSaveEntities(saveMap) {
   var customers = saveMap.getEntityInfosOfType("Customer");
   customers.forEach(function(custInfo) {
     if (custInfo.entityAspect.entityState != "Deleted") {
-      if (custInfo.entity.companyName.toLowerCase().indexOf("error") === 0) {
+      var companyName = custInfo.entity.companyName || custInfo.entity.CompanyName;
+      if (companyName.toLowerCase().indexOf("error") === 0) {
         saveMap.addEntityError(custInfo, "Bad customer", "This customer is not valid!", "companyName");
       }
-      var contactName = custInfo.entity.contactName;
+      var contactName = custInfo.entity.contactName || custInfo.entity.ContactName;
       if (contactName && contactName.toLowerCase().indexOf("error") === 0) {
         saveMap.addEntityError(custInfo, "Bad ContactName", "This contact name should not contain the word 'Error'", "contactName");
       }

@@ -2,24 +2,18 @@ var fs               = require('fs');
 var expect           = require('chai').expect;
 var Sequelize        = require('sequelize');
 var testFns          = require('./testFns.js');
+var adapter_odata     = require("breeze-client/adapter-uri-builder-odata");
 
 var breezeSequelize = require("breeze-sequelize");
 
 // Don't use this
 // var breeze = require('breeze-client');
 // Use this
-var breeze = breezeSequelize.breeze;
+var breeze = testFns.breeze;
+adapter_odata.UriBuilderODataAdapter.register(breeze.config);
 
-var EntityManager = breeze.EntityManager;
-var EntityQuery = breeze.EntityQuery;
-var Predicate = breeze.Predicate;
-var DataService = breeze.DataService;
-
-var EntityManager = breeze.EntityManager;
-var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
 var FilterQueryOp = breeze.FilterQueryOp;
-var log = testFns.log;
 
 describe("Predicate - parse", function() {
   this.enableTimeouts(false);
@@ -389,7 +383,7 @@ describe("Predicate - parse", function() {
           { not: { orders: { any: {} }}}
              ]      };
     var p = Predicate.create(p2);
-    test(p, entityType, "(substringof('ar',CompanyName) eq true) and (not (Orders/any()))");
+    test(p, entityType, "(substringof('ar',CompanyName) eq true) and (not (Orders/any(x1: )))");
   });
 
   xit("and with with not in - json", function() {

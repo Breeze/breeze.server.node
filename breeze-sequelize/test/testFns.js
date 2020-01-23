@@ -1,5 +1,9 @@
 var breezeSequelize  = require("breeze-sequelize");
 var adapter_model    = require("breeze-client/adapter-model-library-backing-store");
+var adapter_json     = require("breeze-client/adapter-uri-builder-json");
+var adapter_data     = require("breeze-client/adapter-data-service-webapi");
+var adapter_ajax     = require("breeze-client/adapter-ajax-fetch");
+
 var fs               = require('fs');
 var expect           = require('chai').expect;
 var _                = require('lodash');
@@ -8,21 +12,32 @@ var _                = require('lodash');
 // var breeze = require('breeze-client');
 // Use this
 var breeze = breezeSequelize.breeze;
+exports.breeze = breeze;
 
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;
 var DataService = breeze.DataService
 
-adapter_model.ModelLibraryBackingStoreAdapter.register();
+// breeze.config.registerAdapter("modelLibrary", adapter_model.ModelLibraryBackingStoreAdapter);
+// breeze.config.initializeAdapterInstance("modelLibrary", "backingStore", true);
 
-// test predicate extension
-breeze.Predicate.extendBinaryPredicateFn( { like: {}, nlike: { alias: 'notLike' }}, function(context, expr1, expr2) {
-  var e2 = "^" + expr2.replace("%", ".*?") + "$";
-  var rx = new RegEx(e2);
-  var isLike =  rx.test(expr1);
-  return (this.op.key == 'like') ? isLike : !isLike;
-});
+adapter_model.ModelLibraryBackingStoreAdapter.register(breeze.config);
+adapter_json.UriBuilderJsonAdapter.register(breeze.config);
+adapter_ajax.AjaxFetchAdapter.register(breeze.config);
+adapter_data.DataServiceWebApiAdapter.register(breeze.config);
+
+// breeze.ModelLibraryBackingStoreAdapter.register();
+// breeze.NamingConvention.none.setAsDefault();
+console.log("registered adapters");
+
+// test predicate extension - REMOVED in breeze-client 2.0 - TODO should we restore it?
+// breeze.Predicate.extendBinaryPredicateFn( { like: {}, nlike: { alias: 'notLike' }}, function(context, expr1, expr2) {
+//   var e2 = "^" + expr2.replace("%", ".*?") + "$";
+//   var rx = new RegEx(e2);
+//   var isLike =  rx.test(expr1);
+//   return (this.op.key == 'like') ? isLike : !isLike;
+// });
 
 var __dbConfigNw = {
   host: "localhost",
@@ -40,7 +55,8 @@ exports.dbConfigNw = __dbConfigNw;
 
 exports.getSequelizeQuery = function(uriBuilderName) {
   uriBuilderName = uriBuilderName || exports.uriBuilderName;
-  return require('./../SequelizeQuery.' + uriBuilderName + '.js');
+  // return require('./../SequelizeQuery.' + uriBuilderName + '.js');
+  return null;
 }
 
 

@@ -9,7 +9,7 @@ var testFns          = require('./testFns.js');
 var SequelizeManager = breezeSequelize.SequelizeManager;
 var SequelizeQuery = breezeSequelize.SequelizeQuery;
 
-var breeze = breezeSequelize.breeze;
+var breeze = testFns.breeze;
 var EntityManager = breeze.EntityManager;
 var EntityQuery = breeze.EntityQuery;
 var Predicate = breeze.Predicate;

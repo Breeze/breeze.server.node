@@ -11,6 +11,8 @@
 *.csproj
 *.sln
 *.log
+*.tgz
+.vscode
 
 node_modules
 bin
