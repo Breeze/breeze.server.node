@@ -5,9 +5,11 @@ import { SequelizeManager } from "./SequelizeManager";
 import * as urlUtils from "url";
 import { toSQVisitor } from "./SQVisitor";
 
-// patch Breeze EntityQuery for server-side use
-// TODO make this a method on SequelizeQuery, so we don't have to patch Breeze?
-EntityQuery['fromUrl'] = function (url: string, resourceName: string) {
+/** Create an EntityQuery from a JSON-format breeze query string 
+ * @param url - url containing query, e.g. `/orders?{freight:{">":100}}`
+ * @param resourceName - Name of the resource/entity.  If omitted, resourceName is derived from the pathname of the url.
+*/
+export function entityQueryFromUrl(url: string, resourceName?: string): EntityQuery {
   let parsedUrl = urlUtils.parse(url, true);
   resourceName = resourceName || parsedUrl.pathname;
   // this is because everything after the '?' is turned into a query object with a single key
@@ -23,14 +25,19 @@ EntityQuery['fromUrl'] = function (url: string, resourceName: string) {
   // for debugging
   entityQuery['jsonQuery'] = jsonQuery;
   return entityQuery;
-}
+} 
+
+// patch Breeze EntityQuery for server-side use
+// TODO make this a method on SequelizeQuery, so we don't have to patch Breeze?
+EntityQuery['fromUrl'] = entityQueryFromUrl;
 
 export interface SequelizeQueryOptions {
   useTransaction: boolean;
   beforeQueryEntities: (sq: SequelizeQuery) => void;
 }
 
-interface CountModel {
+/** Object returned from a query with inlineCountEnabled */
+export interface CountModel {
   rows: Model[];
   count: number;
 }

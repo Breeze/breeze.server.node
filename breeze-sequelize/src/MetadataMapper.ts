@@ -5,14 +5,17 @@ import * as utils from "./utils";
 
 let log = utils.log;
 
+/** Map name to Sequelize Model type */
 export interface NameModelMap { [modelName: string]: { new(): Model } & typeof Model };
 
 // TODO: still need to handle inherited entity types - TPT
 /** Maps Breeze metadata to Sequelize Models */
 export class MetadataMapper {
-  sequelize: Sequelize
-  metadataStore: MetadataStore;
+  readonly sequelize: Sequelize
+  readonly metadataStore: MetadataStore;
+  /** Maps entity type name to Sequelize Model */
   entityTypeSqModelMap: NameModelMap;
+  /** Maps resource name to Sequelize Model */
   resourceNameSqModelMap: NameModelMap;
 
   constructor(breezeMetadata: MetadataStore | string | Object, sequelize: Sequelize) {

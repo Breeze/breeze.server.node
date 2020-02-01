@@ -1,6 +1,6 @@
 {
   "name": "breeze-sequelize",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Breeze Sequelize server implementation",
   "keywords": [
     "breeze",
@@ -19,21 +19,23 @@
   ],
   "directories": {},
   "dependencies": {
-    "bluebird": "^3.7.2",
-    "breeze-client": ">=2.0.3",
-    "lodash": "^4.17.15",
-    "sequelize": "^5.21.3",
     "toposort": "^2.0.2"
+  },
+  "peerDependencies": {
+    "bluebird": "^3.7.2",
+    "breeze-client": ">=2.0.4",
+    "lodash": "^4.17.15",
+    "sequelize": "^5.21.3"
   },
   "devDependencies": {
     "@types/bluebird": "^3.5.29",
     "@types/lodash": "^4.14.137",
-    "@types/node": "^12.12.25",
+    "@types/node": "^12.12.26",
     "@types/validator": "^12.0.1",
     "chai": "^4.2.0",
     "mocha": "^6.2.0",
-    "rimraf": "^3.0.0",
-    "typescript": "~3.4.5"
+    "rimraf": "^3.0.1",
+    "typescript": "^3.7.5"
   },
   "scripts": {
     "test": "mocha",

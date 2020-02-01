@@ -5,6 +5,7 @@ import { FindOptions, IncludeOptions, LogicType, Op, Sequelize, WhereOptions } f
 import { Where } from "sequelize/types/lib/utils";
 import { SqVisitContext } from "./SequelizeQuery";
 
+/** Result of processing a query expression into Sequelize */
 export interface ExprResult {
   include: IncludeOptions[],
   lastInclude: IncludeOptions,

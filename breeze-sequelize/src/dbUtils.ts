@@ -6,13 +6,15 @@ let log = utils.log;
 exports.connect = connect;
 exports.createDb = createDb;
 
+/** Config for connecting to a database */
 export interface DbConfig {
   dbName: string;
   user: string;
   password: string;
 }
 
-/** @returns Promise<"success"> or throws an error */
+/** Connect to existing database.
+ *  @returns Promise<"success"> or throws an error */
 export function connect(dbConfig: DbConfig, sequelizeOptions: Options): Promise<string> {
 
   let sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, sequelizeOptions);
@@ -26,7 +28,8 @@ export function connect(dbConfig: DbConfig, sequelizeOptions: Options): Promise<
   });
 };
 
-/** @returns Promise<void> or throws an error */
+/** Create new database.
+ *  @returns Promise<void> or throws an error */
 export function createDb(dbConfig: DbConfig, sequelizeOptions: Options): Promise<void> {
   let sequelize = new Sequelize(null, dbConfig.user, dbConfig.password, sequelizeOptions);
   let statement = 'CREATE DATABASE ' + dbConfig.dbName;
