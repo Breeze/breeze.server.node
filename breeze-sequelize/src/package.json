@@ -35,11 +35,18 @@
     "chai": "^4.2.0",
     "mocha": "^6.2.0",
     "rimraf": "^3.0.1",
-    "typescript": "^3.7.5"
+    "typescript": "^3.7.5",
+    "bluebird": "^3.7.2",
+    "breeze-client": ">=2.0.4",
+    "lodash": "^4.17.15",
+    "sequelize": "^5.21.3"
   },
   "scripts": {
     "test": "mocha",
+    "tsc": "tsc",
+    "watch-tsc": "tsc -w",
     "build": "tsc && npm pack",
+    "install-to-demo": "cd ../test/ExpressDemo && npm uninstall breeze-sequelize && npm install ../../src/breeze-sequelize-0.4.1.tgz",
     "clean": "rimraf *.js && rimraf *.map && rimraf types"
   },
   "repository": {

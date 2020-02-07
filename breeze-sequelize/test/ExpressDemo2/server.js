@@ -11,7 +11,7 @@ app.use(app.router);
 app.use(logErrors);
 app.use(errorHandler);
 
-var testCaseDir = "C:/gitHub/breeze.js/test/"
+var testCaseDir = "C:/git/Breeze/breeze.js/test/"
 
 app.get('/', function(req,res) {
     res.sendfile(testCaseDir + 'index.sequelize.html');

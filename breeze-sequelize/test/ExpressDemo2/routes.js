@@ -19,7 +19,7 @@ var EntityQuery = breeze.EntityQuery;
 var _dbConfigNw = {
   //user: "jayt",
   //password: "password",
-  user: "root",
+  user: "mysql",
   password: "mysql",
   dbName: 'northwindib'
 }
