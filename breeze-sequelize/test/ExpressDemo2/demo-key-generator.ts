@@ -1,37 +1,26 @@
 import { Model, Sequelize, DataTypes } from 'sequelize';
 import { KeyGenerator } from 'breeze-sequelize';
 
-class NextIdModel extends Model {
-  name: string;
-  nextId: number;   
- }
 
 export class DemoKeyGenerator implements KeyGenerator {
   nextId: number;
   groupSize: number;
   maxId: number;
-  _count: number;
+  _count =  0;
+  nextIdModel: any; // Ugh... can't seem to type this in any way that TS will accept - but this does work.
 
   constructor(sequelize: Sequelize, groupSize?: number) {
     this.nextId = null;
     this.groupSize = groupSize || 100;
 
-    NextIdModel.init({
-      name: { 
-        field: 'Name',
-        type: DataTypes.STRING, 
-        primaryKey: true 
-      }, 
-      nextId: {
-        field: 'NextId',
-        type: DataTypes.INTEGER
-      }
+    this.nextIdModel = sequelize.define('nextid', {
+      Name: { field: 'Name', type: DataTypes.STRING, primaryKey: true },
+      NextId: { field: 'NextId', type: DataTypes.INTEGER }
     }, { 
-      sequelize: sequelize,
-      tableName: 'nextId',
       freezeTableName: true, 
       timestamps: false 
     });
+   
    }
 
    // returns a promise
@@ -49,10 +38,10 @@ export class DemoKeyGenerator implements KeyGenerator {
   }
 
   private async _updateNextId(): Promise<number> {
-    const nextIdItem = await NextIdModel.findByPk("GLOBAL");
-    const nextId = nextIdItem.nextId;
+    const nextIdItem = await this.nextIdModel.findByPk("GLOBAL");
+    const nextId = nextIdItem.NextId;
     var nextIdToSave = nextId + this.groupSize;
-    const infoArray = await NextIdModel.update({ NextId: nextIdToSave }, { where: { Name: "GLOBAL", NextId: nextId }});
+    const infoArray = await this.nextIdModel.update({ NextId: nextIdToSave }, { where: { Name: "GLOBAL", NextId: nextId }});
     
     if (infoArray[0] == 1) {
       const retId = nextId;

@@ -1,10 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var express = require("express");
-// import * as  bodyParser  from 'body-parser';
+var bodyParser = require("body-parser");
 var routes = require("./routes");
 var app = express();
 var testCaseDir = "C:/git/Breeze/breeze.js/test/";
+app.use(bodyParser({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 app.get('/', function (req, res) {
     res.sendfile(testCaseDir + 'index.sequelize.html');
 });

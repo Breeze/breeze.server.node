@@ -1,11 +1,16 @@
+
 import * as express from 'express';
 import { Request, Response, NextFunction } from 'express';
-// import * as  bodyParser  from 'body-parser';
+import * as  bodyParser  from 'body-parser';
 
 import * as routes from "./routes"
 
 var app = express();
-var testCaseDir = "C:/git/Breeze/breeze.js/test/"
+var testCaseDir = "C:/git/Breeze/breeze.js/test/";
+
+app.use(bodyParser({limit: '50mb'}));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 app.get('/', function (req: Request, res: Response) {
   res.sendfile(testCaseDir + 'index.sequelize.html');

@@ -5,6 +5,7 @@ export declare class DemoKeyGenerator implements KeyGenerator {
     groupSize: number;
     maxId: number;
     _count: number;
+    nextIdModel: any;
     constructor(sequelize: Sequelize, groupSize?: number);
     getNextId(property: any): Promise<number>;
     private _updateNextId;

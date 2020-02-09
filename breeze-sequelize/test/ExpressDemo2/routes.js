@@ -2,11 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var fs = require('fs');
 var Promise = require("bluebird");
+var breeze_client_1 = require("breeze-client");
+var adapter_model_library_backing_store_1 = require("breeze-client/adapter-model-library-backing-store");
 var breeze_sequelize_1 = require("breeze-sequelize");
 var demo_key_generator_1 = require("./demo-key-generator");
-var adapter_model_library_backing_store_1 = require("breeze-client/adapter-model-library-backing-store");
 adapter_model_library_backing_store_1.ModelLibraryBackingStoreAdapter.register(breeze_sequelize_1.breeze.config);
-var breeze_client_1 = require("breeze-client");
 { }
 var _dbConfigNw = {
     //user: "jayt",
@@ -390,7 +390,7 @@ exports.namedQuery.saveCheckUnmappedPropertySuppressed = function (req, res, nex
     saveUsingCallback(saveHandler, res, next);
 };
 function beforeSaveEntity(entityInfo) {
-    if (entityInfo.entityType.shortName == "Region" && entityInfo.entityAspect.entityState == "Added") {
+    if (entityInfo.entityType.shortName == "Region" && entityInfo.entityAspect.entityState === "Added") {
         if (entityInfo.entity.regionDescription.toLowerCase().indexOf("error") === 0) {
             return false;
         }

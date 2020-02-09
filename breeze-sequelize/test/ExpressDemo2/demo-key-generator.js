@@ -1,17 +1,4 @@
 "use strict";
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -50,30 +37,15 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var sequelize_1 = require("sequelize");
-var NextIdModel = /** @class */ (function (_super) {
-    __extends(NextIdModel, _super);
-    function NextIdModel() {
-        return _super !== null && _super.apply(this, arguments) || this;
-    }
-    return NextIdModel;
-}(sequelize_1.Model));
 var DemoKeyGenerator = /** @class */ (function () {
     function DemoKeyGenerator(sequelize, groupSize) {
+        this._count = 0;
         this.nextId = null;
         this.groupSize = groupSize || 100;
-        NextIdModel.init({
-            name: {
-                field: 'Name',
-                type: sequelize_1.DataTypes.STRING,
-                primaryKey: true
-            },
-            nextId: {
-                field: 'NextId',
-                type: sequelize_1.DataTypes.INTEGER
-            }
+        this.nextIdModel = sequelize.define('nextid', {
+            Name: { field: 'Name', type: sequelize_1.DataTypes.STRING, primaryKey: true },
+            NextId: { field: 'NextId', type: sequelize_1.DataTypes.INTEGER }
         }, {
-            sequelize: sequelize,
-            tableName: 'nextId',
             freezeTableName: true,
             timestamps: false
         });
@@ -97,12 +69,12 @@ var DemoKeyGenerator = /** @class */ (function () {
             var nextIdItem, nextId, nextIdToSave, infoArray, retId;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, NextIdModel.findByPk("GLOBAL")];
+                    case 0: return [4 /*yield*/, this.nextIdModel.findByPk("GLOBAL")];
                     case 1:
                         nextIdItem = _a.sent();
-                        nextId = nextIdItem.nextId;
+                        nextId = nextIdItem.NextId;
                         nextIdToSave = nextId + this.groupSize;
-                        return [4 /*yield*/, NextIdModel.update({ NextId: nextIdToSave }, { where: { Name: "GLOBAL", NextId: nextId } })];
+                        return [4 /*yield*/, this.nextIdModel.update({ NextId: nextIdToSave }, { where: { Name: "GLOBAL", NextId: nextId } })];
                     case 2:
                         infoArray = _a.sent();
                         if (infoArray[0] == 1) {

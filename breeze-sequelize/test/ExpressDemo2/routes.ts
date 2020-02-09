@@ -1,14 +1,16 @@
 
 const fs = require('fs');
 const Promise = require("bluebird");
-import { Request, Response, NextFunction } from 'express';
-import { SequelizeManager, SequelizeQuery, SequelizeSaveHandler, breeze, SequelizeQueryResult, 
-  SequelizeSaveResult, urlToEntityQuery,  EntityInfo, SaveMap  } from 'breeze-sequelize';
-import { Sequelize, Options, DataTypes, Model } from 'sequelize'
-import { DemoKeyGenerator } from './demo-key-generator';
+
+import { EntityQuery } from 'breeze-client';
 import { ModelLibraryBackingStoreAdapter } from "breeze-client/adapter-model-library-backing-store";
+import { breeze, SaveMap, SequelizeManager, SequelizeQuery, SequelizeQueryResult, SequelizeSaveHandler, SequelizeSaveResult, ServerEntityInfo, urlToEntityQuery } from 'breeze-sequelize';
+import { NextFunction, Request, Response } from 'express';
+import { Options } from 'sequelize';
+import { DemoKeyGenerator } from './demo-key-generator';
+
+
 ModelLibraryBackingStoreAdapter.register(breeze.config);
-import { EntityQuery, BreezeConfig } from 'breeze-client';
 
 // Don't use this
 // const breeze = require('breeze-client');
@@ -463,16 +465,16 @@ namedQuery.saveCheckUnmappedPropertySuppressed = function(req: Request, res: Res
   saveUsingCallback(saveHandler, res, next);
 }
 
-function beforeSaveEntity(entityInfo: EntityInfo) {
+function beforeSaveEntity(entityInfo: ServerEntityInfo) {
 
-  if ( entityInfo.entityType.shortName == "Region" && entityInfo.entityAspect.entityState == "Added") {
-    if ((entityInfo.entity as any).regionDescription.toLowerCase().indexOf("error") === 0) {
+  if ( entityInfo.entityType.shortName == "Region" && entityInfo.entityAspect.entityState === "Added") {
+    if (entityInfo.entity.regionDescription.toLowerCase().indexOf("error") === 0) {
       return false;
     }
   }
 
   if ( entityInfo.entityType.shortName == "Employee") {
-    const emp = entityInfo.entity as any;
+    const emp = entityInfo.entity;
     if (emp.fullName === null) {
       emp.fullName = emp.firstName + " " + emp.lastName;
     }

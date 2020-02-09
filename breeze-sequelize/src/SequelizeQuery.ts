@@ -56,7 +56,7 @@ export interface SqVisitContext extends VisitContext {
 }
 
 // TODO: still need to add support for fns like toUpper, length etc.
-// TODO: still need to add support for any/all
+// TODO: still need to add support for some portions of any/all
 
 // config.url:
 // config.pathName: if null - url
@@ -64,6 +64,7 @@ export interface SqVisitContext extends VisitContext {
 // config.entityQueryFn: a fn(entityQuery) -> entityQuery
 
 /** Converts Breeze queries to Sequelize queries */
+
 export class SequelizeQuery {
   sequelizeManager: SequelizeManager;
   metadataStore: MetadataStore;
