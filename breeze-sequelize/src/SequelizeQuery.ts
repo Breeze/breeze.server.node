@@ -5,11 +5,12 @@ import { SequelizeManager } from "./SequelizeManager";
 import * as urlUtils from "url";
 import { toSQVisitor } from "./SQVisitor";
 
+
 /** Create an EntityQuery from a JSON-format breeze query string 
  * @param url - url containing query, e.g. `/orders?{freight:{">":100}}`
  * @param resourceName - Name of the resource/entity.  If omitted, resourceName is derived from the pathname of the url.
 */
-export function entityQueryFromUrl(url: string, resourceName?: string): EntityQuery {
+export function urlToEntityQuery(url: string, resourceName?: string): EntityQuery {
   let parsedUrl = urlUtils.parse(url, true);
   resourceName = resourceName || parsedUrl.pathname;
   // this is because everything after the '?' is turned into a query object with a single key
@@ -27,9 +28,12 @@ export function entityQueryFromUrl(url: string, resourceName?: string): EntityQu
   return entityQuery;
 } 
 
+// legacy support 
+// export { urlToEntityQuery  as entityQueryFromUrl };
 // patch Breeze EntityQuery for server-side use
 // TODO make this a method on SequelizeQuery, so we don't have to patch Breeze?
-EntityQuery['fromUrl'] = entityQueryFromUrl;
+// Bad idea because this means we can have two different versions of EntityQuery
+EntityQuery['fromUrl'] = urlToEntityQuery;
 
 export interface SequelizeQueryOptions {
   useTransaction: boolean;
@@ -41,6 +45,11 @@ export interface CountModel {
   rows: Model[];
   count: number;
 }
+
+export type SequelizeRawQueryResult = CountModel | Model[];
+
+export type SequelizeQueryResult = { results: any[], inlineCount: number } | any[];
+
 
 export interface SqVisitContext extends VisitContext {
   sequelizeQuery: SequelizeQuery
@@ -77,7 +86,7 @@ export class SequelizeQuery {
   }
 
   /** Execute the current query and return data objects */
-  execute(options: SequelizeQueryOptions) {
+  execute(options?: SequelizeQueryOptions) {
     return this.executeRaw(options).then(r => {
       let result = this._reshapeResults(r);
       return Promise.resolve(result);
@@ -85,7 +94,7 @@ export class SequelizeQuery {
   }
 
   /** Execute the current query and return the Sequelize Models */
-  executeRaw(options: SequelizeQueryOptions):  Promise<CountModel | Model[]> {
+  executeRaw(options?: SequelizeQueryOptions):  Promise<SequelizeRawQueryResult> {
     let self = this;
     let model = self.sequelizeManager.resourceNameSqModelMap[self.entityQuery.resourceName];
     let methodName = self.entityQuery.inlineCountEnabled ? "findAndCountAll" : "findAll";
@@ -238,7 +247,7 @@ export class SequelizeQuery {
 
   }
 
-  private _reshapeResults(sqResults: CountModel | Model[]) {
+  private _reshapeResults(sqResults: SequelizeRawQueryResult): SequelizeQueryResult {
     // -) nested projections need to be promoted up to the top level
     //    because sequelize will have them appearing on nested objects.
     // -) Sequelize nested projections need to be removed from final results if not part of select
@@ -338,8 +347,6 @@ export class SequelizeQuery {
     } else {
       return results;
     }
-    return results;
-
   }
 
   private _createResult(sqResult: Model, entityType: EntityType, checkCache: boolean) {

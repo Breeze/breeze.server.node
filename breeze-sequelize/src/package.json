@@ -45,8 +45,8 @@
     "test": "mocha",
     "tsc": "tsc",
     "watch-tsc": "tsc -w",
-    "build": "tsc && npm pack",
-    "install-to-demo": "cd ../test/ExpressDemo && npm uninstall breeze-sequelize && npm install ../../src/breeze-sequelize-0.4.1.tgz",
+    "build": "tsc && npm pack && npm run install-to-demo",
+    "install-to-demo": "cd ../test/ExpressDemo2 && npm install ../../src/breeze-sequelize-0.4.1.tgz",
     "clean": "rimraf *.js && rimraf *.map && rimraf types"
   },
   "repository": {
