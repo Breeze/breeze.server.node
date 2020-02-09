@@ -8,7 +8,7 @@
         "body-parser": "^1.19.0",
         "breeze-client": ">=2.0.4",
         "breeze-sequelize": "file:../../src/breeze-sequelize-0.4.1.tgz",
-        "express": "3.x",
+        "express": "^4.17.1",
         "lodash": "^4.17.15",
         "mysql2": "^2.1.0",
         "sequelize": "^5.21.3"
