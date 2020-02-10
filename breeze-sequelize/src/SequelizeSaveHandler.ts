@@ -70,7 +70,7 @@ export interface SequelizeSaveResult {
 
 export type BeforeSaveEntityFn = (e: ServerEntityInfo) => boolean;
 
-export type BeforeSaveEntitiesFn = (sm: SaveMap, trx?: Transaction) => SaveMap;
+export type BeforeSaveEntitiesFn = (sm: SaveMap, trx?: Transaction) => Promise<SaveMap>;
 
 
 /** Handles saving entities from Breeze SaveChanges requests */

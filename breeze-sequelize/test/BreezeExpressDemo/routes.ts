@@ -1,27 +1,21 @@
+import * as fs from 'fs';
 
-const fs = require('fs');
-const Promise = require("bluebird");
-
-import { EntityQuery } from 'breeze-client';
+// Note: breeze is available from both 'breeze-client' and indirectly from 'breeze-sequelize'
+// if you compare them the ARE '==='.
+import { EntityQuery, breeze} from 'breeze-client';
+import { SaveMap, SequelizeManager, SequelizeQuery, SequelizeQueryResult, SequelizeSaveHandler, SequelizeSaveResult, ServerEntityInfo, urlToEntityQuery } from 'breeze-sequelize';
 import { ModelLibraryBackingStoreAdapter } from "breeze-client/adapter-model-library-backing-store";
-import { breeze, SaveMap, SequelizeManager, SequelizeQuery, SequelizeQueryResult, SequelizeSaveHandler, SequelizeSaveResult, ServerEntityInfo, urlToEntityQuery } from 'breeze-sequelize';
+
 import { NextFunction, Request, Response } from 'express';
 import { Options } from 'sequelize';
 import { DemoKeyGenerator } from './demo-key-generator';
-
-
-ModelLibraryBackingStoreAdapter.register(breeze.config);
-
-// Don't use this
-// const breeze = require('breeze-client');
-// Use this
-// const breeze = breezeSequelize.breeze;
-// const EntityQuery = breeze.EntityQuery; 
 
 export type OpenObj = {[k: string]: any}; {}
 
 type ReturnQueryResultsFn = (results: SequelizeQueryResult, res: Response) => void;
 type ReturnSaveResultsFn = (results: SequelizeSaveResult, res: Response) => void;
+
+ModelLibraryBackingStoreAdapter.register(breeze.config);
 
 
 const _dbConfigNw = {
@@ -72,6 +66,7 @@ export function get(req: Request, res: Response, next: NextFunction) {
   if (namedQuery[resourceName]) {
     namedQuery[resourceName](req, res, next);
   } else {
+    // const entityQuery = urlToEntityQuery(req.url, resourceName);
     const entityQuery = urlToEntityQuery(req.url, resourceName);
     executeEntityQuery(entityQuery, null, res, next);
   }
@@ -178,7 +173,7 @@ namedQuery.CustomersAsHRM = function(req: Request, res: Response, next: NextFunc
 }
 
 namedQuery.CustomersWithBigOrders = function(req: Request, res: Response, next: NextFunction) {
-  const entityQuery = EntityQuery.from("Customers").where("orders", "any", "freight", ">", 100).expand("orders");
+  const entityQuery = breeze.EntityQuery.from("Customers").where("orders", "any", "freight", ">", 100).expand("orders");
   const processResults: ReturnQueryResultsFn = (results, res) => {
     const newResults = (results as any[]).map(function(r) {
       return {
@@ -345,7 +340,7 @@ namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req: Request, res: R
 
 namedQuery.saveWithComment = function(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
-  saveHandler.beforeSaveEntities = function(saveMap) {
+  saveHandler.beforeSaveEntities = async function(saveMap) {
     const tag = this.saveOptions.tag;
     const entity = {
       comment1: (tag == null) ? "Generic comment" : tag,
@@ -366,7 +361,7 @@ namedQuery.saveWithFreight = function(req: Request, res: Response, next: NextFun
 
 namedQuery.saveWithFreight2 = function(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
-  saveHandler.beforeSaveEntities = function(saveMap) {
+  saveHandler.beforeSaveEntities = async function(saveMap) {
     const orderInfos = saveMap.getEntityInfosOfType("Order");
     const fn = checkFreightOnOrder.bind(this);
     orderInfos.forEach(function (order) {
@@ -388,7 +383,7 @@ namedQuery.saveWithExit = function(req: Request, res: Response, next: NextFuncti
 
 namedQuery.saveWithEntityErrorsException = function(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
-  saveHandler.beforeSaveEntities = function(saveMap) {
+  saveHandler.beforeSaveEntities = async function(saveMap) {
     const orderInfos = saveMap.getEntityInfosOfType("Order");
     const errorDetails = orderInfos.map(function(orderInfo) {
       saveMap.addEntityError(orderInfo, "WrongMethod", "Cannot save orders with this save method", "orderID");
@@ -401,7 +396,7 @@ namedQuery.saveWithEntityErrorsException = function(req: Request, res: Response,
 
 namedQuery.saveCheckInitializer = function(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
-  saveHandler.beforeSaveEntities = function(saveMap) {
+  saveHandler.beforeSaveEntities = async function(saveMap) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const order = {
@@ -484,7 +479,7 @@ function beforeSaveEntity(entityInfo: ServerEntityInfo) {
 }
 
 // returns undefined or a Promise;
-function beforeSaveEntities(saveMap: SaveMap) {
+async function beforeSaveEntities(saveMap: SaveMap) {
   const tag = this.saveOptions.tag;
 
   const customers = saveMap.getEntityInfosOfType("Customer");
@@ -530,7 +525,8 @@ function beforeSaveEntities(saveMap: SaveMap) {
         });
       });
     });
-    return Promise.all(promises);
+    await Promise.all(promises);
+    return saveMap;
   }
 
 }

@@ -1,13 +1,50 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (_) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-var fs = require('fs');
-var Promise = require("bluebird");
+var fs = require("fs");
+// Note: breeze is available from both 'breeze-client' and indirectly from 'breeze-sequelize'
+// if you compare them the ARE '==='.
 var breeze_client_1 = require("breeze-client");
-var adapter_model_library_backing_store_1 = require("breeze-client/adapter-model-library-backing-store");
 var breeze_sequelize_1 = require("breeze-sequelize");
+var adapter_model_library_backing_store_1 = require("breeze-client/adapter-model-library-backing-store");
 var demo_key_generator_1 = require("./demo-key-generator");
-adapter_model_library_backing_store_1.ModelLibraryBackingStoreAdapter.register(breeze_sequelize_1.breeze.config);
 { }
+adapter_model_library_backing_store_1.ModelLibraryBackingStoreAdapter.register(breeze_client_1.breeze.config);
 var _dbConfigNw = {
     //user: "jayt",
     //password: "password",
@@ -51,6 +88,7 @@ function get(req, res, next) {
         exports.namedQuery[resourceName](req, res, next);
     }
     else {
+        // const entityQuery = urlToEntityQuery(req.url, resourceName);
         var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, resourceName);
         executeEntityQuery(entityQuery, null, res, next);
     }
@@ -112,7 +150,7 @@ exports.namedQuery.CustomersStartingWith = function (req, res, next) {
         next(err);
     }
     // need to use upper case because base query came from server
-    var pred = new breeze_sequelize_1.breeze.Predicate("companyName", "startsWith", companyName);
+    var pred = new breeze_client_1.breeze.Predicate("companyName", "startsWith", companyName);
     var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers").where(pred);
     executeEntityQuery(entityQuery, null, res, next);
 };
@@ -143,7 +181,7 @@ exports.namedQuery.CustomersAsHRM = function (req, res, next) {
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.CustomersWithBigOrders = function (req, res, next) {
-    var entityQuery = breeze_client_1.EntityQuery.from("Customers").where("orders", "any", "freight", ">", 100).expand("orders");
+    var entityQuery = breeze_client_1.breeze.EntityQuery.from("Customers").where("orders", "any", "freight", ">", 100).expand("orders");
     var processResults = function (results, res) {
         var newResults = results.map(function (r) {
             return {
@@ -282,14 +320,19 @@ exports.namedQuery.EmployeesFilteredByCountryAndBirthdate = function (req, res, 
 exports.namedQuery.saveWithComment = function (req, res, next) {
     var saveHandler = new breeze_sequelize_1.SequelizeSaveHandler(_sequelizeManager, req);
     saveHandler.beforeSaveEntities = function (saveMap) {
-        var tag = this.saveOptions.tag;
-        var entity = {
-            comment1: (tag == null) ? "Generic comment" : tag,
-            createdOn: new Date(),
-            seqNum: 1
-        };
-        saveMap.addEntity("Comment", entity);
-        return saveMap;
+        return __awaiter(this, void 0, void 0, function () {
+            var tag, entity;
+            return __generator(this, function (_a) {
+                tag = this.saveOptions.tag;
+                entity = {
+                    comment1: (tag == null) ? "Generic comment" : tag,
+                    createdOn: new Date(),
+                    seqNum: 1
+                };
+                saveMap.addEntity("Comment", entity);
+                return [2 /*return*/, saveMap];
+            });
+        });
     };
     saveUsingCallback(saveHandler, res, next);
 };
@@ -301,12 +344,17 @@ exports.namedQuery.saveWithFreight = function (req, res, next) {
 exports.namedQuery.saveWithFreight2 = function (req, res, next) {
     var saveHandler = new breeze_sequelize_1.SequelizeSaveHandler(_sequelizeManager, req);
     saveHandler.beforeSaveEntities = function (saveMap) {
-        var orderInfos = saveMap.getEntityInfosOfType("Order");
-        var fn = checkFreightOnOrder.bind(this);
-        orderInfos.forEach(function (order) {
-            fn(order);
-        }, this);
-        return saveMap;
+        return __awaiter(this, void 0, void 0, function () {
+            var orderInfos, fn;
+            return __generator(this, function (_a) {
+                orderInfos = saveMap.getEntityInfosOfType("Order");
+                fn = checkFreightOnOrder.bind(this);
+                orderInfos.forEach(function (order) {
+                    fn(order);
+                }, this);
+                return [2 /*return*/, saveMap];
+            });
+        });
     };
     saveUsingCallback(saveHandler, res, next);
 };
@@ -321,25 +369,35 @@ exports.namedQuery.saveWithExit = function (req, res, next) {
 exports.namedQuery.saveWithEntityErrorsException = function (req, res, next) {
     var saveHandler = new breeze_sequelize_1.SequelizeSaveHandler(_sequelizeManager, req);
     saveHandler.beforeSaveEntities = function (saveMap) {
-        var orderInfos = saveMap.getEntityInfosOfType("Order");
-        var errorDetails = orderInfos.map(function (orderInfo) {
-            saveMap.addEntityError(orderInfo, "WrongMethod", "Cannot save orders with this save method", "orderID");
+        return __awaiter(this, void 0, void 0, function () {
+            var orderInfos, errorDetails;
+            return __generator(this, function (_a) {
+                orderInfos = saveMap.getEntityInfosOfType("Order");
+                errorDetails = orderInfos.map(function (orderInfo) {
+                    saveMap.addEntityError(orderInfo, "WrongMethod", "Cannot save orders with this save method", "orderID");
+                });
+                saveMap.setErrorMessage("test of custom exception message");
+                return [2 /*return*/, saveMap];
+            });
         });
-        saveMap.setErrorMessage("test of custom exception message");
-        return saveMap;
     };
     saveUsingCallback(saveHandler, res, next);
 };
 exports.namedQuery.saveCheckInitializer = function (req, res, next) {
     var saveHandler = new breeze_sequelize_1.SequelizeSaveHandler(_sequelizeManager, req);
     saveHandler.beforeSaveEntities = function (saveMap) {
-        var today = new Date();
-        today.setHours(0, 0, 0, 0);
-        var order = {
-            orderDate: today
-        };
-        saveMap.addEntity("Order", order);
-        return saveMap;
+        return __awaiter(this, void 0, void 0, function () {
+            var today, order;
+            return __generator(this, function (_a) {
+                today = new Date();
+                today.setHours(0, 0, 0, 0);
+                order = {
+                    orderDate: today
+                };
+                saveMap.addEntity("Order", order);
+                return [2 /*return*/, saveMap];
+            });
+        });
     };
     saveUsingCallback(saveHandler, res, next);
 };
@@ -405,50 +463,59 @@ function beforeSaveEntity(entityInfo) {
 }
 // returns undefined or a Promise;
 function beforeSaveEntities(saveMap) {
-    var tag = this.saveOptions.tag;
-    var customers = saveMap.getEntityInfosOfType("Customer");
-    customers.forEach(function (custInfo) {
-        if (custInfo.entityAspect.entityState != "Deleted") {
-            var companyName = custInfo.entity.companyName || custInfo.entity.CompanyName;
-            if (companyName.toLowerCase().indexOf("error") === 0) {
-                saveMap.addEntityError(custInfo, "Bad customer", "This customer is not valid!", "companyName");
+    return __awaiter(this, void 0, void 0, function () {
+        var tag, customers, suppliers, categoryInfos, promises;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    tag = this.saveOptions.tag;
+                    customers = saveMap.getEntityInfosOfType("Customer");
+                    customers.forEach(function (custInfo) {
+                        if (custInfo.entityAspect.entityState != "Deleted") {
+                            var companyName = custInfo.entity.companyName || custInfo.entity.CompanyName;
+                            if (companyName.toLowerCase().indexOf("error") === 0) {
+                                saveMap.addEntityError(custInfo, "Bad customer", "This customer is not valid!", "companyName");
+                            }
+                            var contactName = custInfo.entity.contactName || custInfo.entity.ContactName;
+                            if (contactName && contactName.toLowerCase().indexOf("error") === 0) {
+                                saveMap.addEntityError(custInfo, "Bad ContactName", "This contact name should not contain the word 'Error'", "contactName");
+                            }
+                        }
+                    });
+                    if (tag == "addProdOnServer") {
+                        suppliers = saveMap.getEntityInfosOfType("Supplier");
+                        suppliers.forEach(function (supplierInfo) {
+                            var product = {
+                                productName: "Test_ Product added on server",
+                                supplierID: supplierInfo.entity.supplierID
+                            };
+                            saveMap.addEntity("Product", product);
+                        });
+                    }
+                    if (!(tag === "increaseProductPrice")) return [3 /*break*/, 2];
+                    categoryInfos = saveMap.getEntityInfosOfType("Category");
+                    promises = categoryInfos.filter(function (catInfo) {
+                        return catInfo.entity.categoryID != null;
+                    }).map(function (catInfo) {
+                        var entityQuery = breeze_client_1.EntityQuery.from("Products").where("categoryID", "==", catInfo.entity.categoryID);
+                        var query = new breeze_sequelize_1.SequelizeQuery(_sequelizeManager, entityQuery);
+                        return query.execute().then(function (r) {
+                            var products = r;
+                            products.forEach(function (product) {
+                                product.unitPrice = product.unitPrice + .01;
+                                var ei = saveMap.addEntity("Product", product, "Modified");
+                                ei.forceUpdate = true;
+                            });
+                        });
+                    });
+                    return [4 /*yield*/, Promise.all(promises)];
+                case 1:
+                    _a.sent();
+                    return [2 /*return*/, saveMap];
+                case 2: return [2 /*return*/];
             }
-            var contactName = custInfo.entity.contactName || custInfo.entity.ContactName;
-            if (contactName && contactName.toLowerCase().indexOf("error") === 0) {
-                saveMap.addEntityError(custInfo, "Bad ContactName", "This contact name should not contain the word 'Error'", "contactName");
-            }
-        }
+        });
     });
-    if (tag == "addProdOnServer") {
-        var suppliers = saveMap.getEntityInfosOfType("Supplier");
-        suppliers.forEach(function (supplierInfo) {
-            var product = {
-                productName: "Test_ Product added on server",
-                supplierID: supplierInfo.entity.supplierID
-            };
-            saveMap.addEntity("Product", product);
-        });
-    }
-    if (tag === "increaseProductPrice") {
-        // interesting because it returns a promise
-        // forEach category update the product price for all products in the category
-        var categoryInfos = saveMap.getEntityInfosOfType("Category");
-        var promises = categoryInfos.filter(function (catInfo) {
-            return catInfo.entity.categoryID != null;
-        }).map(function (catInfo) {
-            var entityQuery = breeze_client_1.EntityQuery.from("Products").where("categoryID", "==", catInfo.entity.categoryID);
-            var query = new breeze_sequelize_1.SequelizeQuery(_sequelizeManager, entityQuery);
-            return query.execute().then(function (r) {
-                var products = r;
-                products.forEach(function (product) {
-                    product.unitPrice = product.unitPrice + .01;
-                    var ei = saveMap.addEntity("Product", product, "Modified");
-                    ei.forceUpdate = true;
-                });
-            });
-        });
-        return Promise.all(promises);
-    }
 }
 function checkFreightOnOrder(orderInfo) {
     var order = orderInfo.entity;
