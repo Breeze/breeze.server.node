@@ -47,14 +47,15 @@ export class SequelizeManager {
   }
 
   /** Connect to the database */
-  authenticate(): Promise<void> {
+  async authenticate(): Promise<void> {
     // check database connection
-    return this.sequelize.authenticate().then(() => {
+    try {
+      await this.sequelize.authenticate();
       log('Connection has been established successfully.');
-    }).error(err => {
+    } catch (err) {
       log('Unable to connect to the database:', err);
       throw err;
-    });
+    }
   }
 
   /** Create a new database */
@@ -72,14 +73,11 @@ export class SequelizeManager {
   }
 
   /** Sync the Sequelize model with the database */
-  sync(shouldCreateDb: boolean, sequelizeOpts: SyncOptions): Promise<Sequelize> {
+  async sync(shouldCreateDb: boolean, sequelizeOpts: SyncOptions): Promise<Sequelize> {
     if (shouldCreateDb) {
-      return this.createDb().then(() => {
-        return this.syncCore(this.sequelize, sequelizeOpts);
-      });
-    } else {
-      return this.syncCore(this.sequelize, sequelizeOpts);
-    }
+      await this.createDb();
+    } 
+    return await this.syncCore(this.sequelize, sequelizeOpts);
   }
 
   private syncCore(sequelize: Sequelize, sequelizeOpts: SyncOptions): Promise<Sequelize> {

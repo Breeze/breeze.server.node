@@ -7,9 +7,9 @@ import { SqVisitContext } from "./SequelizeQuery";
 
 /** Result of processing a query expression into Sequelize */
 export interface ExprResult {
-  include: IncludeOptions[],
-  lastInclude: IncludeOptions,
-  where: WhereOptions
+  include: IncludeOptions[];
+  lastInclude: IncludeOptions;
+  where: WhereOptions;
 }
 
 /** Visit the nodes in a Breeze query, converting it to a Sequelize query */
@@ -41,7 +41,7 @@ const toSQVisitor = (function () {
       let where, p1Value, p2Value;
       if (this.expr1.visitorMethodName === "propExpr") {
         p1Value = processPropExpr(this.expr1, context, result);
-      } else if (this.expr1.visitorMethodName == "fnExpr") {
+      } else if (this.expr1.visitorMethodName === "fnExpr") {
         p1Value = processFnExpr(this.expr1, context, result);
       } else {
         // also note that literal exprs are not allowed for expr1 ( i.e. only allowed on expr2)
@@ -56,7 +56,7 @@ const toSQVisitor = (function () {
           crit = p2Value;
           // where[p1Value] = p2Value;
 
-        } else if (op == "startswith") {
+        } else if (op === "startswith") {
           crit = { [like]: p2Value + "%" };
         } else if (op === "endswith") {
           crit = { [like]: "%" + p2Value };
@@ -68,7 +68,7 @@ const toSQVisitor = (function () {
           crit[mop] = p2Value;
         }
 
-      } else if (this.expr2.visitorMethodName == "propExpr") {
+      } else if (this.expr2.visitorMethodName === "propExpr") {
         let p2Value = this.expr2.propertyPath;
         let props = context.entityType.getPropertiesOnPath(p2Value, context.toNameOnServer, true);
         p2Value = props.map(function (p) {
@@ -111,9 +111,9 @@ const toSQVisitor = (function () {
 
       let wheres = [] as WhereOptions[];
       let includes = [] as IncludeOptions[];
-      if (predSqs.length == 0) {
+      if (predSqs.length === 0) {
         return null;
-      } else if (predSqs.length == 1) {
+      } else if (predSqs.length === 1) {
         return predSqs[0];
       } else {
         let that = this;
@@ -130,14 +130,14 @@ const toSQVisitor = (function () {
                 if (!include) {
                   targetIncludes.push(sourceInclude);
                 } else {
-                  if (include.where == null) {
+                  if (include.where === null) {
                     include.where = sourceInclude.where;
                   } else if (sourceInclude.where != null) {
                     let where = {} as Where;
                     where[that.op.key] = [include.where, sourceInclude.where];
                     include.where = where;
                   }
-                  if (include.attributes == null || (include.attributes as any[]).length == 0) {
+                  if (include.attributes === null || (include.attributes as any[]).length === 0) {
                     include.attributes = sourceInclude.attributes;
                   } else if (sourceInclude.attributes != null) {
                     include.attributes = _.uniq((include.attributes as any[]).concat(sourceInclude.attributes));
@@ -153,15 +153,15 @@ const toSQVisitor = (function () {
       }
       if (this.op.key === "and") {
         if (wheres.length > 0) {
-          result.where = wheres.length == 1 ? wheres[0] : { [Op.and]: wheres };
+          result.where = wheres.length === 1 ? wheres[0] : { [Op.and]: wheres };
         }
         // q = Sequelize.and(q1, q2);
       } else {
-        if (includes.length > 1 || (includes.length == 1 && wheres.length != 0)) {
-          throw new Error("Cannot translate a query with nested property paths and 'OR' conditions to Sequelize. (Sorry).")
+        if (includes.length > 1 || (includes.length === 1 && wheres.length !== 0)) {
+          throw new Error("Cannot translate a query with nested property paths and 'OR' conditions to Sequelize. (Sorry).");
         }
         if (wheres.length > 0) {
-          result.where = wheres.length == 1 ? wheres[0] : { [Op.or]: wheres };
+          result.where = wheres.length === 1 ? wheres[0] : { [Op.or]: wheres };
         }
         // q = Sequelize.or(q1, q2);
       }
@@ -209,7 +209,7 @@ const toSQVisitor = (function () {
 
   function makeWhere(p1Value: any, crit: LogicType) {
     let where: Where;
-    if (typeof (p1Value) == 'string') {
+    if (typeof (p1Value) === 'string') {
       where = {} as Where;
       where[p1Value] = crit;
     } else {
@@ -249,7 +249,7 @@ const toSQVisitor = (function () {
 
     let exprs = expr.exprs.map(function (ex) {
       return processNestedExpr(ex, context, result);
-    })
+    });
     let exprVal = methodInfo.fn(exprs);
     return exprVal;
   }
@@ -259,7 +259,7 @@ const toSQVisitor = (function () {
     if (expr.visitorMethodName === 'propExpr') {
       exprVal = processPropExpr(expr as PropExpr, context, result);
       return Sequelize.col(exprVal);
-    } else if (expr.visitorMethodName == 'fnExpr') {
+    } else if (expr.visitorMethodName === 'fnExpr') {
       let exprVal = processFnExpr(expr as FnExpr, context, result);
       return exprVal;
     } else if (expr.visitorMethodName = 'litExpr') {
@@ -292,7 +292,7 @@ const toSQVisitor = (function () {
         return Sequelize.fn("SUBSTRING", sqArgs[0], 1 + parseInt(sqArgs[1], 10), parseInt(sqArgs[2], 10));
       }
     }
-  }
+  };
 
   let simpleFnNames = ['length', 'trim', 'ceiling', 'floor', 'round', 'second', 'minute', 'hour', 'day', 'month', 'year'];
   simpleFnNames.forEach(function (fnName) {
@@ -303,15 +303,15 @@ const toSQVisitor = (function () {
       validate: function (exprs: PredicateExpression[]) {
         validateMonadicFn(fnName, exprs);
       }
-    }
+    };
   });
 
   function validateMonadicFn(fnName: string, exprs: PredicateExpression[]) {
     let errTmpl = "Error with call to the '%1' function.";
     let errMsg;
-    if (exprs.length != 1) {
+    if (exprs.length !== 1) {
       errMsg = formatString(errTmpl + " This function only takes a single parameter", fnName);
-    } else if (exprs[0].visitorMethodName == 'litExpr') {
+    } else if (exprs[0].visitorMethodName === 'litExpr') {
       errMsg = formatString(errTmpl + " The single parameter may not be a literal expression. Param: %2", fnName, exprs[0].toString());
     }
     if (errMsg) {
@@ -321,10 +321,10 @@ const toSQVisitor = (function () {
 
   // Based on fragment from Dean Edwards' Base 2 library
   // format("a %1 and a %2", "cat", "dog") -> "a cat and a dog"
-  function formatString(string: string, ...rest: any) {
+  function formatString(str: string, ...rest: any) {
     let args = arguments;
     let pattern = RegExp("%([1-" + (arguments.length - 1) + "])", "g");
-    return string.replace(pattern, function (match, index) {
+    return str.replace(pattern, function (match, index) {
       return args[index];
     });
   }

@@ -52,7 +52,7 @@ export type SequelizeQueryResult = { results: any[], inlineCount: number } | any
 
 
 export interface SqVisitContext extends VisitContext {
-  sequelizeQuery: SequelizeQuery
+  sequelizeQuery: SequelizeQuery;
 }
 
 // TODO: still need to add support for fns like toUpper, length etc.
@@ -157,7 +157,7 @@ export class SequelizeQuery {
       sqQuery.limit = entityQuery.takeCount || 1;
     }
 
-    section = entityQuery.skipCount
+    section = entityQuery.skipCount;
     // ok to ignore skip: 0
     if (section) {
       sqQuery.offset = entityQuery.skipCount;
@@ -277,7 +277,7 @@ export class SequelizeQuery {
     }
 
     // needed because we had to turn take(0) into limit(1)
-    if (this.entityQuery.takeCount == 0) {
+    if (this.entityQuery.takeCount === 0) {
       sqResults = [];
     }
     let results = (sqResults as Model[]).map(sqResult => {
@@ -382,7 +382,7 @@ export class SequelizeQuery {
     if (result.$ref) {
       result = this._refMap[result.$ref];
     }
-    if (expandProps == null || expandProps.length == 0) return;
+    if (expandProps == null || expandProps.length === 0) return;
     // now blow out all of the expands
     // each expand path consist of an array of expand props.
     let npName = expandProps[0].nameOnServer;
@@ -408,7 +408,7 @@ export class SequelizeQuery {
     if (_.isArray(nextSqResult)) {
       nextSqResult.forEach((nextSqr, ix) => {
         this._populateExpand(nextResult[ix], nextSqr, expandProps.slice(1));
-      }, this)
+      }, this);
     } else {
       if (nextResult) {
         this._populateExpand(nextResult, nextSqResult, expandProps.slice(1));
@@ -446,13 +446,13 @@ export class SequelizeQuery {
       if (props[0].isNavigationProperty) {
         if (isExpand) {
           // expand = include the whole entity = no attributes
-          include['$disallowAttributes'] = true
+          include['$disallowAttributes'] = true;
           delete include.attributes;
         } else {
           // select = include at least one attribute at each level, so sequelize will create an object
           if (!include['$disallowAttributes']) {
             include.attributes = include.attributes || [];
-            if ((include.attributes as string[]).length == 0) {
+            if ((include.attributes as string[]).length === 0) {
               include.attributes = include.model.primaryKeyAttributes;
             }
           }
@@ -467,7 +467,7 @@ export class SequelizeQuery {
       }
     } else {
       // do not allow attributes set on any final navNodes nodes
-      include['$disallowAttributes'] = true
+      include['$disallowAttributes'] = true;
       // and remove any that might have been added.
       delete include.attributes;
     }
@@ -490,7 +490,7 @@ export class SequelizeQuery {
 
   private _getModelAs(prop: NavigationProperty) {
     let sqModel = this.sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
-    return { model: sqModel, as: prop.nameOnServer }
+    return { model: sqModel, as: prop.nameOnServer };
   }
 }
 
@@ -520,13 +520,13 @@ function processAndOrClause(where: WhereOptions): WhereOptions {
   if (ands) {
     let clauses = ands.map(function (clause) {
       return processAndOrClause(clause);
-    })
-    return Sequelize.and.apply(null, clauses)
+    });
+    return Sequelize.and.apply(null, clauses);
     // return Sequelize.and(clauses[0], clauses[1]);
   } else if (ors) {
     let clauses = ors.map(function (clause) {
       return processAndOrClause(clause);
-    })
+    });
     return Sequelize.or.apply(null, clauses);
   } else {
     return where;
