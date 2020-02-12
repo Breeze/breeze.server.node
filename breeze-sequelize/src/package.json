@@ -22,18 +22,14 @@
     "toposort": "^2.0.2"
   },
   "peerDependencies": {
-    "bluebird": "^3.7.2",
     "breeze-client": ">=2.0.7",
-    "breeze-sequelize": "0.5.2",
     "lodash": "^4.17.15",
     "sequelize": "^5.21.3"
   },
   "devDependencies": {
-    "@types/bluebird": "^3.5.29",
     "@types/lodash": "^4.14.137",
     "@types/node": "^12.12.26",
     "@types/validator": "^12.0.1",
-    "bluebird": "^3.7.2",
     "breeze-client": "^2.0.7",
     "chai": "^4.2.0",
     "lodash": "^4.17.15",
