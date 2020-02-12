@@ -24,7 +24,7 @@ const _dbConfigNw = {
   user: "root",
   password: "mysql",
   dbName: 'northwindib'
-}
+};
 
 const _seqOpts: Options = {
   dialect: "mysql",
@@ -33,7 +33,7 @@ const _seqOpts: Options = {
   pool: {
     max: 100
   }
-}
+};
 
 const _sequelizeManager = createSequelizeManager();
 
@@ -66,38 +66,41 @@ export function get(req: Request, res: Response, next: NextFunction) {
   if (namedQuery[resourceName]) {
     namedQuery[resourceName](req, res, next);
   } else {
-    // const entityQuery = urlToEntityQuery(req.url, resourceName);
     const entityQuery = urlToEntityQuery(req.url, resourceName);
     executeEntityQuery(entityQuery, null, res, next);
   }
-};
+}
 
 export function saveChanges(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
   saveHandler.beforeSaveEntity = beforeSaveEntity;
-  saveHandler.beforeSaveEntities = beforeSaveEntities;
+  saveHandler.beforeSaveEntities = beforeSaveEntities.bind(saveHandler);
   saveHandler.save().then(function(r: any) {
     returnSaveResults(r, res);
   }).catch(function(e) {
     next(e);
   });
-};
-
-function executeEntityQuery(entityQuery: EntityQuery, returnResultsFn: ReturnQueryResultsFn, res: Response, next: NextFunction) {
-  returnResultsFn = returnResultsFn || returnQueryResults;
-  console.log(entityQuery);
-  const query = new SequelizeQuery(_sequelizeManager, entityQuery);
-  query.execute(null).then(function (r) {
-    returnResultsFn(r, res);
-  }).catch(next)
 }
 
-function saveUsingCallback(saveHandler: SequelizeSaveHandler, res: Response, next: NextFunction) {
-  saveHandler.save().then(function(r) {
-    returnSaveResults(r, res);
-  }).catch(function(e) {
+async function executeEntityQuery(entityQuery: EntityQuery, returnResultsFn: ReturnQueryResultsFn, res: Response, next: NextFunction) {
+  returnResultsFn = returnResultsFn || returnQueryResults;
+  console.log(entityQuery);
+  try {
+    const query = new SequelizeQuery(_sequelizeManager, entityQuery);
+    const r = await query.execute(null);
+    returnResultsFn(r, res);
+  } catch (e) {
     next(e);
-  });
+  }
+}
+
+async function saveUsingCallback(saveHandler: SequelizeSaveHandler, res: Response, next: NextFunction) {
+  try {
+    const r = await saveHandler.save();
+    returnSaveResults(r, res);
+  } catch (e) {
+    next(e);
+  }
 }
 
 // Used to return
@@ -117,7 +120,7 @@ namedQuery.CustomerFirstOrDefault = function(req: Request, res: Response, next: 
   // should return empty array
   const entityQuery = urlToEntityQuery(req.url, "Customers").where("companyName", "StartsWith", "blah").take(1);
   executeEntityQuery(entityQuery, null, res, next);
-}
+};
 
 
 namedQuery.CustomersStartingWithA = function(req: Request, res: Response, next: NextFunction) {
@@ -149,12 +152,12 @@ namedQuery.CustomersOrderedStartingWith =    function(req: Request, res: Respons
       .where("companyName", "startsWith", companyName)
       .orderBy("companyName");
   executeEntityQuery(entityQuery, null, res, next);
-}
+};
 
 namedQuery.CustomersAndOrders = function(req: Request, res: Response, next: NextFunction) {
   const entityQuery = urlToEntityQuery(req.url, "Customers").expand("orders");
   executeEntityQuery(entityQuery, null,  res, next);
-}
+};
 
 namedQuery.CustomerWithScalarResult = function(req: Request, res: Response, next: NextFunction) {
   const entityQuery = urlToEntityQuery(req.url, "Customers").take(1);
@@ -170,7 +173,7 @@ namedQuery.CustomersWithHttpError = function(req: Request, res: Response, next: 
 namedQuery.CustomersAsHRM = function(req: Request, res: Response, next: NextFunction) {
   const entityQuery = urlToEntityQuery(req.url, "Customers");
   executeEntityQuery(entityQuery, null,  res, next);
-}
+};
 
 namedQuery.CustomersWithBigOrders = function(req: Request, res: Response, next: NextFunction) {
   const entityQuery = breeze.EntityQuery.from("Customers").where("orders", "any", "freight", ">", 100).expand("orders");
@@ -181,13 +184,13 @@ namedQuery.CustomersWithBigOrders = function(req: Request, res: Response, next: 
         bigOrders:  r.orders.filter(function (order: any) {
           return order.Freight > 100;
         })
-      }
-    })
+      };
+    });
     returnQueryResults(newResults, res);
   };
   executeEntityQuery(entityQuery, processResults,  res, next);
 
-}
+};
 
 namedQuery.CustomersAndProducts = function(req: Request, res: Response, next: NextFunction) {
   const eq1 = EntityQuery.from("Customers");
@@ -201,14 +204,14 @@ namedQuery.CustomersAndProducts = function(req: Request, res: Response, next: Ne
   }).then(function(r2) {
     returnQueryResults( <any> { Customers: r1, Products: r2 }, res);
   });
-}
+};
 
 
 //// AltCustomers will not be in the resourceName/entityType map;
 namedQuery.AltCustomers = function(req: Request, res: Response, next: NextFunction) {
   const entityQuery = urlToEntityQuery(req.url, "Customers");
   executeEntityQuery(entityQuery, null, res, next);
-}
+};
 
 namedQuery.SearchCustomers = function(req: Request, res: Response, next: NextFunction) {
   const qbe  = req.query;
@@ -221,7 +224,7 @@ namedQuery.SearchCustomers = function(req: Request, res: Response, next: NextFun
   // so just return first 3 customers.
   const entityQuery = EntityQuery.from("Customers").take(3);
   executeEntityQuery(entityQuery, null, res, next);
-}
+};
 
 
 namedQuery.SearchCustomers2 = function(req: Request, res: Response, next: NextFunction) {
@@ -239,7 +242,7 @@ namedQuery.SearchCustomers2 = function(req: Request, res: Response, next: NextFu
   // so just return first 3 customers.
   const entityQuery = EntityQuery.from("Customers").take(3);
   executeEntityQuery(entityQuery, null, res, next);
-}
+};
 
 namedQuery.OrdersCountForCustomer = function(req: Request, res: Response, next: NextFunction) {
   const companyName = req.query.companyName;
@@ -254,20 +257,20 @@ namedQuery.OrdersCountForCustomer = function(req: Request, res: Response, next: 
     } else {
       r = 0;
     }
-    returnQueryResults(r, res)
+    returnQueryResults(r, res);
   };
   executeEntityQuery(entityQuery, processResults, res, next);
-}
+};
 
 namedQuery.EnumerableEmployees = function(req: Request, res: Response, next: NextFunction) {
   const entityQuery = urlToEntityQuery(req.url, "Employees");
   executeEntityQuery(entityQuery, null, res, next);
-}
+};
 
 namedQuery.EmployeesMultipleParams = function(req: Request, res: Response, next: NextFunction) {
   const empId = req.query.employeeID;
   const city = req.query.city;
-  const where = { or: [{ employeeID: empId }, { city: city }] }
+  const where = { or: [{ employeeID: empId }, { city: city }] };
   const entityQuery = EntityQuery.from("Employees").where(where);
   executeEntityQuery(entityQuery, null, res, next);
 };
@@ -284,25 +287,25 @@ namedQuery.CompanyNamesAndIds = function(req: Request, res: Response, next: Next
 
 namedQuery.CompanyNamesAndIdsAsDTO = function(req: Request, res: Response, next: NextFunction) {
   const entityQuery = urlToEntityQuery(req.url, "Customers").select("companyName, customerID");
-  const projectResults= function(results: any, res: Response) {
+  const projectResults = function(results: any, res: Response) {
     const newResults = results.map(function(r: any) {
       return { companyName: r.companyName, customerID: r.customerID };
-    })
+    });
     returnQueryResults(newResults, res);
   };
   executeEntityQuery(entityQuery, projectResults , res, next);
-}
+};
 
 
 namedQuery.CompanyInfoAndOrders = function(req: Request, res: Response, next: NextFunction) {
   const entityQuery = urlToEntityQuery(req.url, "Customers").select("companyName, customerID, orders");
   executeEntityQuery(entityQuery, null, res, next);
-}
+};
 
 namedQuery.OrdersAndCustomers = function(req: Request, res: Response, next: NextFunction) {
   const entityQuery = urlToEntityQuery(req.url, "Orders").expand("customer");
   executeEntityQuery(entityQuery, null, res, next);
-}
+};
 
 namedQuery.SearchEmployees = function(req: Request, res: Response, next: NextFunction) {
 
@@ -311,9 +314,9 @@ namedQuery.SearchEmployees = function(req: Request, res: Response, next: NextFun
   const entityQuery = urlToEntityQuery(req.url, "Employees").where(pred);
 
   executeEntityQuery(entityQuery, null, res, next);
-}
+};
 
-namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req: Request, res: Response, next: NextFunction) {
+namedQuery.EmployeesFilteredByCountryAndBirthdate = function(req: Request, res: Response, next: NextFunction) {
   const birthDate = new Date(Date.parse(req.query.birthDate));
   const country = req.query.country;
   const pred = { birthDate: { ge: birthDate}, country: country };
@@ -340,8 +343,8 @@ namedQuery.EmployeesFilteredByCountryAndBirthdate= function(req: Request, res: R
 
 namedQuery.saveWithComment = function(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
-  saveHandler.beforeSaveEntities = async function(saveMap) {
-    const tag = this.saveOptions.tag;
+  saveHandler.beforeSaveEntities = async (saveMap) => {
+    const tag = saveHandler.saveOptions.tag;
     const entity = {
       comment1: (tag == null) ? "Generic comment" : tag,
       createdOn: new Date(),
@@ -349,26 +352,24 @@ namedQuery.saveWithComment = function(req: Request, res: Response, next: NextFun
     };
     saveMap.addEntity("Comment", entity);
     return saveMap;
-  }
+  };
   saveUsingCallback(saveHandler, res, next);
 };
 
 namedQuery.saveWithFreight = function(req: Request, res: Response, next: NextFunction) {
     const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
-    saveHandler.beforeSaveEntity = checkFreightOnOrder;
+    saveHandler.beforeSaveEntity = checkFreightOnOrder.bind(saveHandler);
     saveUsingCallback(saveHandler, res, next);
 };
 
 namedQuery.saveWithFreight2 = function(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
-  saveHandler.beforeSaveEntities = async function(saveMap) {
+  saveHandler.beforeSaveEntities = async (saveMap) => {
     const orderInfos = saveMap.getEntityInfosOfType("Order");
-    const fn = checkFreightOnOrder.bind(this);
-    orderInfos.forEach(function (order) {
-      fn(order);
-    }, this);
+    const fn = checkFreightOnOrder.bind(saveHandler);
+    orderInfos.forEach( (order) => fn(order));
     return saveMap;
-  }
+  };
   saveUsingCallback(saveHandler, res, next);
 };
 
@@ -377,9 +378,9 @@ namedQuery.saveWithExit = function(req: Request, res: Response, next: NextFuncti
     const results: SequelizeSaveResult = {
         entities: [],
         keyMappings: []
-    }
+    };
     res.send(results);
-}
+};
 
 namedQuery.saveWithEntityErrorsException = function(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
@@ -390,7 +391,7 @@ namedQuery.saveWithEntityErrorsException = function(req: Request, res: Response,
     });
     saveMap.setErrorMessage("test of custom exception message");
     return saveMap;
-  }
+  };
   saveUsingCallback(saveHandler, res, next);
 };
 
@@ -406,7 +407,7 @@ namedQuery.saveCheckInitializer = function(req: Request, res: Response, next: Ne
     return saveMap;
   };
   saveUsingCallback(saveHandler, res, next);
-}
+};
 
 namedQuery.saveCheckUnmappedProperty = function(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
@@ -414,61 +415,61 @@ namedQuery.saveCheckUnmappedProperty = function(req: Request, res: Response, nex
     const unmappedValue = entityInfo.unmapped["myUnmappedProperty"];
     // in c#
     // const unmappedValue = entityInfo.UnmappedValuesMap["myUnmappedProperty"];
-    if (unmappedValue != "anything22") {
+    if (unmappedValue !== "anything22") {
       throw new Error("wrong value for unmapped property:  " + unmappedValue);
     }
     return false;
   };
   saveUsingCallback(saveHandler, res, next);
-}
+};
 
 namedQuery.saveCheckUnmappedPropertySerialized = function(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
   saveHandler.beforeSaveEntity = function(entityInfo) {
     const unmappedValue = entityInfo.unmapped["myUnmappedProperty"];
-    if (unmappedValue != "ANYTHING22") {
+    if (unmappedValue !== "ANYTHING22") {
       throw new Error("wrong value for unmapped property:  " + unmappedValue);
     }
     const anotherOne = entityInfo.unmapped["anotherOne"];
 
-    if ( anotherOne.z[5].foo != 4) {
+    if ( anotherOne.z[5].foo !== 4) {
       throw new Error("wrong value for 'anotherOne.z[5].foo'");
     }
 
-    if (anotherOne.extra != 666) {
+    if (anotherOne.extra !== 666) {
       throw new Error("wrong value for 'anotherOne.extra'");
     }
 
     const cust = entityInfo.entity as any;
-    if (cust.companyName.toUpperCase() != cust.companyName) {
+    if (cust.companyName.toUpperCase() !== cust.companyName) {
       throw new Error("Uppercasing of company name did not occur");
     }
     return false;
   };
   saveUsingCallback(saveHandler, res, next);
-}
+};
 
 namedQuery.saveCheckUnmappedPropertySuppressed = function(req: Request, res: Response, next: NextFunction) {
   const saveHandler = new SequelizeSaveHandler(_sequelizeManager, req);
-  saveHandler.beforeSaveEntity = function(entityInfo) {
-    const unmapped = entityInfo.unmapped
+  saveHandler.beforeSaveEntity = (entityInfo) => {
+    const unmapped = entityInfo.unmapped;
     if (unmapped != null) {
       throw new Error("unmapped properties should have been suppressed");
     }
     return false;
   };
   saveUsingCallback(saveHandler, res, next);
-}
+};
 
 function beforeSaveEntity(entityInfo: ServerEntityInfo) {
 
-  if ( entityInfo.entityType.shortName == "Region" && entityInfo.entityAspect.entityState === "Added") {
+  if ( entityInfo.entityType.shortName === "Region" && entityInfo.entityAspect.entityState === "Added") {
     if (entityInfo.entity.regionDescription.toLowerCase().indexOf("error") === 0) {
       return false;
     }
   }
 
-  if ( entityInfo.entityType.shortName == "Employee") {
+  if ( entityInfo.entityType.shortName === "Employee") {
     const emp = entityInfo.entity;
     if (emp.fullName === null) {
       emp.fullName = emp.firstName + " " + emp.lastName;
@@ -484,7 +485,7 @@ async function beforeSaveEntities(saveMap: SaveMap) {
 
   const customers = saveMap.getEntityInfosOfType("Customer");
   customers.forEach(function(custInfo: any) {
-    if (custInfo.entityAspect.entityState != "Deleted") {
+    if (custInfo.entityAspect.entityState !== "Deleted") {
       const companyName = custInfo.entity.companyName || custInfo.entity.CompanyName;
       if (companyName.toLowerCase().indexOf("error") === 0) {
         saveMap.addEntityError(custInfo, "Bad customer", "This customer is not valid!", "companyName");
@@ -496,7 +497,7 @@ async function beforeSaveEntities(saveMap: SaveMap) {
     }
   });
 
-  if (tag == "addProdOnServer") {
+  if (tag === "addProdOnServer") {
     const suppliers = saveMap.getEntityInfosOfType("Supplier");
     suppliers.forEach(function(supplierInfo: any) {
       const product = {

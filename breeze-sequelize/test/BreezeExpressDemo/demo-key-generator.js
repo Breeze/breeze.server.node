@@ -77,7 +77,7 @@ var DemoKeyGenerator = /** @class */ (function () {
                         return [4 /*yield*/, this.nextIdModel.update({ NextId: nextIdToSave }, { where: { Name: "GLOBAL", NextId: nextId } })];
                     case 2:
                         infoArray = _a.sent();
-                        if (infoArray[0] == 1) {
+                        if (infoArray[0] === 1) {
                             retId = nextId;
                             this.nextId = nextId + 1;
                             this.maxId = retId + this.groupSize;

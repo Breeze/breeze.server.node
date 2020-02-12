@@ -23,7 +23,7 @@
   },
   "peerDependencies": {
     "bluebird": "^3.7.2",
-    "breeze-client": ">=2.0.4",
+    "breeze-client": ">=2.0.7",
     "breeze-sequelize": "0.5.2",
     "lodash": "^4.17.15",
     "sequelize": "^5.21.3"
@@ -34,7 +34,7 @@
     "@types/node": "^12.12.26",
     "@types/validator": "^12.0.1",
     "bluebird": "^3.7.2",
-    "breeze-client": ">=2.0.4",
+    "breeze-client": "^2.0.7",
     "chai": "^4.2.0",
     "lodash": "^4.17.15",
     "mocha": "^6.2.0",

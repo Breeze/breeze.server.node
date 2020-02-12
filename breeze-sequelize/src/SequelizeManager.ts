@@ -73,24 +73,25 @@ export class SequelizeManager {
   }
 
   /** Sync the Sequelize model with the database */
-  async sync(shouldCreateDb: boolean, sequelizeOpts: SyncOptions): Promise<Sequelize> {
+  async sync(shouldCreateDb: boolean, sequelizeOpts: SyncOptions) {
     if (shouldCreateDb) {
       await this.createDb();
     } 
     return await this.syncCore(this.sequelize, sequelizeOpts);
   }
 
-  private syncCore(sequelize: Sequelize, sequelizeOpts: SyncOptions): Promise<Sequelize> {
+  private async syncCore(sequelize: Sequelize, sequelizeOpts: SyncOptions)  {
     let defaultOptions = { force: true };
     sequelizeOpts = _.extend(defaultOptions, sequelizeOpts || {});
 
-    return sequelize.sync(sequelizeOpts).then(() => {
+    try {
+      return await sequelize.sync(sequelizeOpts);
       log("schema created");
       return sequelize;
-    }).catch(err => {
+    } catch (err) {
       console.log("schema creation failed");
       throw err;
-    });
+    }
 
   }
 }

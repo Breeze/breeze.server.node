@@ -50,9 +50,7 @@ export class SaveMap {
     }
 
     const entityType = entityInfo.entityType;
-    const keyValues = entityType.keyProperties.map(kp => {
-      return entityInfo.entity[kp.nameOnServer];
-    });
+    const keyValues = entityType.keyProperties.map(kp => entityInfo.entity[kp.nameOnServer]);
     this.entityErrors.push({
       entityTypeName: entityType.name,
       errorName: errorName,

@@ -25,7 +25,7 @@ export class DemoKeyGenerator implements KeyGenerator {
 
    // returns a promise
   getNextId(property: any) {
-    var retId = this.nextId;
+    const retId = this.nextId;
     if (retId != null) {
       this.nextId++;
       if (this.nextId > this.maxId) {
@@ -40,10 +40,10 @@ export class DemoKeyGenerator implements KeyGenerator {
   private async _updateNextId(): Promise<number> {
     const nextIdItem = await this.nextIdModel.findByPk("GLOBAL");
     const nextId = nextIdItem.NextId;
-    var nextIdToSave = nextId + this.groupSize;
+    const nextIdToSave = nextId + this.groupSize;
     const infoArray = await this.nextIdModel.update({ NextId: nextIdToSave }, { where: { Name: "GLOBAL", NextId: nextId }});
     
-    if (infoArray[0] == 1) {
+    if (infoArray[0] === 1) {
       const retId = nextId;
       this.nextId = nextId + 1;
       this.maxId = retId + this.groupSize;

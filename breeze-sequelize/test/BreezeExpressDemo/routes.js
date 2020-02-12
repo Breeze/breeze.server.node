@@ -88,17 +88,15 @@ function get(req, res, next) {
         exports.namedQuery[resourceName](req, res, next);
     }
     else {
-        // const entityQuery = urlToEntityQuery(req.url, resourceName);
         var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, resourceName);
         executeEntityQuery(entityQuery, null, res, next);
     }
 }
 exports.get = get;
-;
 function saveChanges(req, res, next) {
     var saveHandler = new breeze_sequelize_1.SequelizeSaveHandler(_sequelizeManager, req);
     saveHandler.beforeSaveEntity = beforeSaveEntity;
-    saveHandler.beforeSaveEntities = beforeSaveEntities;
+    saveHandler.beforeSaveEntities = beforeSaveEntities.bind(saveHandler);
     saveHandler.save().then(function (r) {
         returnSaveResults(r, res);
     }).catch(function (e) {
@@ -106,20 +104,51 @@ function saveChanges(req, res, next) {
     });
 }
 exports.saveChanges = saveChanges;
-;
 function executeEntityQuery(entityQuery, returnResultsFn, res, next) {
-    returnResultsFn = returnResultsFn || returnQueryResults;
-    console.log(entityQuery);
-    var query = new breeze_sequelize_1.SequelizeQuery(_sequelizeManager, entityQuery);
-    query.execute(null).then(function (r) {
-        returnResultsFn(r, res);
-    }).catch(next);
+    return __awaiter(this, void 0, void 0, function () {
+        var query, r, e_1;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    returnResultsFn = returnResultsFn || returnQueryResults;
+                    console.log(entityQuery);
+                    _a.label = 1;
+                case 1:
+                    _a.trys.push([1, 3, , 4]);
+                    query = new breeze_sequelize_1.SequelizeQuery(_sequelizeManager, entityQuery);
+                    return [4 /*yield*/, query.execute(null)];
+                case 2:
+                    r = _a.sent();
+                    returnResultsFn(r, res);
+                    return [3 /*break*/, 4];
+                case 3:
+                    e_1 = _a.sent();
+                    next(e_1);
+                    return [3 /*break*/, 4];
+                case 4: return [2 /*return*/];
+            }
+        });
+    });
 }
 function saveUsingCallback(saveHandler, res, next) {
-    saveHandler.save().then(function (r) {
-        returnSaveResults(r, res);
-    }).catch(function (e) {
-        next(e);
+    return __awaiter(this, void 0, void 0, function () {
+        var r, e_2;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, saveHandler.save()];
+                case 1:
+                    r = _a.sent();
+                    returnSaveResults(r, res);
+                    return [3 /*break*/, 3];
+                case 2:
+                    e_2 = _a.sent();
+                    next(e_2);
+                    return [3 /*break*/, 3];
+                case 3: return [2 /*return*/];
+            }
+        });
     });
 }
 // Used to return
@@ -318,44 +347,40 @@ exports.namedQuery.EmployeesFilteredByCountryAndBirthdate = function (req, res, 
 //public Object CustomersAndProducts() {
 //    const stuff = new { Customers = ContextProvider.Context.Customers.ToList(), Products = ContextProvider.Context.Products.ToList() };
 exports.namedQuery.saveWithComment = function (req, res, next) {
+    var _this = this;
     var saveHandler = new breeze_sequelize_1.SequelizeSaveHandler(_sequelizeManager, req);
-    saveHandler.beforeSaveEntities = function (saveMap) {
-        return __awaiter(this, void 0, void 0, function () {
-            var tag, entity;
-            return __generator(this, function (_a) {
-                tag = this.saveOptions.tag;
-                entity = {
-                    comment1: (tag == null) ? "Generic comment" : tag,
-                    createdOn: new Date(),
-                    seqNum: 1
-                };
-                saveMap.addEntity("Comment", entity);
-                return [2 /*return*/, saveMap];
-            });
+    saveHandler.beforeSaveEntities = function (saveMap) { return __awaiter(_this, void 0, void 0, function () {
+        var tag, entity;
+        return __generator(this, function (_a) {
+            tag = saveHandler.saveOptions.tag;
+            entity = {
+                comment1: (tag == null) ? "Generic comment" : tag,
+                createdOn: new Date(),
+                seqNum: 1
+            };
+            saveMap.addEntity("Comment", entity);
+            return [2 /*return*/, saveMap];
         });
-    };
+    }); };
     saveUsingCallback(saveHandler, res, next);
 };
 exports.namedQuery.saveWithFreight = function (req, res, next) {
     var saveHandler = new breeze_sequelize_1.SequelizeSaveHandler(_sequelizeManager, req);
-    saveHandler.beforeSaveEntity = checkFreightOnOrder;
+    saveHandler.beforeSaveEntity = checkFreightOnOrder.bind(saveHandler);
     saveUsingCallback(saveHandler, res, next);
 };
 exports.namedQuery.saveWithFreight2 = function (req, res, next) {
+    var _this = this;
     var saveHandler = new breeze_sequelize_1.SequelizeSaveHandler(_sequelizeManager, req);
-    saveHandler.beforeSaveEntities = function (saveMap) {
-        return __awaiter(this, void 0, void 0, function () {
-            var orderInfos, fn;
-            return __generator(this, function (_a) {
-                orderInfos = saveMap.getEntityInfosOfType("Order");
-                fn = checkFreightOnOrder.bind(this);
-                orderInfos.forEach(function (order) {
-                    fn(order);
-                }, this);
-                return [2 /*return*/, saveMap];
-            });
+    saveHandler.beforeSaveEntities = function (saveMap) { return __awaiter(_this, void 0, void 0, function () {
+        var orderInfos, fn;
+        return __generator(this, function (_a) {
+            orderInfos = saveMap.getEntityInfosOfType("Order");
+            fn = checkFreightOnOrder.bind(saveHandler);
+            orderInfos.forEach(function (order) { return fn(order); });
+            return [2 /*return*/, saveMap];
         });
-    };
+    }); };
     saveUsingCallback(saveHandler, res, next);
 };
 exports.namedQuery.saveWithExit = function (req, res, next) {
@@ -407,7 +432,7 @@ exports.namedQuery.saveCheckUnmappedProperty = function (req, res, next) {
         var unmappedValue = entityInfo.unmapped["myUnmappedProperty"];
         // in c#
         // const unmappedValue = entityInfo.UnmappedValuesMap["myUnmappedProperty"];
-        if (unmappedValue != "anything22") {
+        if (unmappedValue !== "anything22") {
             throw new Error("wrong value for unmapped property:  " + unmappedValue);
         }
         return false;
@@ -418,18 +443,18 @@ exports.namedQuery.saveCheckUnmappedPropertySerialized = function (req, res, nex
     var saveHandler = new breeze_sequelize_1.SequelizeSaveHandler(_sequelizeManager, req);
     saveHandler.beforeSaveEntity = function (entityInfo) {
         var unmappedValue = entityInfo.unmapped["myUnmappedProperty"];
-        if (unmappedValue != "ANYTHING22") {
+        if (unmappedValue !== "ANYTHING22") {
             throw new Error("wrong value for unmapped property:  " + unmappedValue);
         }
         var anotherOne = entityInfo.unmapped["anotherOne"];
-        if (anotherOne.z[5].foo != 4) {
+        if (anotherOne.z[5].foo !== 4) {
             throw new Error("wrong value for 'anotherOne.z[5].foo'");
         }
-        if (anotherOne.extra != 666) {
+        if (anotherOne.extra !== 666) {
             throw new Error("wrong value for 'anotherOne.extra'");
         }
         var cust = entityInfo.entity;
-        if (cust.companyName.toUpperCase() != cust.companyName) {
+        if (cust.companyName.toUpperCase() !== cust.companyName) {
             throw new Error("Uppercasing of company name did not occur");
         }
         return false;
@@ -448,12 +473,12 @@ exports.namedQuery.saveCheckUnmappedPropertySuppressed = function (req, res, nex
     saveUsingCallback(saveHandler, res, next);
 };
 function beforeSaveEntity(entityInfo) {
-    if (entityInfo.entityType.shortName == "Region" && entityInfo.entityAspect.entityState === "Added") {
+    if (entityInfo.entityType.shortName === "Region" && entityInfo.entityAspect.entityState === "Added") {
         if (entityInfo.entity.regionDescription.toLowerCase().indexOf("error") === 0) {
             return false;
         }
     }
-    if (entityInfo.entityType.shortName == "Employee") {
+    if (entityInfo.entityType.shortName === "Employee") {
         var emp = entityInfo.entity;
         if (emp.fullName === null) {
             emp.fullName = emp.firstName + " " + emp.lastName;
@@ -471,7 +496,7 @@ function beforeSaveEntities(saveMap) {
                     tag = this.saveOptions.tag;
                     customers = saveMap.getEntityInfosOfType("Customer");
                     customers.forEach(function (custInfo) {
-                        if (custInfo.entityAspect.entityState != "Deleted") {
+                        if (custInfo.entityAspect.entityState !== "Deleted") {
                             var companyName = custInfo.entity.companyName || custInfo.entity.CompanyName;
                             if (companyName.toLowerCase().indexOf("error") === 0) {
                                 saveMap.addEntityError(custInfo, "Bad customer", "This customer is not valid!", "companyName");
@@ -482,7 +507,7 @@ function beforeSaveEntities(saveMap) {
                             }
                         }
                     });
-                    if (tag == "addProdOnServer") {
+                    if (tag === "addProdOnServer") {
                         suppliers = saveMap.getEntityInfosOfType("Supplier");
                         suppliers.forEach(function (supplierInfo) {
                             var product = {

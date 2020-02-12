@@ -1,10 +1,10 @@
 import { DataProperty, EntityProperty, EntityQuery, EntityType, MetadataStore, NavigationProperty, Predicate, VisitContext } from "breeze-client";
-import * as _ from 'lodash';
 import { FindOptions, IncludeOptions, Model, Op, OrderItem, Sequelize, Transaction, WhereOptions } from "sequelize";
 import { SequelizeManager } from "./SequelizeManager";
-import * as urlUtils from "url";
 import { toSQVisitor } from "./SQVisitor";
 
+import * as _ from 'lodash';
+import * as urlUtils from "url";
 
 /** Create an EntityQuery from a JSON-format breeze query string 
  * @param url - url containing query, e.g. `/orders?{freight:{">":100}}`
@@ -50,7 +50,6 @@ export type SequelizeRawQueryResult = CountModel | Model[];
 
 export type SequelizeQueryResult = { results: any[], inlineCount: number } | any[];
 
-
 export interface SqVisitContext extends VisitContext {
   sequelizeQuery: SequelizeQuery;
 }
@@ -87,51 +86,41 @@ export class SequelizeQuery {
   }
 
   /** Execute the current query and return data objects */
-  execute(options?: SequelizeQueryOptions) {
-    return this.executeRaw(options).then(r => {
-      let result = this._reshapeResults(r);
-      return Promise.resolve(result);
-    });
+  async execute(options?: SequelizeQueryOptions) {
+    const r = await this.executeRaw(options);
+    let result = this._reshapeResults(r);
+    return result;
   }
 
   /** Execute the current query and return the Sequelize Models */
-  executeRaw(options?: SequelizeQueryOptions):  Promise<SequelizeRawQueryResult> {
-    let self = this;
-    let model = self.sequelizeManager.resourceNameSqModelMap[self.entityQuery.resourceName];
-    let methodName = self.entityQuery.inlineCountEnabled ? "findAndCountAll" : "findAll";
+  async executeRaw(options?: SequelizeQueryOptions):  Promise<SequelizeRawQueryResult> {
+    let model = this.sequelizeManager.resourceNameSqModelMap[this.entityQuery.resourceName];
+    let methodName = this.entityQuery.inlineCountEnabled ? "findAndCountAll" : "findAll";
     options = options || { useTransaction: false, beforeQueryEntities: undefined };
 
-    return (function () {
-      if (options.useTransaction)
-        return self.sequelizeManager.sequelize.transaction()
-          .then(function (trans) {
-            self.transaction = trans;
-            self.sqQuery.transaction = trans;
-          });
-      else
-        return Promise.resolve();
-    })()
-      .then(function () {
-        if (options.beforeQueryEntities)
-          return options.beforeQueryEntities.call(self);
-        else
-          return Promise.resolve();
-      })
-      .then(function () {
-        return model[methodName].call(model, self.sqQuery);
-      })
-      .then(
-        function (results) {
-          if (options.useTransaction)
-            self.sqQuery.transaction.commit();
-          return results;
-        },
-        function (e) {
-          if (options.useTransaction)
-            self.sqQuery.transaction.rollback();
-          throw e;
-        }
-      );
+    if (options.useTransaction) {
+      const trans = await this.sequelizeManager.sequelize.transaction();
+      this.transaction = trans;
+      this.sqQuery.transaction = trans;
+    } 
+
+    if (options.beforeQueryEntities) {
+      return options.beforeQueryEntities.call(this);
+    }
+    
+    try {
+      const results = await model[methodName].call(model, this.sqQuery);
+      if (options.useTransaction) {
+        this.sqQuery.transaction.commit();
+      }
+      return results;
+    } catch (e) {
+      if (options.useTransaction) {
+        this.sqQuery.transaction.rollback();
+      }
+      throw e;
+    }
+      
   }
 
   // pass in either a query string or a urlQuery object
@@ -396,9 +385,7 @@ export class SequelizeQuery {
       if (_.isArray(nextSqResult)) {
         nextResult = nextSqResult.map(nextSqr => {
           return this._createResult(nextSqr, nextEntityType, true);
-        }, this).filter(r => {
-          return r != null;
-        });
+        }, this).filter(r => r != null);
       } else {
         nextResult = this._createResult(nextSqResult, nextEntityType, true);
       }
@@ -495,9 +482,9 @@ export class SequelizeQuery {
 }
 
 function getKey(sqResult: Model, entityType: EntityType) {
-  let key = entityType.keyProperties.map(function (kp) {
-    return sqResult[kp.nameOnServer];
-  }).join("::") + "^" + entityType.name;
+  let key = entityType.keyProperties
+    .map( kp => sqResult[kp.nameOnServer])
+    .join("::") + "^" + entityType.name;
   return key;
 }
 
@@ -507,9 +494,7 @@ function processAndOr(parent: IncludeOptions) {
   if (parent.where) {
     parent.where = processAndOrClause(parent.where);
   }
-  parent.include && parent.include.forEach(function (inc) {
-    processAndOr(inc as IncludeOptions);
-  });
+  parent.include && parent.include.forEach( inc => processAndOr(inc as IncludeOptions));
   console.trace(parent);
 }
 
@@ -518,15 +503,11 @@ function processAndOrClause(where: WhereOptions): WhereOptions {
   let ands = (where[Op.and] || where['and']) as WhereOptions[];
   let ors = (where[Op.or] || where['or']) as WhereOptions[];
   if (ands) {
-    let clauses = ands.map(function (clause) {
-      return processAndOrClause(clause);
-    });
+    let clauses = ands.map( clause => processAndOrClause(clause));
     return Sequelize.and.apply(null, clauses);
     // return Sequelize.and(clauses[0], clauses[1]);
   } else if (ors) {
-    let clauses = ors.map(function (clause) {
-      return processAndOrClause(clause);
-    });
+    let clauses = ors.map( clause => processAndOrClause(clause));
     return Sequelize.or.apply(null, clauses);
   } else {
     return where;
