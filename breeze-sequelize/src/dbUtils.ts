@@ -1,10 +1,5 @@
 import { Options, QueryTypes, Sequelize } from "sequelize";
-
-let utils = require('./utils.js');
-let log = utils.log;
-
-// exports.connect = connect;
-// exports.createDb = createDb;
+import { log } from './utils';
 
 /** Config for connecting to a database */
 export interface DbConfig {

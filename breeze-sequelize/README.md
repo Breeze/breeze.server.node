@@ -9,9 +9,10 @@ Once you have the model and database, `breeze-sequelize` makes it easy to query 
 
 The [src](./src) folder contains the TypeScript source code.
 
-The [test](./test) folder contains the unit tests (work in progress).
+The [test](./test) folder contains the unit tests (work in progress) and a MySql database dump needed for the tests.
 
-The [test/ExpressDemo](./test/BreezeExpressDemo) folder contains a complete server using breeze-sequelize, for running an end-to-end test suite.
+The [test/BreezeExpressDemo](./test/BreezeExpressDemo) folder contains a complete server using breeze-sequelize, for running an end-to-end test suite.
+  
 
 ## Documentation
 
