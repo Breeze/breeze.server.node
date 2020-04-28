@@ -251,7 +251,7 @@ export class SequelizeQuery {
       return this._reshapeSelectResults(sqResults);
     }
     let inlineCount;
-    if (this.entityQuery.inlineCountEnabled && (sqResults as CountModel).count) {
+    if (this.entityQuery.inlineCountEnabled) {
       inlineCount = (sqResults as CountModel).count;
       sqResults = (sqResults as CountModel).rows;
     }
