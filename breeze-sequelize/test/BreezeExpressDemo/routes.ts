@@ -228,8 +228,8 @@ namedQuery.SearchCustomers = function(req: Request, res: Response, next: NextFun
 
 
 namedQuery.SearchCustomers2 = function(req: Request, res: Response, next: NextFunction) {
-  const qbeList = req.query.qbeList;
-  if (qbeList.Length < 2) {
+  const qbeList = req.query.qbeList as any[];
+  if (qbeList.length < 2) {
     throw new Error("all least two items must be passed in");
   }
   qbeList.forEach(function(qbe: any) {
@@ -317,7 +317,7 @@ namedQuery.SearchEmployees = function(req: Request, res: Response, next: NextFun
 };
 
 namedQuery.EmployeesFilteredByCountryAndBirthdate = function(req: Request, res: Response, next: NextFunction) {
-  const birthDate = new Date(Date.parse(req.query.birthDate));
+  const birthDate = new Date(Date.parse((req.query as any).birthDate));
   const country = req.query.country;
   const pred = { birthDate: { ge: birthDate}, country: country };
   const entityQuery = urlToEntityQuery(req.url, "Employees").where(pred);
