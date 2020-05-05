@@ -71,6 +71,7 @@ export class SequelizeQuery {
   entityQuery: EntityQuery;
   sqQuery: FindOptions;
   transaction: Transaction;
+  private wasLogged = false;
   private _nextId: any;
   private _keyMap: { [key: string]: any };
   private _refMap: { [key: string]: any };
@@ -79,10 +80,32 @@ export class SequelizeQuery {
   constructor(sequelizeManager: SequelizeManager, serverSideEntityQuery: EntityQuery) {
     this.sequelizeManager = sequelizeManager;
     this.metadataStore = sequelizeManager.metadataStore;
-
-    this.entityType = serverSideEntityQuery._getFromEntityType(this.metadataStore, true);
     this.entityQuery = serverSideEntityQuery;
-    this.sqQuery = this._processQuery();
+    try {
+      this.entityType = serverSideEntityQuery._getFromEntityType(this.metadataStore, true);
+      this.sqQuery = this._processQuery();
+    } catch (err) {
+      this.logQuery();
+      throw err;
+    }
+
+    if (this.sequelizeManager.sequelizeOptions.logging) {
+      this.logQuery();
+    }
+  }
+
+  private logQuery() {
+    if (this.wasLogged) { return; }
+    // log jsonQuery, not EntityQuery, or we get whole metadatastore
+    const { resourceName, jsonQuery } = this.entityQuery as any;
+    console.dir({ resourceName, jsonQuery }, { depth: 10 });
+
+    // remove `include` and `order` for logging, or we could get the whole sequelize model
+    const lob = {...this.sqQuery };
+    delete lob.include;
+    delete lob.order;
+    console.dir(lob, { depth: 10 });
+    this.wasLogged = true;
   }
 
   /** Execute the current query and return data objects */
@@ -118,6 +141,7 @@ export class SequelizeQuery {
       if (options.useTransaction) {
         this.sqQuery.transaction.rollback();
       }
+      this.logQuery();
       throw e;
     }
       
@@ -157,12 +181,7 @@ export class SequelizeQuery {
       delete this.sqQuery.include;
     }
 
-    if (this.sequelizeManager.sequelizeOptions.logging) {
-      console.dir(this.sqQuery, { depth: 10 });
-    }
-
     return this.sqQuery;
-
   }
 
   private _processWhere() {

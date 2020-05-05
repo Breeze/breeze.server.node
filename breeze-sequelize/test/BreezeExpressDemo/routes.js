@@ -56,6 +56,7 @@ var _seqOpts = {
     dialect: "mysql",
     host: "localhost",
     port: 3306,
+    // logging: console.log,
     pool: {
         max: 100
     }
@@ -111,7 +112,6 @@ function executeEntityQuery(entityQuery, returnResultsFn, res, next) {
             switch (_a.label) {
                 case 0:
                     returnResultsFn = returnResultsFn || returnQueryResults;
-                    console.log(entityQuery);
                     _a.label = 1;
                 case 1:
                     _a.trys.push([1, 3, , 4]);

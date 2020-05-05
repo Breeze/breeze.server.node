@@ -32,7 +32,7 @@ export class SequelizeManager {
       dialect: "mysql", // or 'sqlite', 'postgres', 'mariadb'
       port: 3306, // or 5432 (for postgres)
       // omitNull: true,
-      logging: console.log,
+      logging: false,
       dialectOptions: { decimalNumbers: true },
       define: {
         freezeTableName: true,  // prevent sequelize from pluralizing table names

@@ -30,6 +30,7 @@ const _seqOpts: Options = {
   dialect: "mysql",
   host: "localhost",
   port: 3306,
+  // logging: console.log,
   pool: {
     max: 100
   }
@@ -84,7 +85,7 @@ export function saveChanges(req: Request, res: Response, next: NextFunction) {
 
 async function executeEntityQuery(entityQuery: EntityQuery, returnResultsFn: ReturnQueryResultsFn, res: Response, next: NextFunction) {
   returnResultsFn = returnResultsFn || returnQueryResults;
-  console.log(entityQuery);
+  // console.log(entityQuery);
   try {
     const query = new SequelizeQuery(_sequelizeManager, entityQuery);
     const r = await query.execute(null);
