@@ -1,6 +1,6 @@
 {
   "name": "breeze-sequelize",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "Breeze Sequelize server implementation",
   "keywords": [
     "breeze",
@@ -44,7 +44,8 @@
     "tsc": "tsc",
     "watch-tsc": "tsc -w",
     "build": "tsc && npm pack && npm run install-to-demo",
-    "install-to-demo": "cd ../test/BreezeExpressDemo && npm install ../../src/breeze-sequelize-0.5.3.tgz",
+    "install-to-demo": "cd ../test/BreezeExpressDemo && npm install ../../src/breeze-sequelize-0.5.4.tgz",
+    "install-to-unit": "cd ../test/unit && npm install ../../src/breeze-sequelize-0.5.4.tgz",
     "clean": "rimraf *.js && rimraf *.map && rimraf types"
   },
   "repository": {

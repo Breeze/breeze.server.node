@@ -7,7 +7,7 @@
   "dependencies": {
     "bluebird": "^3.7.2",
     "breeze-client": ">=2.0.4",
-    "breeze-sequelize": "^0.4.1",
+    "breeze-sequelize": "file:../../src/breeze-sequelize-0.5.3.tgz",
     "lodash": "^4.17.15",
     "mysql": "^2.18.0",
     "mysql2": "^1.7.0",
@@ -22,7 +22,6 @@
   "scripts": {
     "test": "mocha",
     "debug": "node --inspect-brk node_modules/mocha/bin/mocha -b",
-    "install-lib": "npm install ../src/breeze-sequelize-0.4.1.tgz",
     "gen-model": "sequelize-auto -o \"./models\" -d northwindib -h localhost -u mysql -p 3306 -x mysql -e mysql"
   },
   "repository": {

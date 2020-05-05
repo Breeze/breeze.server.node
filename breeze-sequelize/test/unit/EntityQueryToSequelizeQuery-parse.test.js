@@ -102,4 +102,23 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
     );
   });
 
+  it.only("should parse OR predicate with ANDS inside", function () {
+
+    var predicate1 = Predicate.create('contactTitle', '==', 'Owner')
+      .and('country', '==', 'Sweden');
+    var predicate2 = Predicate.create('contactTitle', '==', 'Owner')
+      .and('country', '==', 'Germany');
+    var predicate = predicate1.or(predicate2);
+    var query = EntityQuery.from('Customers').where(predicate);
+
+    check(query,
+        { where:
+            Sequelize.or( 
+              Sequelize.and({ ContactTitle: { [Op.eq]: 'Owner'}}, { Country: { [Op.eq]: 'Sweden'}}),
+              Sequelize.and({ ContactTitle: { [Op.eq]: 'Owner'}}, { Country: { [Op.eq]: 'Germany'}}))
+        }
+    );
+  });
+
+
 });

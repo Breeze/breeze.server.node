@@ -256,7 +256,7 @@ exports.namedQuery.SearchCustomers = function (req, res, next) {
 };
 exports.namedQuery.SearchCustomers2 = function (req, res, next) {
     var qbeList = req.query.qbeList;
-    if (qbeList.Length < 2) {
+    if (qbeList.length < 2) {
         throw new Error("all least two items must be passed in");
     }
     qbeList.forEach(function (qbe) {

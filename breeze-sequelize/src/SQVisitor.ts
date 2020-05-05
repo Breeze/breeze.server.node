@@ -25,7 +25,7 @@ const toSQVisitor = (function () {
       if (this.op.key !== "not") {
         throw new Error("Not yet implemented: Unary operation: " + this.op.key + " pred: " + JSON.stringify(this.pred));
       }
-      if (!_.isEmpty(predSq.include)) {
+      if (!isEmpty(predSq.include)) {
         throw new Error("Unable to negate an expression that requires a Sequelize 'include'");
       }
       predSq.where = applyNot(predSq.where);
@@ -118,10 +118,10 @@ const toSQVisitor = (function () {
       } else {
         let that = this;
         predSqs.forEach(function (predSq: FindOptions) {
-          if (!_.isEmpty(predSq.where)) {
+          if (!isEmpty(predSq.where)) {
             wheres.push(predSq.where);
           }
-          if (!_.isEmpty(predSq.include)) {
+          if (!isEmpty(predSq.include)) {
             let processIncludes = function (sourceIncludes: IncludeOptions[], targetIncludes: IncludeOptions[]) {
               sourceIncludes.forEach(function (sourceInclude: IncludeOptions) {
                 if (!targetIncludes)
@@ -142,7 +142,7 @@ const toSQVisitor = (function () {
                   } else if (sourceInclude.attributes != null) {
                     include.attributes = _.uniq((include.attributes as any[]).concat(sourceInclude.attributes));
                   }
-                  if (!_.isEmpty(sourceInclude.include))
+                  if (!isEmpty(sourceInclude.include))
                     processIncludes(sourceInclude.include as IncludeOptions[], include.include as IncludeOptions[]);
                 }
               });
@@ -267,6 +267,12 @@ const toSQVisitor = (function () {
     } else {
       throw new Error("Unable to understand expr for: " + this.expr.visitorMethodName + " - " + this.expr.toString());
     }
+  }
+
+  /** lodash isEmpty function returns true for object with Symbol keys, so we have to extend */
+  function isEmpty(value: any) {
+    if (value === null || value === undefined) { return true; }
+    return _.isEmpty(value) && Object.getOwnPropertySymbols(value).length === 0;
   }
 
   let translateMap = {

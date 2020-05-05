@@ -156,12 +156,17 @@ export class SequelizeQuery {
     if (_.isEmpty(this.sqQuery.include)) {
       delete this.sqQuery.include;
     }
+
+    if (this.sequelizeManager.sequelizeOptions.logging) {
+      console.dir(this.sqQuery, { depth: 10 });
+    }
+
     return this.sqQuery;
 
   }
 
   private _processWhere() {
-    let wherePredicate = this.entityQuery.wherePredicate as Predicate;
+    let wherePredicate = this.entityQuery.wherePredicate as Predicate;  
     if (wherePredicate == null) return;
     let sqQuery = wherePredicate.visit({
       entityType: this.entityType,
@@ -495,11 +500,11 @@ function processAndOr(parent: IncludeOptions) {
     parent.where = processAndOrClause(parent.where);
   }
   parent.include && parent.include.forEach( inc => processAndOr(inc as IncludeOptions));
-  console.trace(parent);
+  // console.trace(parent);
 }
 
 function processAndOrClause(where: WhereOptions): WhereOptions {
-  console.log("processAndOrClause", where);
+  // console.log("processAndOrClause", where);
   let ands = (where[Op.and] || where['and']) as WhereOptions[];
   let ors = (where[Op.or] || where['or']) as WhereOptions[];
   if (ands) {
