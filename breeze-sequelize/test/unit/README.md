@@ -10,7 +10,7 @@ Then create a global symbolic link to the package.  (You may need to be root or 
 
 	npm link
 
-Then go back to this `breeze-sequelize/test` directory, and link to the breeze-sequelize package:
+Then go back to this `breeze-sequelize/test/unit` directory, and link to the breeze-sequelize package:
 
     npm link breeze-sequelize
 
