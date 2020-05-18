@@ -1,4 +1,5 @@
 var fs               = require('fs');
+var path             = require('path');
 var expect           = require('chai').expect;
 var Sequelize        = require('sequelize');
 var breezeSequelize  = require("breeze-sequelize");
@@ -9,7 +10,8 @@ var SequelizeManager = breezeSequelize.SequelizeManager;
 var breeze = testFns.breeze;
 var ModelMapper = breezeSequelize.ModelMapper;
 
-var log = testFns.log;
+// directory for Sequelize models.  Run `npm run gen-model` before running these tests
+var modelDir = './models';
 
 describe("ModelMapper", function() {
 
@@ -17,12 +19,19 @@ describe("ModelMapper", function() {
 
   var _ms, _em, _sm, _sq;
   before(function() {
+    debugger;
     _sm = new SequelizeManager(testFns.dbConfigNw);
 
-    // load model data - should run `npm run gen-model` before running these tests
+    // load model data - run `npm run gen-model` before running these tests
     _sq = _sm.sequelize;
-    _sq.import('./models/customer.js');
-    _sq.import('./models/order.js');
+    var files = fs.readdirSync(modelDir);
+    files.forEach(function(file) {
+      _sq.import(path.join(modelDir, file));
+    });
+
+    // _sq.import('./models/customer.js');
+    // _sq.import('./models/order.js');
+    // _sq.import('./models/role.js');
 
   });
 
@@ -32,7 +41,6 @@ describe("ModelMapper", function() {
   });
 
   it("sequelize should load the model", function() {  
-    debugger;
     var models = _sq.models;
     var modelNames = Object.keys(models);
     console.log(modelNames);
@@ -102,6 +110,40 @@ describe("ModelMapper", function() {
     expect(prop.maxLength).to.eql(40);
 
   });
+
+  it("should add Customer navigation property to Order", function() {
+    var mm = new ModelMapper(_ms);
+    mm.addModels(_sq, 'foo');
+    var ord = _ms.getAsEntityType('order');
+
+    var prop = ord.getNavigationProperty('Customer');
+    expect(prop.name).to.eql('Customer');
+    expect(prop.isScalar).to.be.true;
+    expect(prop.foreignKeyNames).to.have.lengthOf(1);
+    expect(prop.foreignKeyNames[0]).to.eql("CustomerID");
+    expect(prop.entityType.shortName).to.eql("customer");    
+  });
+
+  it("should add Orders navigation property to Customer", function() {
+    var mm = new ModelMapper(_ms);
+    mm.addModels(_sq, 'foo');
+    var cust = _ms.getAsEntityType('customer');
+
+    var prop = cust.getNavigationProperty('Orders');
+    expect(prop.name).to.eql('Orders');
+    expect(prop.isScalar).to.be.false;
+    expect(prop.invForeignKeyNames).to.have.lengthOf(1);
+    expect(prop.invForeignKeyNames[0]).to.eql("CustomerID");
+    expect(prop.entityType.shortName).to.eql("order");    
+  });
+
+  // it("should export metadata", function() {
+  //   var mm = new ModelMapper(_ms);
+  //   mm.addModels(_sq, 'foo');
+  //   var metadata = _ms.exportMetadata();
+  //   console.log(metadata);    
+  // });
+
 
 
 });
