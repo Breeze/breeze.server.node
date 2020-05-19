@@ -23,6 +23,7 @@ src/**/*.js.map
 spec/**/*.d.ts
 spec/**/*.js
 spec/**/*.js.map
+test/unit/models
 build/**/*
 temp/**/*
 docs/**/*
