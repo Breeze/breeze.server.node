@@ -4,14 +4,15 @@ var expect           = require('chai').expect;
 var Sequelize        = require('sequelize');
 var breezeSequelize  = require("breeze-sequelize");
 var testFns          = require('./testFns.js');
+var SequelizeAuto    = require('sequelize-auto-v3');
 
 var SequelizeManager = breezeSequelize.SequelizeManager;
 
 var breeze = testFns.breeze;
 var ModelMapper = breezeSequelize.ModelMapper;
 
-// directory for Sequelize models.  Run `npm run gen-model` before running these tests
-var modelDir = './models';
+// directory for Sequelize models.  Run `npm run gen-model-my` before running these tests
+var modelDir = './mymodels';
 
 describe("ModelMapper", function() {
 
@@ -20,18 +21,48 @@ describe("ModelMapper", function() {
   var _ms, _em, _sm, _sq;
   before(function() {
     debugger;
-    _sm = new SequelizeManager(testFns.dbConfigNw);
 
-    // load model data - run `npm run gen-model` before running these tests
-    _sq = _sm.sequelize;
-    var files = fs.readdirSync(modelDir);
-    files.forEach(function(file) {
-      _sq.import(path.join(modelDir, file));
+    // var auto = new SequelizeAuto('northwindib', 'mysql', 'mysql', {
+    //     host: 'localhost',
+    //     dialect: 'mysql',
+    //     directory: false, // false to skip writing to disk
+    //     port: '3306',
+    //     additional: { // Sequelize options
+    //         timestamps: false
+    //     },
+    //     tables: ['customer', 'order']
+    // });
+
+    var auto = new SequelizeAuto('northwindib', 'mssql', 'mssql', {
+        host: 'localhost',
+        dialect: 'mssql',
+        directory: 'msmodel', // false to skip writing to disk
+        port: '1433',
+        additional: { // Sequelize options
+            timestamps: false
+        },
+        tables: ['Customer', 'Order']
     });
 
-    // _sq.import('./models/customer.js');
-    // _sq.import('./models/order.js');
-    // _sq.import('./models/role.js');
+    auto.run(function (err) {
+      if (err) throw err;
+
+      console.dir(auto.tables); // table list
+      console.dir(auto.foreignKeys); // foreign key list
+    });
+
+    _sm = new SequelizeManager(testFns.dbConfigNw);
+
+    // load model data - run `npm run gen-model-my` before running these tests
+    // _sq = _sm.sequelize;
+    // var files = fs.readdirSync(modelDir);
+    // files.forEach(function(file) {
+    //   _sq.import(path.join(modelDir, file));
+    // });
+
+    // _sq.import('./mymodels/customer.js');
+    // _sq.import('./mymodels/order.js');
+    // _sq.import('./mymodels/role.js');
 
   });
 
@@ -40,7 +71,7 @@ describe("ModelMapper", function() {
     _ms = _em.metadataStore;
   });
 
-  it("sequelize should load the model", function() {  
+  it.only("sequelize should load the model", function() {  
     var models = _sq.models;
     var modelNames = Object.keys(models);
     console.log(modelNames);

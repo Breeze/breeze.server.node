@@ -155,8 +155,17 @@ export class ModelMapper {
 
   /** Return the Breeze DataType for the given Sequelize DataType */
   private mapDataType(sqDataType: DataTypes.DataType): DataType {
-    const name = (typeof sqDataType === "string") ? sqDataType as string : sqDataType.key;
-    return this.dataTypeMap[name];
+    let name = (typeof sqDataType === "string") ? sqDataType as string : sqDataType.key;
+    let type = this.dataTypeMap[name];
+    if (!type) {
+      // if type is e.g. NCHAR(5), try without the (5)
+      const p = name.indexOf('(');
+      if (p > 0) {
+        name = name.substring(0, p);
+        type = this.dataTypeMap[name];
+      }
+    }
+    return type;
   }
 
   /** For string data types, return the length, else undefined */
@@ -172,6 +181,7 @@ export class ModelMapper {
   private dataTypeMap = {
     "STRING": DataType.String,
     "CHAR": DataType.String,
+    "NCHAR": DataType.String,
     "TEXT": DataType.String,
     "NUMBER": DataType.Decimal,
     "TINYINT": DataType.Byte,
@@ -183,6 +193,8 @@ export class ModelMapper {
     "REAL": DataType.Single,
     "DOUBLE": DataType.Double,
     "DECIMAL": DataType.Decimal,
+    "MONEY": DataType.Decimal,
+    "SMALLMONEY": DataType.Decimal,
     "BOOLEAN": DataType.Boolean,
     "TIME": DataType.Time,
     "DATE": DataType.DateTime,
@@ -192,6 +204,9 @@ export class ModelMapper {
     "JSONB": DataType.String,
     "NOW": DataType.DateTimeOffset,
     "BLOB": DataType.Binary,
+    "LONGBLOB": DataType.Binary,
+    "IMAGE": DataType.Binary,
+    "VARBINARY": DataType.Binary,
     "RANGE": DataType.Undefined, // not supported
     "UUID": DataType.Guid,
     "UUIDV1": DataType.Guid,

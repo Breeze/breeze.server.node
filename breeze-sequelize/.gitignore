@@ -24,6 +24,8 @@ spec/**/*.d.ts
 spec/**/*.js
 spec/**/*.js.map
 test/unit/models
+test/unit/mymodels
+test/unit/msmodels
 build/**/*
 temp/**/*
 docs/**/*
