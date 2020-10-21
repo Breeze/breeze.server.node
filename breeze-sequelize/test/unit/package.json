@@ -11,21 +11,23 @@
     "lodash": "^4.17.15",
     "mysql": "^2.18.0",
     "mysql2": "^1.7.0",
-    "sequelize": "^5.21.3",
+    "sequelize": "^6.3.5",
+    "sequelize-auto": "file:../../../../../sequelize/sequelize-auto/sequelize-auto-0.6.4.tgz",
     "tslib": "^1.9.0",
     "uuid": "^3.4.0"
   },
   "devDependencies": {
     "chai": "^4.2.0",
     "mocha": "^6.2.2",
-    "sequelize-auto-v3": "0.6.1",
     "tedious": "^8.3.0"
   },
   "scripts": {
+    "clean": "rimraf msmodels && rimraf mymodels && rimraf mymeta.json && rimraf msmeta.json",
     "test": "mocha -b ModelMapper.test.js",
     "debug": "node --inspect-brk node_modules/mocha/bin/mocha -b",
-    "gen-model-my": "sequelize-auto -o \"./mymodels\" -d northwindib -h localhost -u mysql -p 3306 -x mysql -e mysql",
-    "gen-model-ms": "sequelize-auto -o \"./msmodels\" -d northwindib -h localhost -p 1433 -u mssql -x mssql -e mssql",
+    "auto": "sequelize-auto",
+    "gen-model-my": "sequelize-auto -o \"./mymodel\" -d northwindib -h localhost -u mysql -p 3306 -x mysql -e mysql",
+    "gen-model-ms": "sequelize-auto -o \"./msmodel\" -d northwindib -h localhost -p 1433 -u mssql -x mssql -e mssql",
     "gen-meta-my": "node node_modules/breeze-sequelize/metagen.js \"./mymodels\" foo mymeta.json",
     "gen-meta-ms": "node node_modules/breeze-sequelize/metagen.js \"./msmodels\" foo msmeta.json"
   },

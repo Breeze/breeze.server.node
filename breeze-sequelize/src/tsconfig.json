@@ -4,6 +4,7 @@
         "declaration": true,
         "declarationDir": "types",
         "target": "es6",
+        "strict": false,
         "module": "commonjs",
         "moduleResolution": "node",
         "stripInternal": true,

@@ -39,19 +39,28 @@ console.log("registered adapters");
 //   return (this.op.key == 'like') ? isLike : !isLike;
 // });
 
-var __dbConfigNw = {
+var __dbConfigNw_mysql = {
   host: "localhost",
-  //user: "jayt",
-  //password: "password",
+  port: "3306",
   user: "mysql",
   password: "mysql",
-  dbName: 'northwindib'
+  dbName: "northwindib",
+  dialect: "mysql"
+}
+
+var __dbConfigNw_mssql = {
+  host: "localhost",
+  port: "1433",
+  user: "mssql",
+  password: "mssql",
+  dbName: "northwindib",
+  dialect: "mssql"
 }
 
 
 // exports.uriBuilderName = "odata";
 exports.uriBuilderName = "json";
-exports.dbConfigNw = __dbConfigNw;
+exports.dbConfigNw = __dbConfigNw_mysql;
 
 exports.getSequelizeQuery = function(uriBuilderName) {
   uriBuilderName = uriBuilderName || exports.uriBuilderName;

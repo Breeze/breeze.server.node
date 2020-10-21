@@ -1,9 +1,9 @@
-import { readdirSync, existsSync, fstat, write, writeFileSync } from "fs";
-import { join, resolve } from "path";
-import { Sequelize, Dialect } from "sequelize";
-import { EntityManager, breeze } from "breeze-client";
-import { ModelMapper } from "./ModelMapper";
+import { breeze, EntityManager } from "breeze-client";
 import { ModelLibraryBackingStoreAdapter } from "breeze-client/adapter-model-library-backing-store";
+import { existsSync, writeFileSync } from "fs";
+import { resolve } from "path";
+import { Sequelize } from "sequelize";
+import { ModelMapper } from "./ModelMapper";
 
 // Generates Breeze metadata from Sequelize models
 
@@ -26,10 +26,7 @@ if (!existsSync(modeldir)) {
 // dialect is required but meaningless when we are just loading the models
 let sq = new Sequelize({ dialect: 'mysql'});
 
-let files = readdirSync(modeldir);
-files.forEach(file => {
-  sq.import(join(modeldir, file));
-});
+ModelMapper.loadSequelizeModels(sq, modeldir);
 
 ModelLibraryBackingStoreAdapter.register(breeze.config);
 let metadataStore = new EntityManager().metadataStore;

@@ -19,12 +19,13 @@
   ],
   "directories": {},
   "dependencies": {
+    "sequelize-auto": "^0.6.4",
     "toposort": "^2.0.2"
   },
   "peerDependencies": {
     "breeze-client": ">=2.0.7",
     "lodash": "^4.17.15",
-    "sequelize": "^5.21.3"
+    "sequelize": "^6.3.5"
   },
   "devDependencies": {
     "@types/lodash": "^4.14.137",
@@ -35,7 +36,7 @@
     "lodash": "^4.17.15",
     "mocha": "^6.2.0",
     "rimraf": "^3.0.1",
-    "sequelize": "^5.21.3",
+    "sequelize": "^6.3.5",
     "tslint": "^6.0.0",
     "typescript": "^3.7.5"
   },

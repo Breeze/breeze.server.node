@@ -1,24 +1,24 @@
 import { DataProperty, EntityProperty, EntityQuery, EntityType, MetadataStore, NavigationProperty, Predicate, VisitContext } from "breeze-client";
-import { FindOptions, IncludeOptions, Model, Op, OrderItem, Sequelize, Transaction, WhereOptions } from "sequelize";
+import { FindOptions, Includeable, IncludeOptions, Model, Op, OrderItem, Sequelize, Transaction, WhereOptions } from "sequelize";
 import { SequelizeManager } from "./SequelizeManager";
 import { toSQVisitor } from "./SQVisitor";
 
 import * as _ from 'lodash';
 import * as urlUtils from "url";
 
-/** Create an EntityQuery from a JSON-format breeze query string 
+/** Create an EntityQuery from a JSON-format breeze query string
  * @param url - url containing query, e.g. `/orders?{freight:{">":100}}`
  * @param resourceName - Name of the resource/entity.  If omitted, resourceName is derived from the pathname of the url.
 */
 export function urlToEntityQuery(url: string, resourceName?: string): EntityQuery {
-  let parsedUrl = urlUtils.parse(url, true);
+  const parsedUrl = urlUtils.parse(url, true);
   resourceName = resourceName || parsedUrl.pathname;
   // this is because everything after the '?' is turned into a query object with a single key
   // where the key is the value of the string after the '?" and with a 'value' that is an empty string.
   // So we want the key and not the value.
-  let keys = Object.keys(parsedUrl.query);
-  let jsonQueryString = keys.length ? keys[0] : '{}';
-  let jsonQuery = JSON.parse(jsonQueryString);
+  const keys = Object.keys(parsedUrl.query);
+  const jsonQueryString = keys.length ? keys[0] : '{}';
+  const jsonQuery = JSON.parse(jsonQueryString);
 
   let entityQuery = new EntityQuery(jsonQuery);
   entityQuery = entityQuery.from(resourceName).useNameOnServer(true);
@@ -26,9 +26,9 @@ export function urlToEntityQuery(url: string, resourceName?: string): EntityQuer
   // for debugging
   entityQuery['jsonQuery'] = jsonQuery;
   return entityQuery;
-} 
+}
 
-// legacy support 
+// legacy support
 // export { urlToEntityQuery  as entityQueryFromUrl };
 // patch Breeze EntityQuery for server-side use
 // TODO make this a method on SequelizeQuery, so we don't have to patch Breeze?
@@ -111,26 +111,26 @@ export class SequelizeQuery {
   /** Execute the current query and return data objects */
   async execute(options?: SequelizeQueryOptions) {
     const r = await this.executeRaw(options);
-    let result = this._reshapeResults(r);
+    const result = this._reshapeResults(r);
     return result;
   }
 
   /** Execute the current query and return the Sequelize Models */
   async executeRaw(options?: SequelizeQueryOptions):  Promise<SequelizeRawQueryResult> {
-    let model = this.sequelizeManager.resourceNameSqModelMap[this.entityQuery.resourceName];
-    let methodName = this.entityQuery.inlineCountEnabled ? "findAndCountAll" : "findAll";
+    const model = this.sequelizeManager.resourceNameSqModelMap[this.entityQuery.resourceName];
+    const methodName = this.entityQuery.inlineCountEnabled ? "findAndCountAll" : "findAll";
     options = options || { useTransaction: false, beforeQueryEntities: undefined };
 
     if (options.useTransaction) {
       const trans = await this.sequelizeManager.sequelize.transaction();
       this.transaction = trans;
       this.sqQuery.transaction = trans;
-    } 
+    }
 
     if (options.beforeQueryEntities) {
-      return options.beforeQueryEntities.call(this);
+      options.beforeQueryEntities.call(this, this);
     }
-    
+
     try {
       const results = await model[methodName].call(model, this.sqQuery);
       if (options.useTransaction) {
@@ -144,14 +144,14 @@ export class SequelizeQuery {
       this.logQuery();
       throw e;
     }
-      
+
   }
 
   // pass in either a query string or a urlQuery object
   //    a urlQuery object is what is returned by node's url.parse(aUrl, true).query;
   private _processQuery(): FindOptions {
-    let entityQuery = this.entityQuery;
-    let sqQuery: FindOptions = this.sqQuery = {};
+    const entityQuery = this.entityQuery;
+    const sqQuery: FindOptions = this.sqQuery = {};
     sqQuery.include = [];
 
     this._processWhere();
@@ -185,34 +185,34 @@ export class SequelizeQuery {
   }
 
   private _processWhere() {
-    let wherePredicate = this.entityQuery.wherePredicate as Predicate;  
-    if (wherePredicate == null) return;
-    let sqQuery = wherePredicate.visit({
+    const wherePredicate = this.entityQuery.wherePredicate as Predicate;
+    if (wherePredicate == null) { return; }
+    const sqQuery = wherePredicate.visit({
       entityType: this.entityType,
       toNameOnServer: this.entityQuery.usesNameOnServer,
       sequelizeQuery: this,
       metadataStore: this.metadataStore
     } as SqVisitContext, toSQVisitor);
 
-    if (sqQuery && sqQuery.where) this.sqQuery.where = sqQuery.where;
-    if (sqQuery && sqQuery.include) this.sqQuery.include = sqQuery.include;
+    if (sqQuery && sqQuery.where) { this.sqQuery.where = sqQuery.where; }
+    if (sqQuery && sqQuery.include) { this.sqQuery.include = sqQuery.include; }
 
-    processAndOr(this.sqQuery);
+    processAndOr(this.sqQuery as IncludeOptions);
   }
 
   private _processSelect() {
-    let selectClause = this.entityQuery.selectClause;
-    let usesNameOnServer = this.entityQuery.usesNameOnServer;
-    if (selectClause == null) return;
+    const selectClause = this.entityQuery.selectClause;
+    const usesNameOnServer = this.entityQuery.usesNameOnServer;
+    if (selectClause == null) { return; }
     // extract any nest paths and move them onto the include
-    let navPropertyPaths = [];
+    const navPropertyPaths = [];
     this.sqQuery.attributes = selectClause.propertyPaths.map(pp => {
-      let props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
-      let isNavPropertyPath = props[0].isNavigationProperty;
+      const props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
+      const isNavPropertyPath = props[0].isNavigationProperty;
       if (isNavPropertyPath) {
         this._addFetchInclude(this.sqQuery, props as NavigationProperty[], false);
       }
-      if (isNavPropertyPath) return null;
+      if (isNavPropertyPath) { return null; }
       return usesNameOnServer ? pp : _.map(props, "nameOnServer").join(".");
     }, this).filter(pp => {
       return pp != null;
@@ -220,24 +220,24 @@ export class SequelizeQuery {
   }
 
   private _processOrderBy() {
-    let orderByClause = this.entityQuery.orderByClause;
-    let usesNameOnServer = this.entityQuery.usesNameOnServer;
-    if (orderByClause == null) return;
-    let orders: OrderItem[] = this.sqQuery.order = [];
+    const orderByClause = this.entityQuery.orderByClause;
+    const usesNameOnServer = this.entityQuery.usesNameOnServer;
+    if (orderByClause == null) { return; }
+    const orders: OrderItem[] = this.sqQuery.order = [];
     orderByClause.items.forEach(item => {
-      let pp = item.propertyPath;
-      let props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
-      let isNavPropertyPath = props[0].isNavigationProperty;
+      const pp = item.propertyPath;
+      const props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
+      const isNavPropertyPath = props[0].isNavigationProperty;
       if (isNavPropertyPath) {
         this._addInclude(this.sqQuery, props as NavigationProperty[]);
       }
 
-      let r: any = [];
+      const r: any = [];
       orders.push(r);
 
       props.forEach((prop: DataProperty | NavigationProperty) => {
         if (prop.isNavigationProperty) {
-          let modelAs = this._getModelAs(prop as NavigationProperty);
+          const modelAs = this._getModelAs(prop as NavigationProperty);
           r.push(modelAs);
         } else {
           r.push(prop.nameOnServer);
@@ -251,11 +251,11 @@ export class SequelizeQuery {
   }
 
   private _processExpand() {
-    let expandClause = this.entityQuery.expandClause;
-    let usesNameOnServer = this.entityQuery.usesNameOnServer;
-    if (expandClause == null) return;
+    const expandClause = this.entityQuery.expandClause;
+    const usesNameOnServer = this.entityQuery.usesNameOnServer;
+    if (expandClause == null) { return; }
     expandClause.propertyPaths.forEach(pp => {
-      let props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
+      const props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
       this._addFetchInclude(this.sqQuery, props as NavigationProperty[], true);
     }, this);
 
@@ -279,8 +279,8 @@ export class SequelizeQuery {
       inlineCount = (sqResults as CountModel).count;
       sqResults = (sqResults as CountModel).rows;
     }
-    let expandClause = this.entityQuery.expandClause;
-    let usesNameOnServer = this.entityQuery.usesNameOnServer;
+    const expandClause = this.entityQuery.expandClause;
+    const usesNameOnServer = this.entityQuery.usesNameOnServer;
     let expandPaths: EntityProperty[][] = [];
     if (expandClause) {
       // each expand path consist of an array of expand props.
@@ -293,8 +293,8 @@ export class SequelizeQuery {
     if (this.entityQuery.takeCount === 0) {
       sqResults = [];
     }
-    let results = (sqResults as Model[]).map(sqResult => {
-      let result = this._createResult(sqResult, this.entityType, expandClause != null);
+    const results = (sqResults as Model[]).map(sqResult => {
+      const result = this._createResult(sqResult, this.entityType, expandClause != null);
       // each expandPath is a collection of expandProps
 
       // if (!result.$ref) {
@@ -319,16 +319,16 @@ export class SequelizeQuery {
       inlineCount = (sqResults as CountModel).count;
       sqResults = (sqResults as CountModel).rows;
     }
-    let propertyPaths = this.entityQuery.selectClause.propertyPaths;
-    let usesNameOnServer = this.entityQuery.usesNameOnServer;
-    let results = (sqResults as Model[]).map(sqResult => {
+    const propertyPaths = this.entityQuery.selectClause.propertyPaths;
+    const usesNameOnServer = this.entityQuery.usesNameOnServer;
+    const results = (sqResults as Model[]).map(sqResult => {
       // start with the sqResult and then promote nested properties up to the top level
       // while removing nested path.
-      let result = (sqResult as any).dataValues;
+      const result = (sqResult as any).dataValues;
       let parent;
       propertyPaths.forEach(pp => {
         parent = sqResult;
-        let props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
+        const props = this.entityType.getPropertiesOnPath(pp, usesNameOnServer, true);
         let nextProp = props[0];
         let remainingProps = props.slice(0);
         while (remainingProps.length > 1 && nextProp.isNavigationProperty) {
@@ -364,11 +364,11 @@ export class SequelizeQuery {
   }
 
   private _createResult(sqResult: Model, entityType: EntityType, checkCache: boolean) {
-    if (!sqResult) return null;
-    let result = (sqResult as any).dataValues;
+    if (!sqResult) { return null; }
+    const result = (sqResult as any).dataValues;
     if (checkCache) {
-      let key = getKey(sqResult, entityType);
-      let cachedItem = this._keyMap[key];
+      const key = getKey(sqResult, entityType);
+      const cachedItem = this._keyMap[key];
       if (cachedItem) {
         return { $ref: cachedItem.$id };
       } else {
@@ -380,10 +380,10 @@ export class SequelizeQuery {
     }
 
     result.$type = entityType.name;
-    let nps = entityType.navigationProperties;
+    const nps = entityType.navigationProperties;
     // first remove all nav props
     nps.forEach(np => {
-      let navValue = sqResult[np.nameOnServer];
+      const navValue = sqResult[np.nameOnServer];
       if (navValue) {
         result[np.nameOnServer] = undefined;
       }
@@ -395,14 +395,14 @@ export class SequelizeQuery {
     if (result.$ref) {
       result = this._refMap[result.$ref];
     }
-    if (expandProps == null || expandProps.length === 0) return;
+    if (expandProps == null || expandProps.length === 0) { return; }
     // now blow out all of the expands
     // each expand path consist of an array of expand props.
-    let npName = expandProps[0].nameOnServer;
+    const npName = expandProps[0].nameOnServer;
     let nextResult = result[npName];
 
-    let nextEntityType = expandProps[0].entityType;
-    let nextSqResult = sqResult[npName];
+    const nextEntityType = expandProps[0].entityType;
+    const nextSqResult = sqResult[npName];
 
     // if it doesn't already exist then create it
     if (nextResult == null) {
@@ -430,9 +430,9 @@ export class SequelizeQuery {
 
   // Add an include for a where or order by clause.  Returns last include in the props chain.
   public _addInclude(parent: FindOptions, props: NavigationProperty[]): IncludeOptions {
-    let include = this._getIncludeFor(parent, props[0]);
+    const include = this._getIncludeFor(parent, props[0]);
     // empty attributes array tells sequelize not to retrieve the entity data
-    if (!include['$disallowAttributes']) include.attributes = include.attributes || [];
+    if (!include['$disallowAttributes']) { include.attributes = include.attributes || []; }
     props = props.slice(1);
     if (props.length > 0) {
       if (props[0].isNavigationProperty) {
@@ -451,7 +451,7 @@ export class SequelizeQuery {
     // 2) that we support restricted projections on expanded nodes as long as we don't
     //    violate #1 above.
 
-    let include = this._getIncludeFor(parent, props[0]) as IncludeOptions;
+    const include = this._getIncludeFor(parent, props[0]) as IncludeOptions;
     props = props.slice(1);
     if (props.length > 0) {
       if (props[0].isNavigationProperty) {
@@ -488,9 +488,9 @@ export class SequelizeQuery {
 
   // Find or create an include object, and attach it to parent
   private _getIncludeFor(parent: FindOptions, prop: NavigationProperty): IncludeOptions {
-    let sqModel = this.sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
-    let includes = parent.include = parent.include || [];
-    let findInclude = { model: sqModel, as: prop.nameOnServer };
+    const sqModel = this.sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
+    const includes = parent.include = (parent.include || []) as Includeable[];
+    const findInclude = { model: sqModel, as: prop.nameOnServer };
     let include = _.find(includes, findInclude) as IncludeOptions;
     if (!include) {
       includes.push(findInclude);
@@ -500,13 +500,13 @@ export class SequelizeQuery {
   }
 
   private _getModelAs(prop: NavigationProperty) {
-    let sqModel = this.sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
+    const sqModel = this.sequelizeManager.entityTypeSqModelMap[prop.entityType.name];
     return { model: sqModel, as: prop.nameOnServer };
   }
 }
 
 function getKey(sqResult: Model, entityType: EntityType) {
-  let key = entityType.keyProperties
+  const key = entityType.keyProperties
     .map( kp => sqResult[kp.nameOnServer])
     .join("::") + "^" + entityType.name;
   return key;
@@ -514,7 +514,7 @@ function getKey(sqResult: Model, entityType: EntityType) {
 
 // needed to convert 'or:' and 'and:' clauses into Sequelize.and/or clauses
 function processAndOr(parent: IncludeOptions) {
-  if (parent == null) return;
+  if (parent == null) { return; }
   if (parent.where) {
     parent.where = processAndOrClause(parent.where);
   }
@@ -524,15 +524,15 @@ function processAndOr(parent: IncludeOptions) {
 
 function processAndOrClause(where: WhereOptions): WhereOptions {
   // console.log("processAndOrClause", where);
-  let ands = (where[Op.and] || where['and']) as WhereOptions[];
-  let ors = (where[Op.or] || where['or']) as WhereOptions[];
+  const ands = (where[Op.and] || where['and']) as WhereOptions[];
+  const ors = (where[Op.or] || where['or']) as WhereOptions[];
   if (ands) {
-    let clauses = ands.map( clause => processAndOrClause(clause));
-    return Sequelize.and.apply(null, clauses);
+    const clauses = ands.map( clause => processAndOrClause(clause));
+    return Sequelize.and.apply(null, clauses as any);
     // return Sequelize.and(clauses[0], clauses[1]);
   } else if (ors) {
-    let clauses = ors.map( clause => processAndOrClause(clause));
-    return Sequelize.or.apply(null, clauses);
+    const clauses = ors.map( clause => processAndOrClause(clause));
+    return Sequelize.or.apply(null, clauses as any);
   } else {
     return where;
   }

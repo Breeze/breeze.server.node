@@ -4,9 +4,9 @@ import * as _ from 'lodash';
 import { BaseError, Model, Transaction } from "sequelize";
 import { SaveMap } from "./SaveMap";
 import { KeyGenerator, SequelizeManager } from "./SequelizeManager";
-let toposort = require("toposort") as (ar: any[]) => any[];
+const toposort = require("toposort") as (ar: any[]) => any[];
 
-export type OpenObj = { [k: string]: any };
+export interface OpenObj { [k: string]: any }
 
 export type ServerEntityState = "Added" | "Deleted" | "Modified";
 
@@ -115,7 +115,7 @@ export class SequelizeSaveHandler {
 
   /** Create an instance for the given save request */
   constructor(sequelizeManager: SequelizeManager, req: SaveRequest) {
-    let reqBody = req.body;
+    const reqBody = req.body;
     this.sequelizeManager = sequelizeManager;
     this.metadataStore = sequelizeManager.metadataStore;
     this.entitiesFromClient = reqBody.entities;
@@ -130,16 +130,16 @@ export class SequelizeSaveHandler {
 
   /** Save the entities in the save request, returning either the saved entities or an error collection */
   async save(): Promise<ServerSaveResult> {
-    let beforeSaveEntity: BeforeSaveEntityFn = (this.beforeSaveEntity || noopBeforeSaveEntity).bind(this);
-    let entityTypeMap = {};
+    const beforeSaveEntity: BeforeSaveEntityFn = (this.beforeSaveEntity || noopBeforeSaveEntity).bind(this);
+    const entityTypeMap = {};
 
-    let entityInfos = this.entitiesFromClient.map(entity => {
+    const entityInfos = this.entitiesFromClient.map(entity => {
       // transform entities from how they are sent from the client
       // into entityInfo objects which is how they are exposed
       // to interception on the server.
-      let entityAspect = entity.entityAspect;
+      const entityAspect = entity.entityAspect;
 
-      let entityTypeName = entityAspect.entityTypeName;
+      const entityTypeName = entityAspect.entityTypeName;
       let entityType = entityTypeMap[entityTypeName];
       if (!entityType) {
         entityType = this.metadataStore.getEntityType(entityTypeName);
@@ -150,8 +150,8 @@ export class SequelizeSaveHandler {
         }
       }
 
-      let unmapped = (entity as any).__unmapped;
-      let ei: ServerEntityInfo = { entity: entity, entityType: entityType, entityAspect: entityAspect, unmapped: unmapped };
+      const unmapped = (entity as any).__unmapped;
+      const ei: ServerEntityInfo = { entity: entity, entityType: entityType, entityAspect: entityAspect, unmapped: unmapped };
       // just to be sure that we don't try to send it to the db server or return it to the client.
       delete entity.entityAspect;
 
@@ -159,7 +159,7 @@ export class SequelizeSaveHandler {
     });
 
     // create the saveMap (entities to be saved) grouped by entityType
-    let saveMapData = _.groupBy(entityInfos, entityInfo => {
+    const saveMapData = _.groupBy(entityInfos, entityInfo => {
       // _.groupBy will bundle all undefined returns together.
       if (beforeSaveEntity(entityInfo)) {
         return entityInfo.entityType.name;
@@ -169,20 +169,20 @@ export class SequelizeSaveHandler {
     delete saveMapData["undefined"];
 
     // want to have SaveMap functions available
-    let saveMap = _.extend(new SaveMap(this), saveMapData);
+    const saveMap = _.extend(new SaveMap(this), saveMapData);
 
     return this._saveWithTransaction(saveMap);
 
   }
 
   private async _saveWithTransaction(saveMap: SaveMap) {
-    let sequelize = this.sequelizeManager.sequelize;
-    
+    const sequelize = this.sequelizeManager.sequelize;
+
     // TODO: consider making the isolation level settable on the SequelizeManager.
     // const trx = await sequelize.transaction( { isolationLevel: Transaction.ISOLATION_LEVELS.READ_UNCOMMITTED });
     const trx = await sequelize.transaction();
 
-    let beforeSaveEntities: BeforeSaveEntitiesFn = (this.beforeSaveEntities || noopBeforeSaveEntities).bind(this);
+    const beforeSaveEntities: BeforeSaveEntitiesFn = (this.beforeSaveEntities || noopBeforeSaveEntities).bind(this);
     // beforeSaveEntities will either return nothing or a promise.
     const sm = await beforeSaveEntities(saveMap, trx);
 
@@ -211,10 +211,10 @@ export class SequelizeSaveHandler {
     }
 
     // guaranteed to succeed because these have all been looked up earlier.
-    let entityTypes = _.keys(saveMap).map( entityTypeName => this.metadataStore.getEntityType(entityTypeName));
+    const entityTypes = _.keys(saveMap).map( entityTypeName => this.metadataStore.getEntityType(entityTypeName));
 
-    let sortedEntityTypes = toposortEntityTypes(entityTypes as EntityType[]);
-    let entityGroups = sortedEntityTypes.map((entityType: EntityType) => {
+    const sortedEntityTypes = toposortEntityTypes(entityTypes as EntityType[]);
+    const entityGroups = sortedEntityTypes.map((entityType: EntityType) => {
       return { entityType: entityType, entityInfos: saveMap[entityType.name] } as ServerEntityGroup;
     });
 
@@ -225,14 +225,14 @@ export class SequelizeSaveHandler {
 
     const addedUpdatedEntities: OpenObj[] = [];
     // can't use entityGroups.map here because we DO NOT want the groups to run in parallel.
-    for (let entityGroup of entityGroups) {
+    for (const entityGroup of entityGroups) {
       const r = await this._processEntityGroup(entityGroup, transaction, false);
       addedUpdatedEntities.push(...r);
     }
-    
+
     const deletedEntities: OpenObj[] = [];
     // can't use entityGroups.map here because we DO NOT want the groups to run in parallel.
-    for (let entityGroup of entityGroups.reverse()) {
+    for (const entityGroup of entityGroups.reverse()) {
       const r = await this._processEntityGroup(entityGroup, transaction, true);
       deletedEntities.push(...r);
     }
@@ -242,14 +242,14 @@ export class SequelizeSaveHandler {
   }
 
   private async _processEntityGroup(entityGroup: ServerEntityGroup, transaction: Transaction, processDeleted: boolean) {
-    let entityType = entityGroup.entityType;
+    const entityType = entityGroup.entityType;
 
     let entityInfos = entityGroup.entityInfos.filter(entityInfo => {
-      let isDeleted = entityInfo.entityAspect.entityState === "Deleted";
+      const isDeleted = entityInfo.entityAspect.entityState === "Deleted";
       return processDeleted ? isDeleted : !isDeleted;
     });
 
-    let sqModel = this.sequelizeManager.entityTypeSqModelMap[entityType.name];
+    const sqModel = this.sequelizeManager.entityTypeSqModelMap[entityType.name];
 
     entityInfos = toposortEntityInfos(entityType, entityInfos);
     if (processDeleted) {
@@ -263,15 +263,15 @@ export class SequelizeSaveHandler {
     return savedEntities;
   }
 
-  private async _saveEntityAsync(entityInfo: ServerEntityInfo, sqModel: { new(): Model } & typeof Model, transaction: Transaction) {
+  private async _saveEntityAsync(entityInfo: ServerEntityInfo, sqModel: (new() => Model) & typeof Model, transaction: Transaction) {
     // function returns a promise for this entity
     // and updates the results array.
 
     // not a "real" entityAspect - just the salient pieces sent from the client.
-    let entity = entityInfo.entity;
-    let entityAspect = entityInfo.entityAspect;
-    let entityType = entityInfo.entityType;
-    let entityTypeName = entityType.name;
+    const entity = entityInfo.entity;
+    const entityAspect = entityInfo.entityAspect;
+    const entityType = entityInfo.entityType;
+    const entityTypeName = entityType.name;
 
     // TODO: determine if this is needed because we need to strip the entityAspect off the entity for inserts.
     entityAspect.entity = entity;
@@ -279,11 +279,11 @@ export class SequelizeSaveHandler {
     // TODO: we really only need to coerce every field on an insert
     // only selected fields are needed for update and delete.
     this._coerceData(entity, entityType);
-    let keyProperties = entityType.keyProperties;
-    let firstKeyPropName = keyProperties[0].nameOnServer;
+    const keyProperties = entityType.keyProperties;
+    const firstKeyPropName = keyProperties[0].nameOnServer;
 
-    let entityState = entityAspect.entityState;
-    
+    const entityState = entityAspect.entityState;
+
     if (entityState === "Added") {
       let keyMapping: KeyMapping = null;
       // NOTE: there are two instances of autoGeneratedKeyType available
@@ -291,9 +291,9 @@ export class SequelizeSaveHandler {
       // on the entityAspect that was sent as part of the save.
       // The one on the entityAspect "overrides" the one on the entityType.
 
-      let autoGeneratedKey = entityAspect.autoGeneratedKey;
-      let autoGeneratedKeyType = autoGeneratedKey && autoGeneratedKey.autoGeneratedKeyType;
-      let tempKeyValue = entity[firstKeyPropName];
+      const autoGeneratedKey = entityAspect.autoGeneratedKey;
+      const autoGeneratedKeyType = autoGeneratedKey && autoGeneratedKey.autoGeneratedKeyType;
+      const tempKeyValue = entity[firstKeyPropName];
       if (autoGeneratedKeyType && autoGeneratedKeyType !== "None") {
         let realKeyValue: any;
         if (autoGeneratedKeyType === "KeyGenerator") {
@@ -304,7 +304,7 @@ export class SequelizeSaveHandler {
           realKeyValue = nextId;
           entity[firstKeyPropName] = realKeyValue;
         } else if (autoGeneratedKeyType === "Identity") {
-          let keyDataTypeName = keyProperties[0].dataType.name;
+          const keyDataTypeName = keyProperties[0].dataType.name;
           if (keyDataTypeName === "Guid") {
             // handled here instead of one the db server.
             realKeyValue = createGuid();
@@ -316,7 +316,7 @@ export class SequelizeSaveHandler {
             delete entity[firstKeyPropName];
           }
         }
-      
+
         // tempKeyValue will be undefined in entity was created on the server
         if (tempKeyValue != undefined) {
           keyMapping = { entityTypeName: entityTypeName, tempValue: tempKeyValue, realValue: realKeyValue };
@@ -328,7 +328,7 @@ export class SequelizeSaveHandler {
           if (keyMapping.realValue === null) {
             keyMapping.realValue = savedEntity[firstKeyPropName];
           }
-          let tempKeyString = buildKeyString(entityType, tempKeyValue);
+          const tempKeyString = buildKeyString(entityType, tempKeyValue);
           this._fkFixupMap[tempKeyString] = keyMapping.realValue;
           this._keyMappings.push(keyMapping);
         }
@@ -337,7 +337,7 @@ export class SequelizeSaveHandler {
         throw new SequelizeSaveError(e, entity, entityState);
       }
     } else if (entityState === "Modified") {
-      let whereHash = {};
+      const whereHash = {};
       keyProperties.forEach(kp => {
         whereHash[kp.nameOnServer] = entity[kp.nameOnServer];
       });
@@ -346,10 +346,12 @@ export class SequelizeSaveHandler {
         entityType.concurrencyProperties.forEach(cp => {
           // this is consistent with the client behaviour where it does not update the version property
           // if its data type is binary
-          if (cp.dataType.name === 'Binary')
+          if (cp.dataType.name === 'Binary') {
             whereHash[cp.nameOnServer] = entity[cp.nameOnServer];
-          else
+          }
+          else {
             whereHash[cp.nameOnServer] = entityAspect.originalValuesMap[cp.nameOnServer];
+          }
         });
       }
       let setHash: object;
@@ -360,13 +362,13 @@ export class SequelizeSaveHandler {
         // TODO: should we also remove keyProps here...
       } else {
         setHash = {};
-        let ovm = entityAspect.originalValuesMap;
+        const ovm = entityAspect.originalValuesMap;
         if (ovm == null) {
           throw new Error("Unable to locate an originalValuesMap for one of the 'Modified' entities to be saved");
         }
         Object.keys(ovm).forEach(k => {
           // if k is one of the entityKeys do no allow this
-          let isKeyPropName = keyProperties.some(kp => {
+          const isKeyPropName = keyProperties.some(kp => {
             return kp.nameOnServer === k;
           });
           if (isKeyPropName) {
@@ -382,9 +384,9 @@ export class SequelizeSaveHandler {
       }
       try {
         const infoArray = await sqModel.update(setHash, { where: whereHash, transaction: transaction });
-        let itemsSaved = infoArray[0];
+        const itemsSaved = infoArray[0];
         if (itemsSaved !== 1) {
-          let err = new Error("unable to update entity - concurrency violation") as any;
+          const err = new Error("unable to update entity - concurrency violation") as any;
           err.entity = entity;
           err.entityState = entityState;
           throw err;
@@ -396,7 +398,7 @@ export class SequelizeSaveHandler {
         throw new SequelizeSaveError(e, entity, entityState);
       }
     } else if (entityState === "Deleted") {
-      let whereHash = {};
+      const whereHash = {};
       keyProperties.forEach(kp => {
         whereHash[kp.nameOnServer] = entity[kp.nameOnServer];
       });
@@ -423,19 +425,19 @@ export class SequelizeSaveHandler {
   private _coerceData(entity: ServerEntity, entityType: EntityType) {
     entityType.dataProperties.forEach(dp => {
 
-      let val = entity[dp.nameOnServer];
+      const val = entity[dp.nameOnServer];
       if (val != null) {
         if (dp.relatedNavigationProperty != null) {
           // if this is an fk column and it has a value
           // check if there is a fixed up value.
-          let key = buildKeyString(dp.relatedNavigationProperty.entityType, val);
-          let newVal = this._fkFixupMap[key];
+          const key = buildKeyString(dp.relatedNavigationProperty.entityType, val);
+          const newVal = this._fkFixupMap[key];
           if (newVal) {
             entity[dp.nameOnServer] = newVal;
           }
         }
 
-        let dtName = dp.dataType.name;
+        const dtName = dp.dataType.name;
         if (dtName === "DateTime" || dtName === "DateTimeOffset") {
           entity[dp.nameOnServer] = new Date(Date.parse(val));
         }
@@ -451,7 +453,7 @@ export class SequelizeSaveHandler {
 }
 
 function noopBeforeSaveEntities(saveMap: SaveMap, trx?: Transaction) {
-  return saveMap;
+  return Promise.resolve(saveMap);
 }
 
 function noopBeforeSaveEntity(entityInfo: ServerEntityInfo) {
@@ -460,11 +462,11 @@ function noopBeforeSaveEntity(entityInfo: ServerEntityInfo) {
 
 /** Sort the EntityTypes based on their dependencies */
 function toposortEntityTypes(entityTypes: EntityType[]) {
-  let edges: [EntityType, EntityType][] = [];
+  const edges: [EntityType, EntityType][] = [];
   entityTypes.forEach(et => {
     et.foreignKeyProperties.forEach(fkp => {
       if (fkp.relatedNavigationProperty) {
-        let dependsOnType = fkp.relatedNavigationProperty.entityType;
+        const dependsOnType = fkp.relatedNavigationProperty.entityType;
         if (et !== dependsOnType) {
           edges.push([et, dependsOnType]);
         }
@@ -474,11 +476,11 @@ function toposortEntityTypes(entityTypes: EntityType[]) {
   // this should work but toposort.array seems to have a bug ...
   // let sortedEntityTypes = toposort.array(entityTypes, edges).reverse();
   // so use this instead.
-  let allSortedTypes = toposort(edges).reverse();
+  const allSortedTypes = toposort(edges).reverse();
   allSortedTypes.forEach(function (st, ix) {
     st.index = ix;
   });
-  let sortedEntityTypes = entityTypes.sort(function (a, b) {
+  const sortedEntityTypes = entityTypes.sort(function (a, b) {
     return (a as any).index - (b as any).index;
   });
   return sortedEntityTypes;
@@ -486,20 +488,21 @@ function toposortEntityTypes(entityTypes: EntityType[]) {
 
 /** Sort the EntityInfos of a given type based foreign key relationships */
 function toposortEntityInfos(entityType: EntityType, entityInfos: ServerEntityInfo[]) {
-  let edges: [ServerEntityInfo, ServerEntityInfo][] = [];
-  let selfReferenceNavProp = _.find(entityType.navigationProperties, navProp => navProp.entityType === entityType);
+  const edges: [ServerEntityInfo, ServerEntityInfo][] = [];
+  const selfReferenceNavProp = _.find(entityType.navigationProperties, navProp => navProp.entityType === entityType);
   if (!selfReferenceNavProp || !selfReferenceNavProp.relatedDataProperties) {
     return entityInfos;
   }
 
-  let fkDataProp = selfReferenceNavProp.relatedDataProperties[0].name;
-  let keyProp = entityType.keyProperties[0].name;
+  const fkDataProp = selfReferenceNavProp.relatedDataProperties[0].name;
+  const keyProp = entityType.keyProperties[0].name;
   entityInfos.forEach(function (entityInfo) {
-    let dependsOn = entityInfo.entity[fkDataProp];
+    const dependsOn = entityInfo.entity[fkDataProp];
     if (dependsOn) {
-      let dependsOnInfo = _.find(entityInfos, x => x.entity[keyProp] === dependsOn && x.entity !== entityInfo.entity); // avoid referencing the same object
-      if (dependsOnInfo)
+      const dependsOnInfo = _.find(entityInfos, x => x.entity[keyProp] === dependsOn && x.entity !== entityInfo.entity); // avoid referencing the same object
+      if (dependsOnInfo) {
         edges.push([entityInfo, dependsOnInfo]);
+      }
     }
   });
 
@@ -507,11 +510,11 @@ function toposortEntityInfos(entityType: EntityType, entityInfos: ServerEntityIn
     return entityInfos;
   }
 
-  let allSortedEntityInfos = toposort(edges).reverse();
+  const allSortedEntityInfos = toposort(edges).reverse();
   allSortedEntityInfos.forEach(function (st, ix) {
     st.__index = ix;
   });
-  let sortedEntityInfos = entityInfos.sort(function (a, b) {
+  const sortedEntityInfos = entityInfos.sort(function (a, b) {
     return (a as any).__index - (b as any).__index;
   });
   return sortedEntityInfos;
@@ -524,7 +527,7 @@ function buildKeyString(entityType: EntityType, val: any) {
 function createGuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     // tslint:disable-next-line: triple-equals
-    let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
 }

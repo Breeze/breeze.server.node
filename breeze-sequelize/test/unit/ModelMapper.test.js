@@ -4,7 +4,7 @@ var expect           = require('chai').expect;
 var Sequelize        = require('sequelize');
 var breezeSequelize  = require("breeze-sequelize");
 var testFns          = require('./testFns.js');
-var SequelizeAuto    = require('sequelize-auto-v3');
+var SequelizeAuto    = require('sequelize-auto');
 
 var SequelizeManager = breezeSequelize.SequelizeManager;
 
@@ -22,47 +22,27 @@ describe("ModelMapper", function() {
   before(function() {
     debugger;
 
-    // var auto = new SequelizeAuto('northwindib', 'mysql', 'mysql', {
-    //     host: 'localhost',
-    //     dialect: 'mysql',
-    //     directory: false, // false to skip writing to disk
-    //     port: '3306',
-    //     additional: { // Sequelize options
-    //         timestamps: false
-    //     },
-    //     tables: ['customer', 'order']
-    // });
+    var config = testFns.dbConfigNw;
+    var directory = path.resolve('mymodels');
 
-    var auto = new SequelizeAuto('northwindib', 'mssql', 'mssql', {
-        host: 'localhost',
-        dialect: 'mssql',
-        directory: 'msmodel', // false to skip writing to disk
-        port: '1433',
+    var auto = new SequelizeAuto(config.dbName, config.user, config.password, {
+        host: config.host,
+        port: config.port,
+        dialect: config.dialect,
+        directory: directory,
         additional: { // Sequelize options
             timestamps: false
-        },
-        tables: ['Customer', 'Order']
+        }
     });
 
-    auto.run(function (err) {
-      if (err) throw err;
+    // export sequelize models into the models directory
+    return auto.run().then(_ => {
+      _sm = new SequelizeManager(config);
+      _sq = _sm.sequelize;
 
-      console.dir(auto.tables); // table list
-      console.dir(auto.foreignKeys); // foreign key list
+      // load models into sequelize instance
+      ModelMapper.loadSequelizeModels(_sq, directory);
     });
-
-    _sm = new SequelizeManager(testFns.dbConfigNw);
-
-    // load model data - run `npm run gen-model-my` before running these tests
-    // _sq = _sm.sequelize;
-    // var files = fs.readdirSync(modelDir);
-    // files.forEach(function(file) {
-    //   _sq.import(path.join(modelDir, file));
-    // });
-
-    // _sq.import('./mymodels/customer.js');
-    // _sq.import('./mymodels/order.js');
-    // _sq.import('./mymodels/role.js');
 
   });
 
@@ -71,7 +51,7 @@ describe("ModelMapper", function() {
     _ms = _em.metadataStore;
   });
 
-  it.only("sequelize should load the model", function() {  
+  it("sequelize should load the models", function() {  
     var models = _sq.models;
     var modelNames = Object.keys(models);
     console.log(modelNames);
@@ -91,7 +71,7 @@ describe("ModelMapper", function() {
     expect(cust.CustomerID).to.equal('123');
   });
 
-  it("should have a ModelMapper", function() {
+  it("should create ModelMapper", function() {
     var mm = new ModelMapper(_ms);
     expect(!mm).to.eql(false);
     expect(mm.metadataStore).to.eql(_ms);
@@ -166,6 +146,19 @@ describe("ModelMapper", function() {
     expect(prop.invForeignKeyNames).to.have.lengthOf(1);
     expect(prop.invForeignKeyNames[0]).to.eql("CustomerID");
     expect(prop.entityType.shortName).to.eql("order");    
+  });
+
+  it("should populate maps in SequelizeManager", function() {
+    var mm = new ModelMapper(_ms);
+    mm.addModels(_sm.sequelize, 'foo');
+    _sm.importMetadata(_ms);
+
+    var custModel = _sm.entityTypeSqModelMap["customer:#foo"];
+    expect(custModel.tableName).to.eql("customer");
+
+    custModel = _sm.models["customer"];
+    expect(custModel.tableName).to.eql("customer");
+
   });
 
   // it("should export metadata", function() {

@@ -14,14 +14,14 @@ export interface ExprResult {
 
 /** Visit the nodes in a Breeze query, converting it to a Sequelize query */
 const toSQVisitor = (function () {
-  let visitor = {
+  const visitor = {
 
     passthruPredicate: function () {
       return this.value;
     },
 
     unaryPredicate: function (context: VisitContext) {
-      let predSq = this.pred.visit(context);
+      const predSq = this.pred.visit(context);
       if (this.op.key !== "not") {
         throw new Error("Not yet implemented: Unary operation: " + this.op.key + " pred: " + JSON.stringify(this.pred));
       }
@@ -33,8 +33,8 @@ const toSQVisitor = (function () {
     },
 
     binaryPredicate: function (context: SqVisitContext) {
-      let result = {} as ExprResult;
-      let op = this.op.key;
+      const result = {} as ExprResult;
+      const op = this.op.key;
       // TODO: right now only handling case where e1 : PropExpr and e2 : LitExpr | PropExpr
       // not yet handled: e1: FnExpr | e2: FnExpr
 
@@ -49,7 +49,7 @@ const toSQVisitor = (function () {
       }
 
       let crit;
-      let like = _boolOpMap.like.sequelizeOp;
+      const like = _boolOpMap.like.sequelizeOp;
       if (this.expr2.visitorMethodName === "litExpr") {
         p2Value = this.expr2.value;
         if (op === "eq") {
@@ -64,17 +64,17 @@ const toSQVisitor = (function () {
           crit = { [like]: "%" + p2Value + "%" };
         } else {
           crit = {};
-          let mop = _boolOpMap[op].sequelizeOp;
+          const mop = _boolOpMap[op].sequelizeOp;
           crit[mop] = p2Value;
         }
 
       } else if (this.expr2.visitorMethodName === "propExpr") {
         let p2Value = this.expr2.propertyPath;
-        let props = context.entityType.getPropertiesOnPath(p2Value, context.toNameOnServer, true);
+        const props = context.entityType.getPropertiesOnPath(p2Value, context.toNameOnServer, true);
         p2Value = props.map(function (p) {
           return p.nameOnServer;
         }).join(".");
-        let colVal = Sequelize.col(p2Value);
+        const colVal = Sequelize.col(p2Value);
         if (op === "eq") {
           crit = colVal;
         } else if (op === "startswith") {
@@ -85,7 +85,7 @@ const toSQVisitor = (function () {
           crit = { [like]: Sequelize.literal("concat('%'," + p2Value + ",'%')") };
         } else {
           crit = {};
-          let mop = _boolOpMap[op].sequelizeOp;
+          const mop = _boolOpMap[op].sequelizeOp;
           crit[mop] = colVal;
         }
       } else {
@@ -104,36 +104,37 @@ const toSQVisitor = (function () {
     },
 
     andOrPredicate: function (context: VisitContext) {
-      let result = {} as ExprResult;
-      let predSqs = this.preds.map(function (pred: Predicate) {
+      const result = {} as ExprResult;
+      const predSqs = this.preds.map(function (pred: Predicate) {
         return pred.visit(context);
       });
 
-      let wheres = [] as WhereOptions[];
-      let includes = [] as IncludeOptions[];
+      const wheres = [] as WhereOptions[];
+      const includes = [] as IncludeOptions[];
       if (predSqs.length === 0) {
         return null;
       } else if (predSqs.length === 1) {
         return predSqs[0];
       } else {
-        let that = this;
+        const that = this;
         predSqs.forEach(function (predSq: FindOptions) {
           if (!isEmpty(predSq.where)) {
             wheres.push(predSq.where);
           }
           if (!isEmpty(predSq.include)) {
-            let processIncludes = function (sourceIncludes: IncludeOptions[], targetIncludes: IncludeOptions[]) {
+            const processIncludes = function (sourceIncludes: IncludeOptions[], targetIncludes: IncludeOptions[]) {
               sourceIncludes.forEach(function (sourceInclude: IncludeOptions) {
-                if (!targetIncludes)
+                if (!targetIncludes) {
                   targetIncludes = [];
-                let include = _.find(targetIncludes, { model: sourceInclude.model });
+                }
+                const include = _.find(targetIncludes, { model: sourceInclude.model });
                 if (!include) {
                   targetIncludes.push(sourceInclude);
                 } else {
                   if (include.where === null) {
                     include.where = sourceInclude.where;
                   } else if (sourceInclude.where != null) {
-                    let where = {} as Where;
+                    const where = {} as Where;
                     where[that.op.key] = [include.where, sourceInclude.where];
                     include.where = where;
                   }
@@ -142,8 +143,9 @@ const toSQVisitor = (function () {
                   } else if (sourceInclude.attributes != null) {
                     include.attributes = _.uniq((include.attributes as any[]).concat(sourceInclude.attributes));
                   }
-                  if (!isEmpty(sourceInclude.include))
+                  if (!isEmpty(sourceInclude.include)) {
                     processIncludes(sourceInclude.include as IncludeOptions[], include.include as IncludeOptions[]);
+                  }
                 }
               });
             };
@@ -176,19 +178,19 @@ const toSQVisitor = (function () {
         throw new Error("The 'all' predicate is not currently supported for Sequelize");
       }
 
-      let props = context.entityType.getPropertiesOnPath(this.expr.propertyPath, context.toNameOnServer, true) as NavigationProperty[];
-      let parent = {} as ExprResult;
-      let include = context.sequelizeQuery._addInclude(parent, props);
-      let newContext = _.clone(context);
+      const props = context.entityType.getPropertiesOnPath(this.expr.propertyPath, context.toNameOnServer, true) as NavigationProperty[];
+      const parent = {} as ExprResult;
+      const include = context.sequelizeQuery._addInclude(parent, props);
+      const newContext = _.clone(context);
       newContext.entityType = this.expr.dataType;
 
       // after this line the logic below will apply to the include instead of the top level where.
       // predicate is applied to inner context
 
-      let r = this.pred.visit(newContext);
+      const r = this.pred.visit(newContext);
       include.where = r.where || {};
       include.required = true;
-      if (r.include) include.include = r.include;
+      if (r.include) { include.include = r.include; }
       return { include: parent.include };
 
     },
@@ -221,13 +223,13 @@ const toSQVisitor = (function () {
 
   function processPropExpr(expr: PropExpr, context: SqVisitContext, result: ExprResult) {
     let exprVal;
-    let pp = expr.propertyPath;
-    let props = context.entityType.getPropertiesOnPath(pp, context.toNameOnServer, true) as NavigationProperty[];
+    const pp = expr.propertyPath;
+    const props = context.entityType.getPropertiesOnPath(pp, context.toNameOnServer, true) as NavigationProperty[];
     if (props.length > 1) {
       // handle a nested property path on the LHS - query gets moved into the include
       // context.include starts out null at top level
-      let parent = {} as { include: any[] };
-      let include = context.sequelizeQuery._addInclude(parent, props);
+      const parent = {} as { include: any[] };
+      const include = context.sequelizeQuery._addInclude(parent, props);
       include.where = {};
       result.include = parent.include;
       result.lastInclude = include;
@@ -240,17 +242,17 @@ const toSQVisitor = (function () {
   }
 
   function processFnExpr(expr: FnExpr, context: SqVisitContext, result: ExprResult) {
-    let fnName = expr.fnName;
-    let methodInfo = translateMap[fnName];
+    const fnName = expr.fnName;
+    const methodInfo = translateMap[fnName];
     if (methodInfo == null) {
       throw new Error('Unable to locate fn: ' + fnName);
     }
     methodInfo.validate && methodInfo.validate(expr.exprs);
 
-    let exprs = expr.exprs.map(function (ex) {
+    const exprs = expr.exprs.map(function (ex) {
       return processNestedExpr(ex, context, result);
     });
-    let exprVal = methodInfo.fn(exprs);
+    const exprVal = methodInfo.fn(exprs);
     return exprVal;
   }
 
@@ -260,7 +262,7 @@ const toSQVisitor = (function () {
       exprVal = processPropExpr(expr as PropExpr, context, result);
       return Sequelize.col(exprVal);
     } else if (expr.visitorMethodName === 'fnExpr') {
-      let exprVal = processFnExpr(expr as FnExpr, context, result);
+      const exprVal = processFnExpr(expr as FnExpr, context, result);
       return exprVal;
     } else if (expr.visitorMethodName = 'litExpr') {
       return (expr as LitExpr).value;
@@ -275,7 +277,7 @@ const toSQVisitor = (function () {
     return _.isEmpty(value) && Object.getOwnPropertySymbols(value).length === 0;
   }
 
-  let translateMap = {
+  const translateMap = {
     toupper: {
       fn: function (sqArgs: any) {
         return Sequelize.fn("UPPER", sqArgs[0]);
@@ -300,7 +302,7 @@ const toSQVisitor = (function () {
     }
   };
 
-  let simpleFnNames = ['length', 'trim', 'ceiling', 'floor', 'round', 'second', 'minute', 'hour', 'day', 'month', 'year'];
+  const simpleFnNames = ['length', 'trim', 'ceiling', 'floor', 'round', 'second', 'minute', 'hour', 'day', 'month', 'year'];
   simpleFnNames.forEach(function (fnName) {
     translateMap[fnName] = {
       fn: function (sqArgs: any[]) {
@@ -313,7 +315,7 @@ const toSQVisitor = (function () {
   });
 
   function validateMonadicFn(fnName: string, exprs: PredicateExpression[]) {
-    let errTmpl = "Error with call to the '%1' function.";
+    const errTmpl = "Error with call to the '%1' function.";
     let errMsg;
     if (exprs.length !== 1) {
       errMsg = formatString(errTmpl + " This function only takes a single parameter", fnName);
@@ -328,8 +330,8 @@ const toSQVisitor = (function () {
   // Based on fragment from Dean Edwards' Base 2 library
   // format("a %1 and a %2", "cat", "dog") -> "a cat and a dog"
   function formatString(str: string, ...rest: any) {
-    let args = arguments;
-    let pattern = RegExp("%([1-" + (arguments.length - 1) + "])", "g");
+    const args = arguments;
+    const pattern = RegExp("%([1-" + (arguments.length - 1) + "])", "g");
     return str.replace(pattern, function (match, index) {
       return args[index];
     });
@@ -349,9 +351,9 @@ function applyNot(q1: Where): any {
   // not { or  { a: 1, b: 2 } -> { and: [ a: { $ne: 1 }, b: { $ne 2 }]}
 
   let results = [], result;
-  let keys = Reflect.ownKeys(q1);
-  for (let k of keys) {
-    let v = q1[k];
+  const keys = Reflect.ownKeys(q1);
+  for (const k of keys) {
+    const v = q1[k];
     if (k === Op.or) {
       result = { [Op.and]: [applyNot(v[0]), applyNot(v[1])] };
     } else if (k === Op.and) {
@@ -380,7 +382,7 @@ function applyNot(q1: Where): any {
 }
 
 
-let _boolOpMap = {
+const _boolOpMap = {
   eq: { not: Op.ne },
   gt: { sequelizeOp: Op.gt, not: Op.lte },
   ge: { sequelizeOp: Op.gte, not: Op.lt },
@@ -391,7 +393,7 @@ let _boolOpMap = {
   like: { sequelizeOp: Op.like }
 };
 
-let _notOps = {
+const _notOps = {
   gt: "lte",
   lte: "gt",
   gte: "lt",
@@ -417,11 +419,11 @@ let _notOps = {
 
 // Used to determine if a clause is the result of a Sequelize.and/or method call.
 // Not currently need because of processAndOr method below
-//let isSequelizeAnd = function(o) {
+// let isSequelizeAnd = function(o) {
 //  return Object.getPrototypeOf(o).constructor == Sequelize.Utils.and;
-//}
+// }
 //
-//let isSequelizeOr = function(o) {
+// let isSequelizeOr = function(o) {
 //  return Object.getPrototypeOf(o).constructor == Sequelize.Utils.or;
-//}
+// }
 // --------------------------------

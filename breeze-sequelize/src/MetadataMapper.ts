@@ -1,5 +1,5 @@
 import { breeze, ComplexType, DataProperty, EntityType, MetadataStore, NavigationProperty, StructuralType } from "breeze-client";
-import { AbstractDataType, DataTypes, Model, ModelAttributeColumnOptions, ModelAttributes, ModelOptions, Sequelize } from "sequelize";
+import { AbstractDataType, DataTypes, Model, ModelAttributeColumnOptions, ModelAttributes, ModelCtor, ModelOptions, Sequelize } from "sequelize";
 import * as _ from 'lodash';
 import * as utils from "./utils";
 
@@ -48,11 +48,21 @@ export class MetadataMapper {
     // first create all of the sequelize types with just data properties
     entityTypes.forEach(entityType => {
       let typeConfig = this.mapToSqModelConfig(entityType);
-      let options: ModelOptions = {
-        // NOTE: case sensitivity of the table name may not be the same on some sql databases.
-        modelName: entityType.shortName, // this will define the table's name; see options.define
-      };
-      let sqModel = this.sequelize.define(entityType.shortName, typeConfig, options) as { new(): Model } & typeof Model;
+      let modelName = entityType.shortName;
+
+      // find model in sequelize instance, else create model
+      let sqModel: ModelCtor<any>;
+      if (this.sequelize.isDefined(modelName)) {
+        log("model already defined: ", modelName);
+        sqModel = this.sequelize.model(modelName);
+      } else {
+        let options: ModelOptions = {
+          // NOTE: case sensitivity of the table name may not be the same on some sql databases.
+          modelName: modelName, // this will define the table's name; see options.define
+        };
+        log("model not defined: ", modelName);
+        sqModel = this.sequelize.define(modelName, typeConfig, options) as { new(): Model } & typeof Model;
+      }
       entityTypeSqModelMap[entityType.name] = sqModel;
 
     }, this);
@@ -161,12 +171,12 @@ let _dataTypeMap = {
   Boolean: DataTypes.BOOLEAN,
   DateTime: DataTypes.DATE,
   DateTimeOffset: DataTypes.DATE,
-  Byte: DataTypes.INTEGER.UNSIGNED,
-  Int16: DataTypes.INTEGER,
+  Byte: DataTypes.TINYINT.UNSIGNED,
+  Int16: DataTypes.SMALLINT,
   Int32: DataTypes.INTEGER,
   Int64: DataTypes.BIGINT,
   Decimal: DataTypes.DECIMAL(19, 4),
-  Double: DataTypes.FLOAT,
+  Double: DataTypes.DOUBLE,
   Single: DataTypes.FLOAT,
   Guid: DataTypes.UUID,
   Binary: DataTypes.STRING().BINARY,

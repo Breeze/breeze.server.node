@@ -29,8 +29,8 @@ export class SequelizeManager {
 
   constructor(dbConfig: DbConfig, sequelizeOptions: Options) {
     let defaultOptions: Options = {
-      dialect: "mysql", // or 'sqlite', 'postgres', 'mariadb'
-      port: 3306, // or 5432 (for postgres)
+      dialect: "mysql", // or 'sqlite', 'postgres', 'mssql'
+      port: 3306, // (mysql), or 5432 (postgres), 1433 (mssql)
       // omitNull: true,
       logging: false,
       dialectOptions: { decimalNumbers: true },
@@ -44,6 +44,7 @@ export class SequelizeManager {
     this.sequelizeOptions.define = _.extend(define, (sequelizeOptions && sequelizeOptions.define) || {});
     this.dbConfig = dbConfig;
     this.sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, this.sequelizeOptions);
+    log.enabled = !!this.sequelizeOptions.logging;
   }
 
   /** Connect to the database */
@@ -85,7 +86,7 @@ export class SequelizeManager {
     sequelizeOpts = _.extend(defaultOptions, sequelizeOpts || {});
 
     try {
-      return await sequelize.sync(sequelizeOpts);
+      await sequelize.sync(sequelizeOpts);
       log("schema created");
       return sequelize;
     } catch (err) {
