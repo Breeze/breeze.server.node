@@ -32,7 +32,6 @@ export class ModelMapper {
         }
       });
     }
-
   }
 
   /** Add all the Models in the Sequelize instance to the MetadataStore */
@@ -50,6 +49,9 @@ export class ModelMapper {
 
   /** Convert the Sequelize Model to a Breeze EntityType and add it to the MetadataStore */
   addModel(model: ModelType, namespace: string) {
+    if (model.options.schema) {
+      namespace += "." + model.options.schema;
+    }
     const config = {
       shortName: model.name,
       namespace: namespace,

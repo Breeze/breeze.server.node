@@ -12,8 +12,8 @@ export interface DbConfig {
  *  @returns Promise<"success"> or throws an error */
 export async function connect(dbConfig: DbConfig, sequelizeOptions: Options): Promise<string> {
 
-  let sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, sequelizeOptions);
-  let statement = 'SELECT 1';
+  const sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, sequelizeOptions);
+  const statement = 'SELECT 1';
   try {
     const results = await sequelize.query(statement, { type: QueryTypes.RAW });
     log("Connected to database: " + dbConfig.dbName);
@@ -27,8 +27,8 @@ export async function connect(dbConfig: DbConfig, sequelizeOptions: Options): Pr
 /** Create new database.
  *  @returns Promise<void> or throws an error */
 export async function createDb(dbConfig: DbConfig, sequelizeOptions: Options): Promise<void> {
-  let sequelize = new Sequelize(null, dbConfig.user, dbConfig.password, sequelizeOptions);
-  let statement = 'CREATE DATABASE ' + dbConfig.dbName;
+  const sequelize = new Sequelize(null, dbConfig.user, dbConfig.password, sequelizeOptions);
+  const statement = 'CREATE DATABASE ' + dbConfig.dbName;
   try {
     await sequelize.query(statement, { type: QueryTypes.RAW });
     log("Database created: " + dbConfig.dbName);

@@ -1,11 +1,13 @@
 import { Sequelize, Options, SyncOptions } from "sequelize";
-import { MetadataStore, DataProperty } from "breeze-client";
+import { MetadataStore, DataProperty, breeze } from "breeze-client";
+import { ModelLibraryBackingStoreAdapter } from "breeze-client/adapter-model-library-backing-store";
 import { DbConfig, createDb } from "./dbUtils";
 import { MetadataMapper, NameModelMap } from "./MetadataMapper";
 
 import * as _ from 'lodash';
 import * as utils from "./utils";
-let log = utils.log;
+import { ModelMapper } from "./ModelMapper";
+const log = utils.log;
 
 export interface KeyGenerator {
   getNextId: (prop: DataProperty) => any;
@@ -28,7 +30,7 @@ export class SequelizeManager {
   keyGenerator: KeyGenerator;
 
   constructor(dbConfig: DbConfig, sequelizeOptions: Options) {
-    let defaultOptions: Options = {
+    const defaultOptions: Options = {
       dialect: "mysql", // or 'sqlite', 'postgres', 'mssql'
       port: 3306, // (mysql), or 5432 (postgres), 1433 (mssql)
       // omitNull: true,
@@ -39,12 +41,13 @@ export class SequelizeManager {
         timestamps: false       // deactivate the timestamp columns (createdAt, etc.)
       }
     };
-    let define = defaultOptions.define;
+    const define = defaultOptions.define;
     this.sequelizeOptions = _.extend(defaultOptions, sequelizeOptions || {});
     this.sequelizeOptions.define = _.extend(define, (sequelizeOptions && sequelizeOptions.define) || {});
     this.dbConfig = dbConfig;
     this.sequelize = new Sequelize(dbConfig.dbName, dbConfig.user, dbConfig.password, this.sequelizeOptions);
     log.enabled = !!this.sequelizeOptions.logging;
+    ModelLibraryBackingStoreAdapter.register(breeze.config);
   }
 
   /** Connect to the database */
@@ -64,9 +67,23 @@ export class SequelizeManager {
     return createDb(this.dbConfig, this.sequelizeOptions);
   }
 
+  /** Import Sequelize models, create Breeze metadata from the models, and build the maps between them. */
+  importModels(modelDir: string, namespace: string) {
+    // load models into sequelize instance
+    ModelMapper.loadSequelizeModels(this.sequelize, modelDir);
+
+    // add models to the metadata store
+    this.metadataStore = new MetadataStore();
+    const mm = new ModelMapper(this.metadataStore);
+    mm.addModels(this.sequelize, namespace);
+
+    // create maps between the metadata and the models
+    this.importMetadata(this.metadataStore);
+  }
+
   /** Convert Breeze metadata to Sequelize models */
   importMetadata(breezeMetadata: MetadataStore | string | Object) {
-    let metadataMapper = new MetadataMapper(breezeMetadata, this.sequelize);
+    const metadataMapper = new MetadataMapper(breezeMetadata, this.sequelize);
     // TODO: should we merge here instead ; i.e. allow multiple imports...
     this.models = this.resourceNameSqModelMap = metadataMapper.resourceNameSqModelMap;
     this.entityTypeSqModelMap = metadataMapper.entityTypeSqModelMap;
@@ -77,12 +94,12 @@ export class SequelizeManager {
   async sync(shouldCreateDb: boolean, sequelizeOpts: SyncOptions) {
     if (shouldCreateDb) {
       await this.createDb();
-    } 
+    }
     return await this.syncCore(this.sequelize, sequelizeOpts);
   }
 
   private async syncCore(sequelize: Sequelize, sequelizeOpts: SyncOptions)  {
-    let defaultOptions = { force: true };
+    const defaultOptions = { force: true };
     sequelizeOpts = _.extend(defaultOptions, sequelizeOpts || {});
 
     try {

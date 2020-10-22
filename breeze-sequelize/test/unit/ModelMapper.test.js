@@ -161,6 +161,22 @@ describe("ModelMapper", function() {
 
   });
 
+  it("should populate maps using SequelizeManager.importModels", function() {
+
+    var config = testFns.dbConfigNw;
+    var directory = path.resolve('mymodels');
+
+    var sm = new SequelizeManager(config);
+    sm.importModels(directory, 'foo');
+
+    var custModel = sm.entityTypeSqModelMap["customer:#foo"];
+    expect(custModel.tableName).to.eql("customer");
+
+    custModel = sm.models["customer"];
+    expect(custModel.tableName).to.eql("customer");
+
+  });
+
   // it("should export metadata", function() {
   //   var mm = new ModelMapper(_ms);
   //   mm.addModels(_sq, 'foo');

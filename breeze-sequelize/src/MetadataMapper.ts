@@ -3,10 +3,10 @@ import { AbstractDataType, DataTypes, Model, ModelAttributeColumnOptions, ModelA
 import * as _ from 'lodash';
 import * as utils from "./utils";
 
-let log = utils.log;
+const log = utils.log;
 
 /** Map name to Sequelize Model type */
-export interface NameModelMap { [modelName: string]: { new(): Model } & typeof Model; }
+export interface NameModelMap { [modelName: string]: ModelCtor<any>; }
 
 // TODO: still need to handle inherited entity types - TPT
 /** Maps Breeze metadata to Sequelize Models */
@@ -35,20 +35,20 @@ export class MetadataMapper {
   /** creates entityTypeSqModelMap and resourceNameSqModelMap */
   private _createMaps() {
 
-    let ms = this.metadataStore;
-    let allTypes = ms.getEntityTypes();
-    let typeMap = _.groupBy(allTypes, t => {
+    const ms = this.metadataStore;
+    const allTypes = ms.getEntityTypes();
+    const typeMap = _.groupBy(allTypes, t => {
       return t.isComplexType ? "complexType" : "entityType";
     });
     // let complexTypes = typeMap["complexType"];
-    let entityTypes = typeMap["entityType"];
+    const entityTypes = typeMap["entityType"];
 
     // map of entityTypeName to sqModel
-    let entityTypeSqModelMap: NameModelMap = this.entityTypeSqModelMap = {};
+    const entityTypeSqModelMap: NameModelMap = this.entityTypeSqModelMap = {};
     // first create all of the sequelize types with just data properties
     entityTypes.forEach(entityType => {
-      let typeConfig = this.mapToSqModelConfig(entityType);
-      let modelName = entityType.shortName;
+      const typeConfig = this.mapToSqModelConfig(entityType);
+      const modelName = entityType.shortName;
 
       // find model in sequelize instance, else create model
       let sqModel: ModelCtor<any>;
@@ -56,12 +56,12 @@ export class MetadataMapper {
         log("model already defined: ", modelName);
         sqModel = this.sequelize.model(modelName);
       } else {
-        let options: ModelOptions = {
+        const options: ModelOptions = {
           // NOTE: case sensitivity of the table name may not be the same on some sql databases.
           modelName: modelName, // this will define the table's name; see options.define
         };
         log("model not defined: ", modelName);
-        sqModel = this.sequelize.define(modelName, typeConfig, options) as { new(): Model } & typeof Model;
+        sqModel = this.sequelize.define(modelName, typeConfig, options) as ModelCtor<any>;
       }
       entityTypeSqModelMap[entityType.name] = sqModel;
 
@@ -85,13 +85,13 @@ export class MetadataMapper {
     // TODO: we only support single column foreignKeys for now.
 
     entityTypes.forEach(entityType => {
-      let navProps = entityType.navigationProperties as NavigationProperty[];
-      let sqModel = entityTypeSqModelMap[entityType.name];
+      const navProps = entityType.navigationProperties as NavigationProperty[];
+      const sqModel = entityTypeSqModelMap[entityType.name];
       navProps.forEach(np => {
-        let npName = np.nameOnServer;
+        const npName = np.nameOnServer;
 
-        let targetEntityType = np.entityType;
-        let targetSqModel = entityTypeSqModelMap[targetEntityType.name];
+        const targetEntityType = np.entityType;
+        const targetSqModel = entityTypeSqModelMap[targetEntityType.name];
         if (np.isScalar) {
           if (np.foreignKeyNamesOnServer.length > 0) {
             sqModel.belongsTo(targetSqModel, { as: npName, foreignKey: np.foreignKeyNamesOnServer[0], onDelete: "no action" }); // Product, Category
@@ -119,9 +119,9 @@ export class MetadataMapper {
     //       ..
     //   }
 
-    let typeConfig = {} as ModelAttributes;
+    const typeConfig = {} as ModelAttributes;
     entityOrComplexType.dataProperties.forEach(dataProperty => {
-      let propConfig = this.mapToSqPropConfig(dataProperty);
+      const propConfig = this.mapToSqPropConfig(dataProperty);
       _.merge(typeConfig, propConfig);
     });
 
@@ -133,12 +133,12 @@ export class MetadataMapper {
     if (dataProperty.isComplexProperty) {
       return this.mapToSqModelConfig(dataProperty.dataType as ComplexType);
     }
-    let propConfig = {} as ModelAttributes;
-    let attributes = {} as ModelAttributeColumnOptions;
+    const propConfig = {} as ModelAttributes;
+    const attributes = {} as ModelAttributeColumnOptions;
     propConfig[dataProperty.nameOnServer] = attributes;
-    let sqModel = _dataTypeMap[dataProperty.dataType.name];
+    const sqModel = _dataTypeMap[dataProperty.dataType.name];
     if (sqModel == null) {
-      let template = _.template("Unable to map the dataType '${ dataType }' of dataProperty: '${ dataProperty }'");
+      const template = _.template("Unable to map the dataType '${ dataType }' of dataProperty: '${ dataProperty }'");
       throw new Error(template({ dataProperty: dataProperty.parentType.shortName + "." + dataProperty.name, dataType: dataProperty.dataType.name }));
     }
     attributes.type = sqModel;
@@ -151,7 +151,7 @@ export class MetadataMapper {
     if (dataProperty.isPartOfKey) {
       attributes.primaryKey = true;
       if ((dataProperty.parentType as EntityType).autoGeneratedKeyType === breeze.AutoGeneratedKeyType.Identity) {
-        let dt = attributes.type as AbstractDataType;
+        const dt = attributes.type as AbstractDataType;
         if (dt.key === "INTEGER" || dt.key === "BIGINT") {
           attributes.autoIncrement = true;
         }
@@ -166,7 +166,7 @@ export class MetadataMapper {
 }
 
 
-let _dataTypeMap = {
+const _dataTypeMap = {
   String: DataTypes.STRING,
   Boolean: DataTypes.BOOLEAN,
   DateTime: DataTypes.DATE,
