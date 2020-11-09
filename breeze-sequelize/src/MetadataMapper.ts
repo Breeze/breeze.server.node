@@ -89,6 +89,10 @@ export class MetadataMapper {
       const sqModel = entityTypeSqModelMap[entityType.name];
       navProps.forEach(np => {
         const npName = np.nameOnServer;
+        if (sqModel.associations[npName]) {
+          // already mapped
+          return;
+        }
 
         const targetEntityType = np.entityType;
         const targetSqModel = entityTypeSqModelMap[targetEntityType.name];
