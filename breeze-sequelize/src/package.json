@@ -1,6 +1,6 @@
 {
   "name": "breeze-sequelize",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "description": "Breeze Sequelize server implementation",
   "keywords": [
     "breeze",
@@ -9,7 +9,8 @@
     "query",
     "relational",
     "linq",
-    "graph"
+    "graph",
+    "mapper"
   ],
   "main": "main.js",
   "types": "types/main.d.ts",
@@ -19,7 +20,6 @@
   ],
   "directories": {},
   "dependencies": {
-    "sequelize-auto": "^0.6.4",
     "toposort": "^2.0.2"
   },
   "peerDependencies": {
@@ -45,8 +45,9 @@
     "tsc": "tsc",
     "watch-tsc": "tsc -w",
     "build": "tsc && npm pack && npm run install-to-demo && npm run install-to-unit",
-    "install-to-demo": "cd ../test/BreezeExpressDemo && npm install ../../src/breeze-sequelize-0.5.5.tgz",
-    "install-to-unit": "cd ../test/unit && npm install ../../src/breeze-sequelize-0.5.5.tgz",
+    "install-to-demo": "cd ../test/BreezeExpressDemo && npm install ../../src/breeze-sequelize-0.6.0.tgz",
+    "install-to-unit": "cd ../test/unit && npm install ../../src/breeze-sequelize-0.6.0.tgz",
+    "install-to-core": "cd ../../../northwind-demo/NorthwindCore/NorthwindSequelize && npm install ../../../breeze.server.node/breeze-sequelize/src/breeze-sequelize-0.6.0.tgz",
     "clean": "rimraf *.js && rimraf *.map && rimraf types"
   },
   "repository": {

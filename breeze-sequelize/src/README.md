@@ -21,4 +21,9 @@ To install with npm, open a terminal or command window and enter:
 
 [Breeze/Sequelize documentation here](http://breeze.github.io/doc-node-sequelize/ "breeze-sequelize documentation")
 
+## Sample
+
+See the [NorthwindSequelize](https://github.com/Breeze/northwind-demo/tree/master/NorthwindCore/NorthwindSequelize) demo for
+an example of using Breeze-Sequelize in a web application.  It is part of the [northwind-demo](https://github.com/Breeze/northwind-demo)
+that shows how to use Breeze to manage data end-to-end, from the database to a single-page web application.
 
