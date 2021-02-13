@@ -156,7 +156,7 @@ describe("ModelMapper", function() {
     var custModel = _sm.entityTypeSqModelMap["customer:#foo"];
     expect(custModel.tableName).to.eql("customer");
 
-    custModel = _sm.models["customer"];
+    custModel = _sm.models["customers"];
     expect(custModel.tableName).to.eql("customer");
 
   });
@@ -172,7 +172,7 @@ describe("ModelMapper", function() {
     var custModel = sm.entityTypeSqModelMap["customer:#foo"];
     expect(custModel.tableName).to.eql("customer");
 
-    custModel = sm.models["customer"];
+    custModel = sm.models["customers"];
     expect(custModel.tableName).to.eql("customer");
 
   });

@@ -17,6 +17,7 @@ export async function connect(dbConfig: DbConfig, sequelizeOptions: Options): Pr
   try {
     const results = await sequelize.query(statement, { type: QueryTypes.RAW });
     log("Connected to database: " + dbConfig.dbName);
+    sequelize.close();
     return "success";
   } catch (err) {
     log("Database error: " + dbConfig.dbName + " error: " + err.message);
@@ -32,6 +33,7 @@ export async function createDb(dbConfig: DbConfig, sequelizeOptions: Options): P
   try {
     await sequelize.query(statement, { type: QueryTypes.RAW });
     log("Database created: " + dbConfig.dbName);
+    sequelize.close();
   } catch (err) {
     if (err.message && err.message.indexOf("ER_DB_CREATE_EXISTS") >= 0) {
       log("Database already exists: " + dbConfig.dbName);

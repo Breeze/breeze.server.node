@@ -45,7 +45,7 @@ describe("Predicate - parse", function() {
     expect(frag2Explicit).to.eql(expected, "frag2Explict");
   }
 
-  it("added like predicate - json", function() {
+  xit("added like predicate - json", function() {
     var entityType = _ms.getEntityType("Customer");
     var p = new Predicate( { companyName: { like: "%er%" }});
     test(p, entityType, "CompanyName like '%er%'" );

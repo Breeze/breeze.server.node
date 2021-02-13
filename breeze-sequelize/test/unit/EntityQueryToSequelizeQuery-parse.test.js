@@ -102,7 +102,7 @@ describe("EntityQuery to SequelizeQuery - parse", function() {
     );
   });
 
-  it.only("should parse OR predicate with ANDS inside", function () {
+  it("should parse OR predicate with ANDS inside", function () {
 
     var predicate1 = Predicate.create('contactTitle', '==', 'Owner')
       .and('country', '==', 'Sweden');

@@ -2,10 +2,10 @@
 var fs               = require('fs');
 var expect           = require('chai').expect;
 var _                = require('lodash');
-var dbUtils          = require('../src/dbUtils.js');
+var breezeSequelize  = require("breeze-sequelize");
 var testFns          = require('./testFns.js');
 
-var log = testFns.log;
+var connect = breezeSequelize.connect;
 
 var dbConfig = {
   host: "localhost",
@@ -27,16 +27,16 @@ describe("PostGres", function() {
   });
 
   xit('should connect', function(done) {
-    dbUtils.connect(dbConfig, optionsConfig).then(function(success) {
+    connect(dbConfig, optionsConfig).then(function(success) {
       expect(success).to.eql("success");
     }).then(done, done);
   })
 
-  xit("should create a db", function(done) {
-    dbUtils.createDb(dbConfig, optionsConfig).then(function() {
-      log(dbConfig.dbName + " created or exists");
-    }).then(done, done);
-  });
+  // xit("should create a db", function(done) {
+  //   dbUtils.createDb(dbConfig, optionsConfig).then(function() {
+  //     log(dbConfig.dbName + " created or exists");
+  //   }).then(done, done);
+  // });
 
 });
 

@@ -2,11 +2,10 @@
 var fs               = require('fs');
 var expect           = require('chai').expect;
 var _                = require('lodash');
-var breezeSequelize = require("breeze-sequelize");
+var breezeSequelize  = require("breeze-sequelize");
 var testFns          = require('./testFns.js');
 
-var dbUtils = breezeSequelize.dbUtils;
-var log = testFns.log;
+var connect = breezeSequelize.connect;
 
 var dbConfig = _.clone(testFns.dbConfigNw);
 
@@ -30,17 +29,17 @@ describe("MySql", function() {
   });
 
   it('should connect', function(done) {
-    dbUtils.connect(dbConfig, sequelizeOptions).then(function(success) {
+    connect(dbConfig, sequelizeOptions).then(function(success) {
       expect(success).to.eql("success");
     }).then(done, done);
   })
 
-  xit("should create a db", function(done) {
-    dbConfig.dbName = 'test' + new Date().getTime();
-    dbUtils.createDb(dbConfig, sequelizeOptions).then(function() {
-      log(dbConfig.dbName + " created or exists");
-    }).then(done, done);
-  });
+  // xit("should create a db", function(done) {
+  //   dbConfig.dbName = 'test' + new Date().getTime();
+  //   dbUtils.createDb(dbConfig, sequelizeOptions).then(function() {
+  //     log(dbConfig.dbName + " created or exists");
+  //   }).then(done, done);
+  // });
 
 });
 

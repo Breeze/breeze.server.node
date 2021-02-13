@@ -33,6 +33,7 @@ describe("SaveHandler", function () {
     var handler = new SequelizeSaveHandler(_sm, request);
 
     handler.save().then(r => {
+      expect(r.message).to.be.undefined;
       var entities = r.entities;
       expect(entities).to.have.length(1);
       var rcust = entities[0];
@@ -52,6 +53,7 @@ describe("SaveHandler", function () {
     var handler = new SequelizeSaveHandler(_sm, request);
 
     handler.save().then(r => {
+      expect(r.message).to.be.undefined;
       var entities = r.entities;
       expect(entities).to.have.length(2);
     }).then(done, done);
