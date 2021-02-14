@@ -71,7 +71,7 @@ export class ModelMapper {
       }
 
       const dp = new DataProperty({
-        nameOnServer: attr.field,
+        nameOnServer: attrName,
         isNullable: attr.allowNull,
         isPartOfKey: attr.primaryKey,
         dataType: dataType,
@@ -100,19 +100,19 @@ export class ModelMapper {
 
         // use the id property name to make the navigation property name
         let propName: string;
-        if (attr.field.toLowerCase().endsWith('id')) {
-          propName = attr.field.substring(0, attr.field.length - 2);
+        if (attrName.toLowerCase().endsWith('id')) {
+          propName = attrName.substring(0, attrName.length - 2);
         } else {
-          propName = refName;
+          propName = this.matchCase(refName, attrName);
           // if there's an existing property, add fk name to property name to make it unique
           if (et.getNavigationProperty(propName)) {
             propName = attr.field + '_' + propName;
           }
         }
         const np = new NavigationProperty({
-          associationName: (model.name + '_' + propName + '_' + attr.field).toLocaleLowerCase(),
+          associationName: (model.name + '_' + propName + '_' + attrName).toLocaleLowerCase(),
           entityTypeName: refName,
-          foreignKeyNamesOnServer: [attr.field],
+          foreignKeyNamesOnServer: [attrName],
           isScalar: true,
           nameOnServer: propName
         });
@@ -136,7 +136,7 @@ export class ModelMapper {
       navs.forEach(nav => {
         // nav is e.g. Order.Customer property
         // inverseName is e.g. "Orders"
-        let inverseName = this.matchCase(this.pluralize(entityType.shortName), nav.nameOnServer);
+        let inverseName = this.matchCase(Utils.pluralize(entityType.shortName), nav.nameOnServer);
         // navType is e.g. Customer
         const navType = ms.getAsEntityType(nav.entityTypeName);
 
@@ -161,15 +161,6 @@ export class ModelMapper {
 
       });
     });
-  }
-
-  /** naive pluralizer */
-  private pluralize(s: string): string {
-    if (s.endsWith('y')) {
-      return s.substring(0, s.length - 1) + "ies";
-    } else {
-      return s + "s";
-    }
   }
 
   /** Make the first char of s match the case of the first char of the target string */

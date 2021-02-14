@@ -392,10 +392,10 @@ export class SequelizeQuery {
   }
 
   private _populateExpand(result: any, sqResult: Model, expandProps: NavigationProperty[]) {
+    if (expandProps == null || expandProps.length === 0) { return; }
     if (result.$ref) {
       result = this._refMap[result.$ref];
     }
-    if (expandProps == null || expandProps.length === 0) { return; }
     // now blow out all of the expands
     // each expand path consist of an array of expand props.
     const npName = expandProps[0].nameOnServer;
