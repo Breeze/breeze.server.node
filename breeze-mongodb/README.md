@@ -2,7 +2,7 @@
 
 Provides server-side helper classes to facilitate BreezeJs <-> Mongo interoperabilty.
 
-This is the official NPM package for the Breeze Mongodb integration. The package files are in the [breeze.server.node](https://github.com/Breeze/breeze.server.node "github: "breeze-server-node") repository in the 'breeze-mongodb' subfolder.
+This is the official NPM package for the Breeze Mongodb integration. The package files are in the [breeze.server.node](https://github.com/Breeze/breeze.server.node) repository in the 'breeze-mongodb' subfolder.
 
 To install with npm, open a terminal or command window and enter:
 
