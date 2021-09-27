@@ -322,8 +322,11 @@ export class SequelizeSaveHandler {
           keyMapping = { entityTypeName: entityTypeName, tempValue: tempKeyValue, realValue: realKeyValue };
         }
       }
+      const fields = entityType.dataProperties
+        .filter(x => !(x.concurrencyMode === "Fixed" && x.dataType.name === "Binary"))
+        .map(x => x.nameOnServer);
       try {
-        const savedEntity = await sqModel.create(entity, { transaction: transaction });
+        const savedEntity = await sqModel.create(entity, { fields: <any>fields, transaction: transaction });
         if (keyMapping) {
           if (keyMapping.realValue === null) {
             keyMapping.realValue = savedEntity[firstKeyPropName];
