@@ -1,0 +1,31 @@
+{
+    "compileOnSave": true,
+    "compilerOptions": {
+        "declaration": true,
+        "declarationDir": "types",
+        "target": "es6",
+        "strict": false,
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "stripInternal": true,
+        "baseUrl": ".",
+        "sourceMap": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "removeComments": false,
+        "noImplicitAny": true,
+        "strictNullChecks": false,
+        "suppressImplicitAnyIndexErrors": true,
+        "noUnusedLocals": false,
+        "skipLibCheck": true,
+        "typeRoots": [
+            "./node_modules/@types"
+        ],
+        "lib": ["es2017"]
+    },
+    "exclude": [
+        "node_modules",
+        "types"
+    ]
+
+}

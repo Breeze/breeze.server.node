@@ -87,14 +87,14 @@ MongoQuery.prototype.execute = function(db, collectionName, fn) {
         // Note special handling for 'options.limit' = 0 as a real limit.
 
         if (that.inlineCount) {
-            collection.count(that.filter, function(err, count) {
+            collection.countDocuments(that.filter, function(err, count) {
                 // Mongo doesn't handle limit = 0 as a real limit.
                 if (that.options && that.options.limit === 0) {
                     var resultsWith =  { Results: [], InlineCount: count };
                     fn(null, resultsWith);
                     return;
                 }
-                src = collection.find(that.filter, that.select, that.options);
+                src = collection.find(that.filter, that.options).project(that.select);
                 src.toArray(function (err, results) {
                     results = processResults(results, that.resultEntityType);
                     var resultsWith =  { Results: results, InlineCount: count };
@@ -107,7 +107,7 @@ MongoQuery.prototype.execute = function(db, collectionName, fn) {
                 fn(err, []);
                 return;
             }
-            src = collection.find(that.filter, that.select, that.options);
+            src = collection.find(that.filter, that.options).project(that.select);
             src.toArray(function (err, results) {
                 results = processResults(results, that.resultEntityType);
                 fn(null, results);

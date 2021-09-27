@@ -1,28 +1,71 @@
 {
   "name": "breeze-sequelize",
-  "version": "0.2.0",
+  "version": "0.6.1",
   "description": "Breeze Sequelize server implementation",
+  "keywords": [
+    "breeze",
+    "sequelize",
+    "orm",
+    "query",
+    "relational",
+    "linq",
+    "graph",
+    "mapper"
+  ],
   "main": "main.js",
+  "types": "types/main.d.ts",
+  "files": [
+    "*.js",
+    "types/*"
+  ],
   "directories": {},
   "dependencies": {
-    "bluebird": "^3.5.1",
-    "breeze-client": "*",
-    "lodash": "^4.17.4",
-    "sequelize": "^4.22.11",
-    "toposort": "^1.0.6"
+    "toposort": "^2.0.2"
+  },
+  "peerDependencies": {
+    "breeze-client": ">=2.0.7",
+    "lodash": "^4.17.15",
+    "sequelize": "^6.3.5"
   },
   "devDependencies": {
-    "gulp": ">=3.8.7",
-    "mocha": "*",
-    "chai": "*"
+    "@types/lodash": "^4.14.137",
+    "@types/node": "^12.12.26",
+    "@types/validator": "^12.0.1",
+    "breeze-client": "^2.0.7",
+    "chai": "^4.2.0",
+    "lodash": "^4.17.15",
+    "mocha": "^6.2.0",
+    "rimraf": "^3.0.1",
+    "sequelize": "^6.3.5",
+    "tslint": "^6.0.0",
+    "typescript": "^3.7.5"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "tsc": "tsc",
+    "watch-tsc": "tsc -w",
+    "build": "tsc && npm pack && npm run install-to-demo && npm run install-to-unit",
+    "install-to-demo": "cd ../test/BreezeExpressDemo && npm install ../../src/breeze-sequelize-0.6.1.tgz",
+    "install-to-unit": "cd ../test/unit && npm install ../../src/breeze-sequelize-0.6.1.tgz",
+    "install-to-core": "cd ../../../northwind-demo/NorthwindCore/NorthwindSequelize && npm install ../../../breeze.server.node/breeze-sequelize/src/breeze-sequelize-0.6.1.tgz",
+    "clean": "rimraf *.js && rimraf *.map && rimraf types"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/Breeze/breeze.server.node.git"
   },
-  "author": "Jay Traband",
+  "homepage": "http://breeze.github.io/doc-node-sequelize/introduction.html",
+  "bugs": "https://github.com/Breeze/breeze.server.node/issues",
+  "author": {
+    "name": "IdeaBlade",
+    "email": "jayt@ideablade.com",
+    "url": "https://www.ideablade.com/"
+  },
+  "contributors": [
+    "Jay Traband",
+    "Steve Schmitt",
+    "Marcel Good",
+    "Ward Bell"
+  ],
   "license": "MIT"
 }
