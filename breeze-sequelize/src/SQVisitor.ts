@@ -2,8 +2,8 @@ import { NavigationProperty, Predicate, VisitContext } from "breeze-client";
 import { FnExpr, LitExpr, PredicateExpression, PropExpr } from "breeze-client/src/predicate";
 import * as _ from 'lodash';
 import { FindOptions, IncludeOptions, LogicType, Op, Sequelize, WhereOptions } from "sequelize";
-import { Where } from "sequelize/types/lib/utils";
 import { SqVisitContext } from "./SequelizeQuery";
+import { Where } from "sequelize/types/utils";
 
 /** Result of processing a query expression into Sequelize */
 export interface ExprResult {

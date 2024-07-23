@@ -14,7 +14,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     function verb(n) { return function (v) { return step([n, v]); }; }
     function step(op) {
         if (f) throw new TypeError("Generator is already executing.");
-        while (_) try {
+        while (g && (g = 0, op[0] && (_ = 0)), _) try {
             if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
             if (y = 0, t) op = [op[0] & 2, t.value];
             switch (op[0]) {
@@ -36,6 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.namedQuery = exports.saveChanges = exports.get = exports.getMetadata = void 0;
 var fs = require("fs");
 // Note: breeze is available from both 'breeze-client' and indirectly from 'breeze-sequelize'
 // if you compare them the ARE '==='.
@@ -89,7 +90,7 @@ function get(req, res, next) {
         exports.namedQuery[resourceName](req, res, next);
     }
     else {
-        var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, resourceName);
+        var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, resourceName);
         executeEntityQuery(entityQuery, null, res, next);
     }
 }
@@ -163,11 +164,11 @@ function returnSaveResults(results, res) {
 exports.namedQuery = {};
 exports.namedQuery.CustomerFirstOrDefault = function (req, res, next) {
     // should return empty array
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers").where("companyName", "StartsWith", "blah").take(1);
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers").where("companyName", "StartsWith", "blah").take(1);
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.CustomersStartingWithA = function (req, res, next) {
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers")
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers")
         .where("companyName", "startsWith", "A");
     executeEntityQuery(entityQuery, null, res, next);
 };
@@ -180,24 +181,24 @@ exports.namedQuery.CustomersStartingWith = function (req, res, next) {
     }
     // need to use upper case because base query came from server
     var pred = new breeze_client_1.breeze.Predicate("companyName", "startsWith", companyName);
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers").where(pred);
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers").where(pred);
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.CustomersOrderedStartingWith = function (req, res, next) {
     // start with client query and add an additional filter.
     var companyName = req.query.companyName;
     // need to use upper case because base query came from server
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers")
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers")
         .where("companyName", "startsWith", companyName)
         .orderBy("companyName");
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.CustomersAndOrders = function (req, res, next) {
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers").expand("orders");
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers").expand("orders");
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.CustomerWithScalarResult = function (req, res, next) {
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers").take(1);
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers").take(1);
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.CustomersWithHttpError = function (req, res, next) {
@@ -206,7 +207,7 @@ exports.namedQuery.CustomersWithHttpError = function (req, res, next) {
 };
 // HRM is HttpResponseMessage ( just for
 exports.namedQuery.CustomersAsHRM = function (req, res, next) {
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers");
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers");
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.CustomersWithBigOrders = function (req, res, next) {
@@ -239,7 +240,7 @@ exports.namedQuery.CustomersAndProducts = function (req, res, next) {
 };
 //// AltCustomers will not be in the resourceName/entityType map;
 exports.namedQuery.AltCustomers = function (req, res, next) {
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers");
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers");
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.SearchCustomers = function (req, res, next) {
@@ -289,7 +290,7 @@ exports.namedQuery.OrdersCountForCustomer = function (req, res, next) {
     executeEntityQuery(entityQuery, processResults, res, next);
 };
 exports.namedQuery.EnumerableEmployees = function (req, res, next) {
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Employees");
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Employees");
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.EmployeesMultipleParams = function (req, res, next) {
@@ -304,11 +305,11 @@ exports.namedQuery.CompanyNames = function (req, res, next) {
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.CompanyNamesAndIds = function (req, res, next) {
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers").select("companyName, customerID");
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers").select("companyName, customerID");
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.CompanyNamesAndIdsAsDTO = function (req, res, next) {
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers").select("companyName, customerID");
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers").select("companyName, customerID");
     var projectResults = function (results, res) {
         var newResults = results.map(function (r) {
             return { companyName: r.companyName, customerID: r.customerID };
@@ -318,24 +319,24 @@ exports.namedQuery.CompanyNamesAndIdsAsDTO = function (req, res, next) {
     executeEntityQuery(entityQuery, projectResults, res, next);
 };
 exports.namedQuery.CompanyInfoAndOrders = function (req, res, next) {
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Customers").select("companyName, customerID, orders");
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Customers").select("companyName, customerID, orders");
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.OrdersAndCustomers = function (req, res, next) {
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Orders").expand("customer");
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Orders").expand("customer");
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.SearchEmployees = function (req, res, next) {
     var employeeIds = req.query.employeeIds;
     var pred = { employeeID: { in: employeeIds } };
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Employees").where(pred);
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Employees").where(pred);
     executeEntityQuery(entityQuery, null, res, next);
 };
 exports.namedQuery.EmployeesFilteredByCountryAndBirthdate = function (req, res, next) {
     var birthDate = new Date(Date.parse(req.query.birthDate));
     var country = req.query.country;
     var pred = { birthDate: { ge: birthDate }, country: country };
-    var entityQuery = breeze_sequelize_1.urlToEntityQuery(req.url, "Employees").where(pred);
+    var entityQuery = (0, breeze_sequelize_1.urlToEntityQuery)(req.url, "Employees").where(pred);
     executeEntityQuery(entityQuery, null, res, next);
 };
 // not yet implemented

@@ -332,7 +332,7 @@ export class SequelizeQuery {
         let nextProp = props[0];
         let remainingProps = props.slice(0);
         while (remainingProps.length > 1 && nextProp.isNavigationProperty) {
-          parent = parent[nextProp.nameOnServer];
+          parent = (parent as any)[nextProp.nameOnServer];
           remainingProps = remainingProps.slice(1);
           nextProp = remainingProps[0];
         }
@@ -383,7 +383,7 @@ export class SequelizeQuery {
     const nps = entityType.navigationProperties;
     // first remove all nav props
     nps.forEach(np => {
-      const navValue = sqResult[np.nameOnServer];
+      const navValue = (sqResult as any)[np.nameOnServer];
       if (navValue) {
         result[np.nameOnServer] = undefined;
       }
@@ -402,7 +402,7 @@ export class SequelizeQuery {
     let nextResult = result[npName];
 
     const nextEntityType = expandProps[0].entityType;
-    const nextSqResult = sqResult[npName];
+    const nextSqResult = (sqResult as any)[npName];
 
     // if it doesn't already exist then create it
     if (nextResult == null) {
@@ -432,7 +432,7 @@ export class SequelizeQuery {
   public _addInclude(parent: FindOptions, props: NavigationProperty[]): IncludeOptions {
     const include = this._getIncludeFor(parent, props[0]);
     // empty attributes array tells sequelize not to retrieve the entity data
-    if (!include['$disallowAttributes']) { include.attributes = include.attributes || []; }
+    if (!(include as any)['$disallowAttributes']) { include.attributes = include.attributes || []; }
     props = props.slice(1);
     if (props.length > 0) {
       if (props[0].isNavigationProperty) {
@@ -451,7 +451,7 @@ export class SequelizeQuery {
     // 2) that we support restricted projections on expanded nodes as long as we don't
     //    violate #1 above.
 
-    const include = this._getIncludeFor(parent, props[0]) as IncludeOptions;
+    const include = this._getIncludeFor(parent, props[0]) as IncludeOptions & { $disallowAttributes: boolean };
     props = props.slice(1);
     if (props.length > 0) {
       if (props[0].isNavigationProperty) {
@@ -464,7 +464,7 @@ export class SequelizeQuery {
           if (!include['$disallowAttributes']) {
             include.attributes = include.attributes || [];
             if ((include.attributes as string[]).length === 0) {
-              include.attributes = include.model.primaryKeyAttributes;
+              include.attributes = (include.model as any).primaryKeyAttributes;
             }
           }
         }
@@ -507,7 +507,7 @@ export class SequelizeQuery {
 
 function getKey(sqResult: Model, entityType: EntityType) {
   const key = entityType.keyProperties
-    .map( kp => sqResult[kp.nameOnServer])
+    .map( kp => (sqResult as any)[kp.nameOnServer])
     .join("::") + "^" + entityType.name;
   return key;
 }
@@ -524,8 +524,9 @@ function processAndOr(parent: IncludeOptions) {
 
 function processAndOrClause(where: WhereOptions): WhereOptions {
   // console.log("processAndOrClause", where);
-  const ands = (where[Op.and] || where['and']) as WhereOptions[];
-  const ors = (where[Op.or] || where['or']) as WhereOptions[];
+  const w = where as any;
+  const ands = (w[Op.and] || w['and']) as WhereOptions[];
+  const ors = (w[Op.or] || w['or']) as WhereOptions[];
   if (ands) {
     const clauses = ands.map( clause => processAndOrClause(clause));
     return Sequelize.and.apply(null, clauses as any);

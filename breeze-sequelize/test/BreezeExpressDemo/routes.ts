@@ -15,6 +15,7 @@ export type OpenObj = {[k: string]: any}; {}
 type ReturnQueryResultsFn = (results: SequelizeQueryResult, res: Response) => void;
 type ReturnSaveResultsFn = (results: SequelizeSaveResult, res: Response) => void;
 
+
 ModelLibraryBackingStoreAdapter.register(breeze.config);
 
 
